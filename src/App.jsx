@@ -2,10 +2,10 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { 
   Trophy, Activity, ZoomIn, ZoomOut, 
   Maximize, Minimize, Move, Clock, CalendarDays, GitBranch, Database,
-  ListOrdered, Wand2, Crown, RotateCcw, X, Shield, MapPin, UserCircle2, Users, Camera, Download, Share2, PlusCircle, RefreshCw, KeyRound, CheckCircle2, BookOpen
+  ListOrdered, Wand2, Crown, RotateCcw, X, Shield, MapPin, UserCircle2, Users, Camera, Download, Share2, PlusCircle, RefreshCw, KeyRound, CheckCircle2, BookOpen, ImageIcon, Share
 } from 'lucide-react';
 
-// ================= 全局禁用原生缩放与下拉刷新 (原生App级体验) =================
+// ================= 全局禁用原生缩放与下拉刷新 =================
 const setupViewport = () => {
   let meta = document.querySelector('meta[name="viewport"]');
   if (!meta) {
@@ -14,13 +14,11 @@ const setupViewport = () => {
     document.head.appendChild(meta);
   }
   meta.content = "width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover";
-  
-  // 彻底阻断浏览器原生的下拉刷新和边缘回弹
   document.body.style.overscrollBehavior = 'none';
   document.documentElement.style.overscrollBehavior = 'none';
 };
 
-// ================= 1. 数据初始化 (2026 官方确认的最新48强名单) =================
+// ================= 1. 数据初始化 (2026 官方确认名单) =================
 const createGroupTeams = (groupName, host = null) => {
   const teams = [
     { id: `${groupName.toLowerCase()}1`, name: `1${groupName}`, flag: '🏳️' },
@@ -199,62 +197,179 @@ function TeamFlag({ flag, sizeClass = "w-6 h-6 sm:w-8 sm:h-8" }) {
   return <span className="drop-shadow-sm text-[1em] leading-none inline-block flex-shrink-0">{flag}</span>;
 }
 
-// 真实的二维码接入 (利用公共API生成)
 const GlobalQRLogo = () => (
   <div className="flex flex-col items-center justify-center bg-white p-0.5 rounded shadow-lg shrink-0 w-8 h-8 sm:w-10 sm:h-10">
-    <img 
-      src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=http://www.xiaohuang365.com&margin=0" 
-      alt="QR" 
-      className="w-full h-full object-contain"
-    />
+    <img src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=http://www.xiaohuang365.com&margin=0" alt="QR" className="w-full h-full object-contain" />
   </div>
 );
 
-// ================= 2. 赛事规则组件 =================
-function RulesView() {
+// 全局一键截图与分享引擎
+const handleGlobalShare = async (elementId, fileName) => {
+  try {
+    const btnText = document.getElementById(`share-text-${elementId}`);
+    if(btnText) btnText.innerText = "生成中...";
+
+    // 提前加载 html2canvas
+    if (!window.html2canvas) {
+      const script = document.createElement('script');
+      script.src = "https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js";
+      document.head.appendChild(script);
+      await new Promise(resolve => script.onload = resolve);
+    }
+
+    // 显现水印
+    const watermark = document.getElementById(`watermark-${elementId}`);
+    if (watermark) watermark.style.display = 'flex';
+    
+    // 给 DOM 一点时间渲染水印
+    await new Promise(resolve => setTimeout(resolve, 200));
+
+    const element = document.getElementById(elementId);
+    const canvas = await window.html2canvas(element, { scale: 2, backgroundColor: '#020617', useCORS: true });
+    
+    if (watermark) watermark.style.display = 'none';
+
+    const dataUrl = canvas.toDataURL('image/png');
+    
+    if (navigator.share) {
+      try {
+        const blob = await (await fetch(dataUrl)).blob();
+        const file = new File([blob], fileName, { type: 'image/png' });
+        await navigator.share({
+          title: '2026美加墨世界杯赛程与推演',
+          text: '快来看看最新的世界杯动态与冠军预测！',
+          files: [file]
+        });
+        if(btnText) btnText.innerText = "分享成功";
+      } catch(e) {
+        // 分享失败或取消，回退为下载
+        downloadImg(dataUrl, fileName);
+        if(btnText) btnText.innerText = "已保存长图";
+      }
+    } else {
+      downloadImg(dataUrl, fileName);
+      if(btnText) btnText.innerText = "已保存长图";
+    }
+
+    setTimeout(() => { if(btnText) btnText.innerText = "截图分享长图"; }, 3000);
+  } catch (e) {
+    alert('截图失败，请手动截屏');
+  }
+};
+
+const downloadImg = (dataUrl, fileName) => {
+  const link = document.createElement('a');
+  link.download = fileName;
+  link.href = dataUrl;
+  link.click();
+};
+
+const shareWebsite = () => {
+  if (navigator.share) {
+    navigator.share({
+      title: '2026美加墨世界杯 - 实时动态引擎',
+      url: 'http://www.xiaohuang365.com'
+    });
+  } else {
+    alert("请手动复制网址: www.xiaohuang365.com 分享给好友！");
+  }
+};
+
+
+// ================= 2. 赛事规则 & 完整赛程图组件 =================
+function RulesView({ groups, knockouts }) {
+  const [subTab, setSubTab] = useState('rules');
+
+  const allGroupMatches = [];
+  Object.keys(groups).forEach(g => { groups[g].matches.forEach(m => { allGroupMatches.push({ ...m, groupName: g }); }); });
+  allGroupMatches.sort((a, b) => a.timeStr.localeCompare(b.timeStr));
+
   return (
-    <div className="h-full overflow-y-auto p-4 sm:p-8 custom-scrollbar bg-slate-950 text-slate-300">
-      <div className="max-w-4xl mx-auto space-y-8 animate-fade-in pb-20">
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 sm:p-10 shadow-2xl relative overflow-hidden">
-          <div className="absolute -top-10 -right-10 opacity-5 pointer-events-none">
-            <Trophy className="w-64 h-64 text-emerald-500" />
-          </div>
-          <h2 className="text-2xl sm:text-3xl font-black text-white mb-8 flex items-center">
-            <Shield className="w-8 h-8 mr-3 text-emerald-500" />
-            2026 美加墨世界杯 - 全新赛事规则
-          </h2>
-          <div className="space-y-6 relative z-10">
-            <div className="bg-slate-950/50 p-5 rounded-xl border border-slate-800/80">
-              <h3 className="text-xl font-bold text-emerald-400 mb-3 flex items-center">
-                <Users className="w-5 h-5 mr-2" /> 扩军与赛制重构
-              </h3>
-              <ul className="list-disc list-inside space-y-2 text-sm sm:text-base text-slate-400 ml-2">
-                <li><strong className="text-slate-200">48强新纪元：</strong>世界杯历史上首次将参赛队伍从 32 支扩充至 48 支。</li>
-                <li><strong className="text-slate-200">12大分组：</strong>所有球队被分为 12 个小组（A组至L组），每组依然保持 4 支球队。</li>
-                <li><strong className="text-slate-200">104场鏖战：</strong>比赛总场次大幅增加，整个赛事周期长达 39 天，总计 104 场对决。</li>
-              </ul>
-            </div>
-            <div className="bg-emerald-900/10 p-5 rounded-xl border border-emerald-500/20">
-              <h3 className="text-xl font-bold text-emerald-400 mb-3 flex items-center">
-                <ListOrdered className="w-5 h-5 mr-2" /> 全新晋级规则（关键出线条件）
-              </h3>
-              <p className="text-sm sm:text-base text-slate-300 mb-4 leading-relaxed">
-                因为扩军，淘汰赛从 1/8 决赛变为了 <strong>1/16 决赛（32强）</strong>。这导致出线规则发生改变：
-              </p>
-              <div className="grid sm:grid-cols-2 gap-4">
-                <div className="bg-emerald-950/40 p-4 rounded-lg border-l-4 border-emerald-500">
-                  <h4 className="font-bold text-white mb-2">✅ 直通 32 强区</h4>
-                  <p className="text-sm text-slate-400">12个小组中，每个小组的 <strong>前两名 (共24支球队)</strong> 将无条件直接晋级 32 强淘汰赛。</p>
+    <div className="h-full flex flex-col bg-slate-950 relative">
+      <div className="bg-slate-900 border-b border-slate-800 px-2 py-2 flex justify-center z-10 shrink-0">
+        <div className="flex bg-slate-950/80 p-1 rounded-lg border border-slate-800 w-full sm:w-auto">
+          <button onClick={() => setSubTab('rules')} className={`flex-1 sm:flex-none justify-center px-4 sm:px-6 py-1.5 rounded font-bold text-xs sm:text-sm transition-all whitespace-nowrap flex items-center ${subTab === 'rules' ? 'bg-emerald-600/20 text-emerald-400 border border-emerald-500/30 shadow-[0_0_10px_rgba(16,185,129,0.15)]' : 'text-slate-500 hover:text-slate-300 border border-transparent'}`}>
+            <BookOpen className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1.5" /> 赛事规则说明
+          </button>
+          <button onClick={() => setSubTab('schedule')} className={`flex-1 sm:flex-none justify-center px-4 sm:px-6 py-1.5 rounded font-bold text-xs sm:text-sm transition-all whitespace-nowrap flex items-center ml-2 ${subTab === 'schedule' ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30 shadow-[0_0_10px_rgba(59,130,246,0.15)]' : 'text-slate-500 hover:text-slate-300 border border-transparent'}`}>
+            <CalendarDays className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1.5" /> 104场全赛程长图
+          </button>
+        </div>
+      </div>
+
+      <div className="flex-1 overflow-y-auto p-2 sm:p-6 custom-scrollbar">
+        <div id="capture-rules" className="max-w-4xl mx-auto space-y-6 sm:space-y-8 animate-fade-in pb-24 relative bg-slate-950">
+          
+          {subTab === 'rules' ? (
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 sm:p-10 shadow-2xl relative overflow-hidden">
+              <div className="absolute -top-10 -right-10 opacity-5 pointer-events-none"><Trophy className="w-64 h-64 text-emerald-500" /></div>
+              <h2 className="text-2xl sm:text-3xl font-black text-white mb-8 flex items-center"><Shield className="w-8 h-8 mr-3 text-emerald-500" /> 2026 美加墨世界杯 - 全新规则</h2>
+              <div className="space-y-6 relative z-10">
+                <div className="bg-slate-950/50 p-5 rounded-xl border border-slate-800/80">
+                  <h3 className="text-xl font-bold text-emerald-400 mb-3 flex items-center"><Users className="w-5 h-5 mr-2" /> 扩军与赛制重构</h3>
+                  <ul className="list-disc list-inside space-y-2 text-sm sm:text-base text-slate-400 ml-2">
+                    <li><strong className="text-slate-200">48强新纪元：</strong>首次将参赛队伍从 32 支扩充至 48 支。</li>
+                    <li><strong className="text-slate-200">12大分组：</strong>分为 12 个小组（A组至L组），每组 4 支球队。</li>
+                    <li><strong className="text-slate-200">104场鏖战：</strong>赛事周期长达 39 天，总计 104 场对决。</li>
+                  </ul>
                 </div>
-                <div className="bg-yellow-950/40 p-4 rounded-lg border-l-4 border-yellow-500">
-                  <h4 className="font-bold text-white mb-2">⚠️ 晋级待定区 (最好的小组第三)</h4>
-                  <p className="text-sm text-slate-400">剩下的 8 个名额，将在 12 个小组的 <strong>第三名</strong> 中产生。成绩最好的 <strong>8 个小组第三</strong> 将获得复活晋级资格。</p>
+                <div className="bg-emerald-900/10 p-5 rounded-xl border border-emerald-500/20">
+                  <h3 className="text-xl font-bold text-emerald-400 mb-3 flex items-center"><ListOrdered className="w-5 h-5 mr-2" /> 全新晋级规则</h3>
+                  <div className="grid sm:grid-cols-2 gap-4">
+                    <div className="bg-emerald-950/40 p-4 rounded-lg border-l-4 border-emerald-500">
+                      <h4 className="font-bold text-white mb-2">✅ 直通 32 强区</h4>
+                      <p className="text-sm text-slate-400">12个小组中，每个小组的 <strong>前两名 (共24支球队)</strong> 直接晋级 32 强。</p>
+                    </div>
+                    <div className="bg-yellow-950/40 p-4 rounded-lg border-l-4 border-yellow-500">
+                      <h4 className="font-bold text-white mb-2">⚠️ 晋级待定区</h4>
+                      <p className="text-sm text-slate-400">剩下的 8 个名额，由成绩最好的 <strong>8 个小组第三</strong> 获得复活晋级资格。</p>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
+          ) : (
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-8 shadow-2xl relative">
+              <h2 className="text-xl sm:text-2xl font-black text-white mb-6 text-center text-blue-400">2026 世界杯完整赛程流水线 (104场)</h2>
+              
+              <h3 className="text-lg font-bold text-emerald-400 border-b border-slate-700 pb-2 mb-4 mt-8">🟢 第一阶段：小组赛 (72场)</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                {allGroupMatches.map(m => (
+                   <div key={m.id} className="bg-slate-950 border border-slate-800 rounded p-2 flex justify-between items-center text-xs sm:text-sm">
+                      <span className="text-slate-500 font-mono w-24">{m.timeStr}</span>
+                      <span className="text-slate-300 font-bold flex-1 text-right">{m.home.name}</span>
+                      <span className="text-slate-600 px-2 text-[10px]">VS</span>
+                      <span className="text-slate-300 font-bold flex-1 text-left">{m.away.name}</span>
+                   </div>
+                ))}
+              </div>
+
+              <h3 className="text-lg font-bold text-purple-400 border-b border-slate-700 pb-2 mb-4 mt-10">🟣 第二阶段：淘汰赛 (32场)</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                {['r32', 'r16', 'qf', 'sf', 'final'].flatMap(round => knockouts[round]).map((m, idx) => (
+                   <div key={`ko-list-${idx}`} className="bg-slate-950 border border-slate-800 rounded p-2 flex justify-between items-center text-xs sm:text-sm">
+                      <span className="text-slate-500 font-mono w-28">{m.timeStr}</span>
+                      <span className="text-slate-300 font-bold flex-1 text-right">{m.homeStr}</span>
+                      <span className="text-slate-600 px-2 text-[10px]">VS</span>
+                      <span className="text-slate-300 font-bold flex-1 text-left">{m.awayStr}</span>
+                   </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* 隐藏的水印，仅在截屏时显现 */}
+          <div id="watermark-capture-rules" className="hidden mt-8 flex-col items-center justify-center border-t border-slate-800/50 pt-8 pb-4">
+             <GlobalQRLogo />
+             <span className="text-xs text-slate-500 font-mono mt-2 tracking-widest">扫码查看最新赛况: xiaohuang365.com</span>
           </div>
+
         </div>
       </div>
+
+      <button onClick={() => handleGlobalShare('capture-rules', '2026世界杯规则与赛程.png')} className="absolute bottom-6 right-4 sm:right-8 z-50 bg-blue-600 hover:bg-blue-500 text-white shadow-[0_0_15px_rgba(37,99,235,0.4)] px-4 sm:px-6 py-2.5 rounded-full font-bold text-xs sm:text-sm flex items-center transition-all active:scale-95">
+        <ImageIcon className="w-4 h-4 mr-1.5" /> <span id="share-text-capture-rules">截图分享长图</span>
+      </button>
     </div>
   );
 }
@@ -270,6 +385,7 @@ export default function App() {
   const [selectedMatch, setSelectedMatch] = useState(null); 
   const [selectedTeam, setSelectedTeam] = useState(null); 
   const [lastOpened, setLastOpened] = useState(null); 
+  const [forceShowHeader, setForceShowHeader] = useState(false); // 横屏时控制显示隐藏导航
 
   const [apiKey] = useState('8c135d4da927727e57fbf81f6e011d02');
   const [apiStatus, setApiStatus] = useState('LOCAL'); 
@@ -398,9 +514,9 @@ export default function App() {
     else return { id: slotStr, name: slotStr, flag: '❔', isPlaceholder: true, placeholderName: team.name !== `${groupName}组第${rank+1}档` && team.name !== `1${groupName}` ? team.name : `${groupName}组第${rank + 1}` };
   };
 
-  // 横屏且在画布页面时，彻底隐藏 Header 的利器
   const isCanvasTab = activeTab === 'bracket' || activeTab === 'prediction';
-  const headerClass = `bg-slate-900 border-b border-slate-800 px-2 py-1.5 sm:px-4 sm:py-3 flex flex-col z-20 shadow-xl relative gap-1.5 sm:gap-3 transition-all duration-300 ${isCanvasTab ? 'landscape:hidden' : ''}`;
+  // 横屏时，如果没点击强制显示导航，则完全隐藏 Header，实现沉浸式大屏。
+  const headerClass = `bg-slate-900 border-b border-slate-800 px-2 py-1.5 sm:px-4 sm:py-3 flex flex-col z-20 shadow-xl relative gap-1 sm:gap-3 transition-all duration-300 ${isCanvasTab && !forceShowHeader ? 'landscape:hidden' : ''}`;
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-200 font-sans flex flex-col h-[100dvh] overflow-hidden selection:bg-emerald-500/30">
@@ -412,18 +528,21 @@ export default function App() {
             <div className="flex flex-col">
               <div className="flex items-center space-x-1 sm:space-x-2">
                 <Trophy className="text-yellow-500 w-3.5 h-3.5 sm:w-5 sm:h-5" />
-                <h1 className="text-sm sm:text-xl font-black bg-gradient-to-r from-emerald-400 to-blue-500 bg-clip-text text-transparent tracking-wider">
+                <h1 className="text-sm sm:text-xl font-black bg-gradient-to-r from-emerald-400 to-blue-500 bg-clip-text text-transparent tracking-wider leading-none">
                   2026美加墨世界杯
                 </h1>
               </div>
-              <span className="text-[9px] sm:text-xs text-slate-400 font-mono tracking-widest pl-5 sm:pl-7 mt-0.5">
-                www.xiaohuang365.com
+              <span className="text-[9px] sm:text-xs text-slate-400 font-mono tracking-widest pl-5 sm:pl-7 mt-0.5 leading-none">
+                xiaohuang365.com
               </span>
             </div>
           </div>
-          <div className="flex flex-col items-end pt-1">
-            <span className="text-[9px] text-slate-500 mb-0.5 mr-2">{apiErrorMsg}</span>
-            <div className="flex items-center bg-slate-950 border border-slate-800 rounded-full p-1 pl-2 sm:pl-3 shadow-inner hidden sm:flex">
+
+          <div className="flex items-center gap-1 sm:gap-3 pt-1">
+            <button onClick={shareWebsite} className="bg-blue-600/20 text-blue-400 border border-blue-500/50 hover:bg-blue-600 hover:text-white px-2 sm:px-4 py-1 sm:py-1.5 rounded-full text-[9px] sm:text-xs font-bold flex items-center transition-all">
+              <Share className="w-3 h-3 sm:w-4 sm:h-4 mr-1" /> <span className="hidden sm:inline">分享本站</span><span className="sm:hidden">分享</span>
+            </button>
+            <div className="flex items-center bg-slate-950 border border-slate-800 rounded-full p-1 pl-2 sm:pl-3 shadow-inner hidden lg:flex">
               <KeyRound className="w-3 h-3 sm:w-4 sm:h-4 text-slate-500 mr-1 sm:mr-2" />
               <input type="password" value={apiKey} readOnly className="bg-transparent text-[10px] sm:text-xs text-emerald-400/80 outline-none w-16 sm:w-48 font-mono cursor-not-allowed tracking-widest" />
               <button onClick={fetchRealData} disabled={apiStatus === 'LOADING'}
@@ -437,23 +556,30 @@ export default function App() {
         </div>
 
         {/* 导航条 100% 宽度等分平铺，绝不滑动 */}
-        <div className="w-full px-0.5 flex justify-center mt-1">
+        <div className="w-full px-0.5 flex justify-center mt-1 sm:mt-2">
           <div className="flex bg-slate-950/80 rounded-lg p-1 border border-slate-800 shadow-inner w-full justify-between items-center gap-1">
             <TabButton active={activeTab === 'group_schedule'} onClick={() => setActiveTab('group_schedule')} icon={<CalendarDays className="w-3.5 h-3.5 sm:w-4 sm:h-4"/>} text="小组赛程" color="emerald" />
             <TabButton active={activeTab === 'knockout_schedule'} onClick={() => setActiveTab('knockout_schedule')} icon={<ListOrdered className="w-3.5 h-3.5 sm:w-4 sm:h-4"/>} text="淘汰赛程" color="purple" />
             <TabButton active={activeTab === 'rules'} onClick={() => setActiveTab('rules')} icon={<BookOpen className="w-3.5 h-3.5 sm:w-4 sm:h-4"/>} text="赛事规则" color="emerald" />
-            <TabButton active={activeTab === 'bracket'} onClick={() => setActiveTab('bracket')} icon={<GitBranch className="w-3.5 h-3.5 sm:w-4 sm:h-4"/>} text="全景大树" color="blue" />
-            <TabButton active={activeTab === 'prediction'} onClick={() => setActiveTab('prediction')} icon={<Wand2 className="w-3.5 h-3.5 sm:w-4 sm:h-4"/>} text="冠军推演" color="yellow" />
+            <TabButton active={activeTab === 'bracket'} onClick={() => { setActiveTab('bracket'); setForceShowHeader(false); }} icon={<GitBranch className="w-3.5 h-3.5 sm:w-4 sm:h-4"/>} text="全景大树" color="blue" />
+            <TabButton active={activeTab === 'prediction'} onClick={() => { setActiveTab('prediction'); setForceShowHeader(false); }} icon={<Wand2 className="w-3.5 h-3.5 sm:w-4 sm:h-4"/>} text="冠军推演" color="yellow" />
           </div>
         </div>
       </header>
 
+      {/* 横屏沉浸模式下，用于召回导航菜单的悬浮按钮 */}
+      {isCanvasTab && !forceShowHeader && (
+        <button onClick={() => setForceShowHeader(true)} className="fixed top-4 left-4 z-[200] landscape:flex hidden bg-slate-800/80 border border-slate-600 text-white px-3 py-1.5 rounded-full shadow-2xl backdrop-blur-sm text-xs font-bold items-center hover:bg-slate-700">
+           返回导航 / 退出沉浸模式
+        </button>
+      )}
+
       <div className="flex-1 overflow-hidden relative w-full h-full">
         {activeTab === 'group_schedule' && <GroupScheduleView groups={groups} onMatchClick={handleOpenMatch} onTeamClick={handleOpenTeam} />}
         {activeTab === 'knockout_schedule' && <KnockoutScheduleView getTeamFromSlot={getTeamFromSlot} onMatchClick={handleOpenMatch} />}
-        {activeTab === 'rules' && <RulesView />}
-        {activeTab === 'bracket' && <BracketView getTeamFromSlot={getTeamFromSlot} onMatchClick={handleOpenMatch} />}
-        {activeTab === 'prediction' && <PredictionSandbox getTeamFromSlot={getTeamFromSlot} groups={groups} onMatchClick={handleOpenMatch} />}
+        {activeTab === 'rules' && <RulesView groups={groups} knockouts={officialKnockoutRounds} />}
+        {activeTab === 'bracket' && <BracketView getTeamFromSlot={getTeamFromSlot} onMatchClick={handleOpenMatch} isFullscreenMode={!forceShowHeader} />}
+        {activeTab === 'prediction' && <PredictionSandbox getTeamFromSlot={getTeamFromSlot} groups={groups} onMatchClick={handleOpenMatch} isFullscreenMode={!forceShowHeader} />}
       </div>
 
       <MatchDetailDrawer match={selectedMatch} onClose={handleCloseMatch} onTeamClick={handleOpenTeam} isTop={lastOpened === 'match'} />
@@ -462,7 +588,7 @@ export default function App() {
   );
 }
 
-// 修改为强制垂直排列，5等分
+// 强制垂直排列，5等分
 function TabButton({ active, onClick, icon, text, color }) {
   const colorStyles = {
     emerald: active ? 'bg-slate-800 text-emerald-400 border-emerald-500/30 shadow-inner' : 'text-slate-400 hover:bg-slate-900',
@@ -481,7 +607,7 @@ function TabButton({ active, onClick, icon, text, color }) {
 function GroupScheduleView({ groups, onMatchClick, onTeamClick }) {
   const [viewMode, setViewMode] = useState('by_time'); 
   return (
-    <div className="h-full flex flex-col bg-slate-950">
+    <div className="h-full flex flex-col bg-slate-950 relative">
       <div className="bg-slate-900 border-b border-slate-800 px-2 py-2 flex justify-center z-10 shrink-0">
         <div className="flex bg-slate-950/80 p-1 rounded-lg border border-slate-800 w-full sm:w-auto">
           <button onClick={() => setViewMode('by_time')} className={`flex-1 sm:flex-none justify-center px-4 sm:px-6 py-1.5 rounded font-bold text-xs sm:text-sm transition-all whitespace-nowrap flex items-center ${viewMode === 'by_time' ? 'bg-cyan-600/20 text-cyan-400 border border-cyan-500/30 shadow-[0_0_10px_rgba(6,182,212,0.15)]' : 'text-slate-500 hover:text-slate-300 border border-transparent'}`}>
@@ -493,12 +619,23 @@ function GroupScheduleView({ groups, onMatchClick, onTeamClick }) {
         </div>
       </div>
       <div className="flex-1 overflow-y-auto p-2 sm:p-6 custom-scrollbar relative">
-        {viewMode === 'by_group' ? (
-          <GroupScheduleByGroup groups={groups} onMatchClick={onMatchClick} onTeamClick={onTeamClick} />
-        ) : (
-          <GroupScheduleByTime groups={groups} onMatchClick={onMatchClick} onTeamClick={onTeamClick} />
-        )}
+        <div id="capture-group-schedule" className="pb-24 bg-slate-950 relative">
+          {viewMode === 'by_group' ? (
+            <GroupScheduleByGroup groups={groups} onMatchClick={onMatchClick} onTeamClick={onTeamClick} />
+          ) : (
+            <GroupScheduleByTime groups={groups} onMatchClick={onMatchClick} onTeamClick={onTeamClick} />
+          )}
+
+          <div id="watermark-capture-group-schedule" className="hidden mt-8 flex-col items-center justify-center border-t border-slate-800/50 pt-8 pb-4">
+             <GlobalQRLogo />
+             <span className="text-[10px] sm:text-xs text-slate-500 font-mono mt-2 tracking-widest">长按识别 | 查看全球实时赛况: xiaohuang365.com</span>
+          </div>
+        </div>
       </div>
+
+      <button onClick={() => handleGlobalShare('capture-group-schedule', '2026世界杯小组赛程.png')} className="absolute bottom-6 right-4 sm:right-8 z-50 bg-blue-600 hover:bg-blue-500 text-white shadow-[0_0_15px_rgba(37,99,235,0.4)] px-4 sm:px-6 py-2.5 rounded-full font-bold text-xs sm:text-sm flex items-center transition-all active:scale-95">
+        <ImageIcon className="w-4 h-4 mr-1.5" /> <span id="share-text-capture-group-schedule">截图分享长图</span>
+      </button>
     </div>
   );
 }
@@ -526,7 +663,7 @@ function GroupScheduleByGroup({ groups, onMatchClick, onTeamClick }) {
   );
 
   return (
-    <div className="max-w-[1600px] mx-auto animate-fade-in grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6 pb-20 items-start">
+    <div className="max-w-[1600px] mx-auto animate-fade-in grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6 items-start">
       {Object.keys(groups).map(g => {
         if (!groups[g].teams || groups[g].teams.length === 0) return null; 
         const isExpanded = expandedGroups[g];
@@ -633,7 +770,7 @@ function GroupScheduleByTime({ groups, onMatchClick, onTeamClick }) {
 
   return (
     // 强制双列结构，各占 50%
-    <div className="max-w-[1600px] mx-auto flex flex-row gap-0 sm:gap-4 pb-20 animate-fade-in w-full relative">
+    <div className="max-w-[1600px] mx-auto flex flex-row gap-0 sm:gap-4 items-start w-full relative">
       
       {/* 左侧：严格时间轴 (固定占比 50%) */}
       <div className="w-1/2 relative pl-1 sm:pl-2 border-r border-slate-800/50 pr-1 sm:pr-2">
@@ -661,10 +798,10 @@ function GroupScheduleByTime({ groups, onMatchClick, onTeamClick }) {
                         <span className="text-[8px] text-slate-600 truncate max-w-[50px] sm:max-w-none"><MapPin className="w-2 h-2 inline opacity-50" /> {match.venue}</span>
                       </div>
                       
-                      {/* 极限压缩间距排版 */}
+                      {/* 极限压缩队距居中排版 */}
                       <div className="flex justify-center items-center w-full mt-1 gap-1">
                         <div className="flex items-center justify-end flex-1 overflow-hidden">
-                          <span className="truncate text-[10px] sm:text-xs font-bold text-slate-300 group-hover:text-white text-right" title={match.home?.name || '待定'}>{match.home?.name || '待定'}</span>
+                          <span className="truncate text-[9px] sm:text-xs font-bold text-slate-300 group-hover:text-white text-right" title={match.home?.name || '待定'}>{match.home?.name || '待定'}</span>
                           <TeamFlag flag={match.home?.flag} sizeClass="w-3.5 h-3.5 sm:w-5 sm:h-5 ml-1" />
                         </div>
                         <div className="flex flex-col justify-center items-center shrink-0 relative px-1">
@@ -675,7 +812,7 @@ function GroupScheduleByTime({ groups, onMatchClick, onTeamClick }) {
                         </div>
                         <div className="flex items-center justify-start flex-1 overflow-hidden">
                           <TeamFlag flag={match.away?.flag} sizeClass="w-3.5 h-3.5 sm:w-5 sm:h-5 mr-1" />
-                          <span className="truncate text-[10px] sm:text-xs font-bold text-slate-300 group-hover:text-white text-left" title={match.away?.name || '待定'}>{match.away?.name || '待定'}</span>
+                          <span className="truncate text-[9px] sm:text-xs font-bold text-slate-300 group-hover:text-white text-left" title={match.away?.name || '待定'}>{match.away?.name || '待定'}</span>
                         </div>
                       </div>
                     </div>
@@ -709,11 +846,11 @@ function GroupScheduleByTime({ groups, onMatchClick, onTeamClick }) {
                  </div>
 
                  <div className="bg-slate-950 rounded border border-slate-800/80 overflow-hidden flex flex-col">
-                    <div className="relative bg-emerald-900/20 border border-emerald-500/20 rounded-md mb-1 pt-3 sm:pt-4 pb-0.5 overflow-hidden">
+                    <div className="relative bg-emerald-900/20 border border-emerald-500/20 rounded-md mb-1 pt-4 pb-0.5 overflow-hidden">
                        <div className="absolute top-0 right-0 bg-emerald-500/90 text-emerald-950 text-[7px] sm:text-[9px] font-black px-1.5 py-px rounded-bl-xl shadow z-10">晋级32强</div>
                        {groups[g].teams.slice(0, 2).map((team, idx) => <React.Fragment key={`sb-team-${team.id}`}>{renderSidebarTeamRow(team, 'top2', idx, g)}</React.Fragment>)}
                     </div>
-                    <div className="relative bg-yellow-900/20 border border-yellow-500/20 rounded-md mb-1 pt-3 sm:pt-4 pb-0.5 overflow-hidden">
+                    <div className="relative bg-yellow-900/20 border border-yellow-500/20 rounded-md mb-1 pt-4 pb-0.5 overflow-hidden">
                        <div className="absolute top-0 right-0 bg-yellow-500/90 text-yellow-950 text-[7px] sm:text-[9px] font-black px-1.5 py-px rounded-bl-xl shadow z-10">待定区</div>
                        {groups[g].teams.slice(2, 3).map((team, idx) => <React.Fragment key={`sb-team-${team.id}`}>{renderSidebarTeamRow(team, 'third', idx + 2, g)}</React.Fragment>)}
                     </div>
@@ -752,7 +889,7 @@ function KnockoutScheduleView({ getTeamFromSlot, onMatchClick }) {
       </div>
 
       <div className="flex-1 overflow-y-auto p-2 sm:p-6 custom-scrollbar relative">
-        <div className="max-w-6xl mx-auto pb-20 animate-fade-in relative z-10">
+        <div id="capture-knockout-schedule" className="max-w-6xl mx-auto pb-24 animate-fade-in relative z-10 bg-slate-950">
           
           {['qf', 'sf', 'final'].includes(activeRound) ? (
             <div className="mb-8">
@@ -787,8 +924,17 @@ function KnockoutScheduleView({ getTeamFromSlot, onMatchClick }) {
               </div>
             </>
           )}
+
+          <div id="watermark-capture-knockout-schedule" className="hidden mt-8 flex-col items-center justify-center border-t border-slate-800/50 pt-8 pb-4">
+             <GlobalQRLogo />
+             <span className="text-[10px] sm:text-xs text-slate-500 font-mono mt-2 tracking-widest">长按识别 | 更多赛事推演: xiaohuang365.com</span>
+          </div>
         </div>
       </div>
+
+      <button onClick={() => handleGlobalShare('capture-knockout-schedule', '2026世界杯淘汰赛程.png')} className="absolute bottom-6 right-4 sm:right-8 z-50 bg-blue-600 hover:bg-blue-500 text-white shadow-[0_0_15px_rgba(37,99,235,0.4)] px-4 sm:px-6 py-2.5 rounded-full font-bold text-xs sm:text-sm flex items-center transition-all active:scale-95">
+        <ImageIcon className="w-4 h-4 mr-1.5" /> <span id="share-text-capture-knockout-schedule">截图分享长图</span>
+      </button>
     </div>
   );
 }
@@ -855,7 +1001,7 @@ function KnockoutCleanListCard({ match, onClick }) {
       </div>
       <div className="flex justify-center items-center w-full mt-1 gap-2">
         <div className="flex items-center justify-end flex-1">
-          <span className={`text-[10px] sm:text-sm truncate font-bold text-right ${match.home.isPlaceholder ? 'text-slate-500 font-mono font-normal' : 'text-slate-200 group-hover:text-white'}`} title={match.home.placeholderName || match.home.name}>{match.home.name}</span>
+          <span className={`text-[9px] sm:text-sm truncate font-bold text-right ${match.home.isPlaceholder ? 'text-slate-500 font-mono font-normal' : 'text-slate-200 group-hover:text-white'}`} title={match.home.placeholderName || match.home.name}>{match.home.name}</span>
           <TeamFlag flag={match.home.flag} sizeClass="w-3.5 h-3.5 sm:w-6 sm:h-6 ml-1 flex-shrink-0" />
         </div>
         <div className="flex justify-center items-center shrink-0">
@@ -864,12 +1010,12 @@ function KnockoutCleanListCard({ match, onClick }) {
                {match.homeScore} - {match.awayScore}
              </span>
           ) : (
-             <span className="font-black text-[10px] sm:text-sm text-slate-700">VS</span>
+             <span className="font-black text-[9px] sm:text-sm text-slate-700">VS</span>
           )}
         </div>
         <div className="flex items-center justify-start flex-1">
           <TeamFlag flag={match.away.flag} sizeClass="w-3.5 h-3.5 sm:w-6 sm:h-6 mr-1 flex-shrink-0" />
-          <span className={`text-[10px] sm:text-sm truncate text-left font-bold ${match.away.isPlaceholder ? 'text-slate-500 font-mono font-normal' : 'text-slate-200 group-hover:text-white'}`} title={match.away.placeholderName || match.away.name}>{match.away.name}</span>
+          <span className={`text-[9px] sm:text-sm truncate text-left font-bold ${match.away.isPlaceholder ? 'text-slate-500 font-mono font-normal' : 'text-slate-200 group-hover:text-white'}`} title={match.away.placeholderName || match.away.name}>{match.away.name}</span>
         </div>
       </div>
     </div>
@@ -899,7 +1045,7 @@ function KnockoutCompactTree({ round, matches, onMatchClick }) {
   }
   if (round === 'final') {
     return (
-      <div className="flex flex-col md:flex-row items-center justify-center gap-6 md:gap-12 w-full">
+      <div className="flex flex-col md:flex-row items-center justify-between w-full relative gap-4 sm:gap-12">
         <div className="text-center w-full md:w-[45%] opacity-90 order-1">
           <div className="text-slate-400 font-bold mb-1 sm:mb-2 tracking-widest text-[10px] sm:text-xs bg-slate-800/50 py-1.5 rounded-t-lg border border-slate-700 border-b-0">季军战</div>
           <CompactTreeNode match={matches[0]} onClick={onMatchClick} />
@@ -937,7 +1083,7 @@ function CompactTeamRow({ team, isWin, isLoss, score, isFinished }) {
       <div className="flex items-center space-x-2 pl-1 w-[70%]">
         {isLoss && <span className="absolute -left-1 text-[8px] bg-slate-950 rounded-full border border-slate-800 z-10"><X className="w-3 h-3 text-red-500 p-0.5" /></span>}
         {isWin && <span className="absolute -left-1 text-[8px] font-black bg-yellow-500 text-slate-950 px-1 py-0.5 rounded shadow-lg transform -rotate-12 z-10">WIN</span>}
-        <TeamFlag flag={team.flag} sizeClass="w-5 h-5 sm:w-6 sm:h-6 flex-shrink-0" />
+        <TeamFlag flag={team.flag} sizeClass="w-4 h-4 sm:w-6 sm:h-6 flex-shrink-0" />
         <span className={`text-[10px] sm:text-sm truncate w-full ${isWin ? 'text-white font-bold' : isLoss || team.isPlaceholder ? 'text-slate-500 font-mono font-normal' : 'text-slate-300 font-medium'}`} title={team.placeholderName || team.name}>{team.name}</span>
       </div>
       <div className="w-[30%] text-right pr-2">
@@ -951,17 +1097,16 @@ function CompactTeamRow({ team, isWin, isLoss, score, isFinished }) {
 
 
 // ================= 6. Tab 3: 全景对阵树视图 =================
-function BracketView({ getTeamFromSlot, onMatchClick }) {
-  const [isFullscreen, setIsFullscreen] = useState(false);
+function BracketView({ getTeamFromSlot, onMatchClick, isFullscreenMode }) {
   const containerRef = useRef(null);
 
   const getInitialScale = useCallback(() => {
     if (typeof window !== 'undefined') {
       const w = window.innerWidth;
       const h = window.innerHeight;
-      const scaleX = w / 2400; // 根据新字号增加宽度计算
+      const scaleX = w / 2400; 
       const scaleY = (h - 100) / 1600;
-      return Math.max(Math.min(scaleX, scaleY, 0.95), 0.15); // 确保最小缩放能看到全貌
+      return Math.max(Math.min(scaleX, scaleY, 0.95), 0.15); 
     }
     return 0.35;
   }, []);
@@ -981,7 +1126,6 @@ function BracketView({ getTeamFromSlot, onMatchClick }) {
     };
   }, [getInitialScale]);
 
-  // 极限防下拉刷新与原生缩放
   useEffect(() => {
     const canvas = containerRef.current;
     if (!canvas) return;
@@ -1025,9 +1169,8 @@ function BracketView({ getTeamFromSlot, onMatchClick }) {
   const rightR32 = officialKnockoutRounds.r32.slice(8, 16);
 
   return (
-    <div className={`relative bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-slate-900 via-slate-950 to-black overflow-hidden flex flex-col ${isFullscreen ? 'fixed inset-0 z-[100] w-full h-full' : 'h-[calc(100vh-72px)] w-full'}`}>
+    <div className={`relative bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-slate-900 via-slate-950 to-black overflow-hidden flex flex-col ${isFullscreenMode ? 'fixed inset-0 z-[100] w-full h-full' : 'h-[calc(100vh-72px)] w-full'}`}>
       
-      {/* 提示信息移到顶部居中 */}
       <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 flex flex-col items-center pointer-events-none space-y-2 opacity-90">
         <div className="flex items-center bg-blue-500/20 text-blue-400 border border-blue-500/50 px-4 py-1.5 rounded-full font-bold shadow-md backdrop-blur-md text-[10px] sm:text-xs">
           <GitBranch className="w-3 h-3 sm:w-4 sm:h-4 mr-1.5" /> 官方实时自动排位
@@ -1041,14 +1184,11 @@ function BracketView({ getTeamFromSlot, onMatchClick }) {
         <button onClick={() => setTransform(p => ({...p, scale: p.scale * 1.2}))} className="p-2 sm:p-2.5 hover:bg-slate-700 rounded text-slate-400 hover:text-white" title="放大"><ZoomIn className="w-4 h-4 sm:w-5 sm:h-5" /></button>
         <button onClick={() => setTransform(p => ({...p, scale: p.scale * 0.8}))} className="p-2 sm:p-2.5 hover:bg-slate-700 rounded text-slate-400 hover:text-white" title="缩小"><ZoomOut className="w-4 h-4 sm:w-5 sm:h-5" /></button>
         <button onClick={resetView} className="p-2 sm:p-2.5 hover:bg-slate-700 rounded text-slate-400 hover:text-white" title="还原中心视角"><Move className="w-4 h-4 sm:w-5 sm:h-5" /></button>
-        <div className="w-px h-5 sm:h-6 bg-slate-700 mx-1"></div>
-        <button onClick={() => setIsFullscreen(!isFullscreen)} className={`px-2 sm:px-4 py-1.5 sm:py-2 rounded font-bold text-[10px] sm:text-sm flex items-center transition-colors ${isFullscreen ? 'bg-red-500/20 text-red-400' : 'bg-blue-500/20 text-blue-400'}`}>
-          {isFullscreen ? <Minimize className="w-4 h-4"/> : <Maximize className="w-4 h-4"/>}
-        </button>
       </div>
 
       <div 
         ref={containerRef}
+        id="capture-bracket-tree"
         onMouseDown={handleMouseDown} onMouseMove={handleMouseMove} onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp}
         onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd} onTouchCancel={handleTouchEnd}
         className="w-full h-full cursor-grab active:cursor-grabbing touch-none select-none"
@@ -1107,15 +1247,22 @@ function BracketView({ getTeamFromSlot, onMatchClick }) {
                {rightR32.map((m) => (<MatchCard key={`r32-r-${m.id}`} match={m} home={getTeamFromSlot(m.homeStr)} away={getTeamFromSlot(m.awayStr)} onClick={onMatchClick} />))}
             </BracketColumn>
           </div>
+          
+          <div id="watermark-capture-bracket-tree" className="absolute -bottom-[200px] left-1/2 -translate-x-1/2 hidden flex-col items-center justify-center pt-8 pb-4">
+             <GlobalQRLogo />
+             <span className="text-xl text-slate-500 font-mono mt-2 tracking-widest text-center">生成自全球最酷的世界杯引擎<br/>xiaohuang365.com</span>
+          </div>
         </div>
       </div>
+      <button onClick={() => handleGlobalShare('capture-bracket-tree', '2026世界杯实时大树.png')} className="absolute bottom-6 left-4 sm:left-8 z-50 bg-blue-600 hover:bg-blue-500 text-white shadow-[0_0_15px_rgba(37,99,235,0.4)] px-4 sm:px-6 py-2.5 rounded-full font-bold text-xs sm:text-sm flex items-center transition-all active:scale-95">
+        <ImageIcon className="w-4 h-4 mr-1.5" /> <span id="share-text-capture-bracket-tree">截图分享长图</span>
+      </button>
     </div>
   );
 }
 
 function BracketColumn({ title, children, gap, isCenter }) {
   return (
-    // 增加卡片宽度以容纳更大字号
     <div className={`flex flex-col w-52 sm:w-72 ${isCenter ? 'justify-center' : 'justify-around'} h-[1600px]`}>
       <div className="text-center font-bold text-slate-400 tracking-widest text-sm sm:text-base mb-6 shrink-0 bg-slate-800/80 py-2 sm:py-3 border border-slate-700 rounded shadow-lg backdrop-blur-sm">{title}</div>
       <div className={`flex flex-col flex-1 justify-center ${gap}`}>{children}</div>
@@ -1168,15 +1315,14 @@ function TreeConnector({ count, height, reverse }) {
 }
 
 // ================= 7. Tab 4: 冠军推演沙盒 =================
-function PredictionSandbox({ getTeamFromSlot, groups }) {
-  const [isFullscreen, setIsFullscreen] = useState(false);
+function PredictionSandbox({ getTeamFromSlot, groups, isFullscreenMode }) {
   const containerRef = useRef(null);
 
   const getInitialScale = useCallback(() => {
     if (typeof window !== 'undefined') {
       const w = window.innerWidth;
       const h = window.innerHeight;
-      const scaleX = w / 2400; // 适配大字号的大尺寸
+      const scaleX = w / 2400; 
       const scaleY = (h - 100) / 1600;
       return Math.max(Math.min(scaleX, scaleY, 0.95), 0.15);
     }
@@ -1287,7 +1433,7 @@ function PredictionSandbox({ getTeamFromSlot, groups }) {
   };
 
   return (
-    <div className={`relative bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-slate-900 via-slate-950 to-black overflow-hidden flex flex-col ${isFullscreen ? 'fixed inset-0 z-[100] w-full h-full' : 'h-[calc(100vh-72px)] w-full'}`}>
+    <div className={`relative bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-slate-900 via-slate-950 to-black overflow-hidden flex flex-col ${isFullscreenMode ? 'fixed inset-0 z-[100] w-full h-full' : 'h-[calc(100vh-72px)] w-full'}`}>
       
       <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 flex flex-col items-center pointer-events-none space-y-2 opacity-90">
         <div className="flex items-center bg-yellow-500/20 text-yellow-400 border border-yellow-500/50 px-4 py-1.5 rounded-full font-bold shadow-[0_0_15px_rgba(234,179,8,0.2)] animate-pulse backdrop-blur-md text-[10px] sm:text-xs whitespace-nowrap">
@@ -1299,14 +1445,14 @@ function PredictionSandbox({ getTeamFromSlot, groups }) {
       </div>
 
       <div className="absolute bottom-4 left-2 sm:left-4 z-20 flex items-center bg-slate-800/90 backdrop-blur rounded-lg p-1 space-x-1 border border-slate-700 shadow-xl">
-        <button onClick={() => setTree(initPredictions())} className="p-2 sm:p-2.5 hover:bg-red-500/20 rounded text-red-400 transition-colors flex items-center text-[10px] sm:text-xs px-2 sm:px-4"><RotateCcw className="w-3 h-3 sm:w-4 sm:h-4 sm:mr-1.5"/><span className="hidden sm:inline font-bold">重置推演</span></button>
+        <button onClick={() => setTree(initPredictions())} className="p-2 sm:p-2.5 hover:bg-red-500/20 rounded text-red-400 transition-colors flex items-center text-[10px] sm:text-xs px-2 sm:px-3"><RotateCcw className="w-3 h-3 sm:w-4 sm:h-4 sm:mr-1.5"/><span className="hidden sm:inline font-bold">重置推演</span></button>
         <div className="w-px h-5 sm:h-6 bg-slate-700 mx-1"></div>
         <button 
             onClick={() => setShowPoster(true)} 
             disabled={!tree.champion}
             className={`p-2 sm:p-2.5 rounded font-bold text-[10px] sm:text-xs flex items-center transition-all px-2 sm:px-4 ${tree.champion ? 'bg-gradient-to-r from-yellow-500 to-amber-600 text-slate-950 hover:scale-105 shadow-lg' : 'bg-slate-700 text-slate-500 cursor-not-allowed'}`}
           >
-            <Camera className="w-3 h-3 sm:w-4 sm:h-4 sm:mr-1.5"/> <span>分享海报</span>
+            <Camera className="w-3 h-3 sm:w-4 sm:h-4 sm:mr-1.5"/> <span>生成海报</span>
         </button>
       </div>
 
@@ -1314,14 +1460,11 @@ function PredictionSandbox({ getTeamFromSlot, groups }) {
         <button onClick={() => setTransform(p => ({...p, scale: p.scale * 1.2}))} className="p-2 sm:p-2.5 hover:bg-slate-700 rounded text-slate-400 hover:text-white" title="放大"><ZoomIn className="w-4 h-4 sm:w-5 sm:h-5" /></button>
         <button onClick={() => setTransform(p => ({...p, scale: p.scale * 0.8}))} className="p-2 sm:p-2.5 hover:bg-slate-700 rounded text-slate-400 hover:text-white" title="缩小"><ZoomOut className="w-4 h-4 sm:w-5 sm:h-5" /></button>
         <button onClick={resetView} className="p-2 sm:p-2.5 hover:bg-slate-700 rounded text-slate-400 hover:text-white" title="还原中心视角"><Move className="w-4 h-4 sm:w-5 sm:h-5" /></button>
-        <div className="w-px h-5 sm:h-6 bg-slate-700 mx-1"></div>
-        <button onClick={() => setIsFullscreen(!isFullscreen)} className={`px-2 sm:px-4 py-1.5 sm:py-2 rounded font-bold text-[10px] sm:text-sm flex items-center transition-colors ${isFullscreen ? 'bg-red-500/20 text-red-400' : 'bg-blue-500/20 text-blue-400'}`}>
-          {isFullscreen ? <Minimize className="w-3 h-3 sm:w-4 sm:h-4"/> : <Maximize className="w-3 h-3 sm:w-4 sm:h-4"/>}
-        </button>
       </div>
 
       <div 
         ref={containerRef}
+        id="capture-sandbox-tree"
         onMouseDown={handleMouseDown} onMouseMove={handleMouseMove} onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp}
         onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd} onTouchCancel={handleTouchEnd}
         className="w-full h-full cursor-grab active:cursor-grabbing touch-none select-none"
@@ -1339,7 +1482,7 @@ function PredictionSandbox({ getTeamFromSlot, groups }) {
                {Array.from({length: 4}).map((_,i) => <InteractiveNode key={`node-l-17-${i}`} node={tree.nodes[17+i]} onTeamClick={handleAdvance} />)}
              </BracketColumn>
              <TreeConnector count={2} height="h-[1550px]" />
-             <BracketColumn title="1/4 决赛" gap="space-y-[620px]">
+             <BracketColumn title="1/4 决赛" gap="space-y-[580px]">
                {Array.from({length: 2}).map((_,i) => <InteractiveNode key={`node-l-25-${i}`} node={tree.nodes[25+i]} onTeamClick={handleAdvance} />)}
              </BracketColumn>
              <TreeConnector count={1} height="h-[1550px]" />
@@ -1382,8 +1525,18 @@ function PredictionSandbox({ getTeamFromSlot, groups }) {
                {Array.from({length: 8}).map((_,i) => <InteractiveNode key={`node-r-9-${i}`} node={tree.nodes[9+i]} onTeamClick={handleAdvance} onSelectClick={setSelectingSlot} />)}
              </BracketColumn>
            </div>
+           
+           {/* 生成全景长图时底部的专属水印 */}
+           <div id="watermark-capture-sandbox-tree" className="absolute -bottom-[200px] left-1/2 -translate-x-1/2 hidden flex-col items-center justify-center pt-8 pb-4">
+             <GlobalQRLogo />
+             <span className="text-xl text-slate-500 font-mono mt-2 tracking-widest text-center">生成自全球最酷的世界杯引擎<br/>xiaohuang365.com</span>
+           </div>
         </div>
       </div>
+
+      <button onClick={() => handleGlobalShare('capture-sandbox-tree', '我的2026冠军推演长图.png')} className="absolute bottom-16 right-4 sm:right-8 z-50 bg-blue-600 hover:bg-blue-500 text-white shadow-[0_0_15px_rgba(37,99,235,0.4)] px-4 sm:px-6 py-2.5 rounded-full font-bold text-xs sm:text-sm flex items-center transition-all active:scale-95">
+        <ImageIcon className="w-4 h-4 mr-1.5" /> <span id="share-text-capture-sandbox-tree">截图分享长图</span>
+      </button>
 
       {selectingSlot && <TeamSelectorModal selectingSlot={selectingSlot} onClose={() => setSelectingSlot(null)} onSelect={handleSelectTeam} groups={groups} />}
       {showPoster && <PosterModal tree={tree} onClose={() => setShowPoster(false)} />}
@@ -1456,7 +1609,6 @@ function TeamSelectorModal({ selectingSlot, onClose, onSelect, groups }) {
   const allowedGroups = parseGroupsFromPlaceholder(selectingSlot.placeholderStr);
 
   return (
-    // 固定的绝对弹窗，拒绝随画布放大
     <div className="fixed top-0 left-0 w-screen h-screen bg-black/80 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
       <div className="w-full max-w-2xl bg-slate-900 border border-slate-700 rounded-2xl overflow-hidden shadow-2xl flex flex-col max-h-[85vh]">
         <div className="p-3 sm:p-4 border-b border-slate-800 flex justify-between items-center bg-slate-950">
@@ -1476,8 +1628,8 @@ function TeamSelectorModal({ selectingSlot, onClose, onSelect, groups }) {
                 <div className="text-xs sm:text-sm font-bold text-slate-400 mb-2 sm:mb-3 border-b border-slate-800 pb-1 flex items-center"><div className="w-1.5 h-3 sm:h-4 bg-emerald-500 rounded mr-2"></div>{groupName}组</div>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
                   {teamsInGroup.map(team => (
-                    <button key={`selector-team-${team.id}`} onClick={() => onSelect(team)} className="flex flex-col items-center justify-center p-2 sm:p-4 bg-slate-950 border border-slate-800 rounded-xl hover:border-emerald-500/50 hover:bg-slate-900 transition-all active:scale-95">
-                      <TeamFlag flag={team.flag} sizeClass="w-6 h-6 sm:w-10 sm:h-10 mb-1 sm:mb-2" />
+                    <button key={`selector-team-${team.id}`} onClick={() => onSelect(team)} className="flex flex-col items-center justify-center p-3 sm:p-4 bg-slate-950 border border-slate-800 rounded-xl hover:border-emerald-500/50 hover:bg-slate-900 transition-all active:scale-95">
+                      <TeamFlag flag={team.flag} sizeClass="w-8 h-8 sm:w-10 sm:h-10 mb-2" />
                       <span className="text-xs sm:text-sm font-bold text-slate-200 truncate w-full px-1 text-center">{team.name}</span>
                     </button>
                   ))}
@@ -1492,7 +1644,6 @@ function TeamSelectorModal({ selectingSlot, onClose, onSelect, groups }) {
 }
 
 function PosterModal({ tree, onClose }) {
-  // 原生分享或下载逻辑
   const handleShareOrDownload = async () => {
     try {
       const btn = document.getElementById('dl-btn');
@@ -1504,10 +1655,9 @@ function PosterModal({ tree, onClose }) {
         await new Promise(resolve => script.onload = resolve);
       }
       const element = document.getElementById('poster-area');
-      const canvas = await window.html2canvas(element, { scale: 2, backgroundColor: '#020617' });
+      const canvas = await window.html2canvas(element, { scale: 2, backgroundColor: '#020617', useCORS: true });
       const dataUrl = canvas.toDataURL('image/png');
       
-      // 检查浏览器是否支持原生的 Web Share API (微信/朋友圈/QQ的系统入口)
       if (navigator.share) {
          try {
            const blob = await (await fetch(dataUrl)).blob();
@@ -1519,7 +1669,6 @@ function PosterModal({ tree, onClose }) {
            });
            if(btn) btn.innerHTML = '分享成功！';
          } catch(e) {
-           // 如果分享文件失败，则直接下载
            downloadImg(dataUrl, btn);
          }
       } else {
@@ -1527,7 +1676,7 @@ function PosterModal({ tree, onClose }) {
       }
       setTimeout(() => { if(btn) btn.innerHTML = '保存/分享高清海报'; }, 2000);
     } catch (e) {
-      alert('保存失败，请直接截图保存');
+      alert('保存失败，请直接截屏保存');
     }
   };
 
@@ -1574,7 +1723,7 @@ function PosterModal({ tree, onClose }) {
 
           <div className="p-4 sm:p-5 bg-slate-950 border-t border-slate-800 flex flex-col gap-3">
              <button id="dl-btn" onClick={handleShareOrDownload} className="w-full py-3.5 bg-yellow-500 hover:bg-yellow-400 text-slate-950 text-sm sm:text-base font-bold rounded-xl flex items-center justify-center transition-all shadow-[0_0_15px_rgba(234,179,8,0.3)]">
-               <Share2 className="w-4 h-4 sm:w-5 sm:h-5 mr-2" /> 保存/分享高清海报
+               <Share className="w-4 h-4 sm:w-5 sm:h-5 mr-2" /> 保存相册或分享给好友
              </button>
           </div>
        </div>
