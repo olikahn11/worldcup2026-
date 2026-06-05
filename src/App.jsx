@@ -5,7 +5,7 @@ import {
   ListOrdered, Wand2, Crown, RotateCcw, X, Shield, MapPin, UserCircle2, Users, Camera, Download, Share2, PlusCircle, RefreshCw, KeyRound, CheckCircle2, BookOpen
 } from 'lucide-react';
 
-// ================= 全局禁用原生缩放机制 (关键体验优化) =================
+// ================= 全局禁用原生缩放与下拉刷新 (原生App级体验) =================
 const setupViewport = () => {
   let meta = document.querySelector('meta[name="viewport"]');
   if (!meta) {
@@ -14,6 +14,10 @@ const setupViewport = () => {
     document.head.appendChild(meta);
   }
   meta.content = "width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover";
+  
+  // 彻底阻断浏览器原生的下拉刷新和边缘回弹
+  document.body.style.overscrollBehavior = 'none';
+  document.documentElement.style.overscrollBehavior = 'none';
 };
 
 // ================= 1. 数据初始化 (2026 官方确认的最新48强名单) =================
@@ -195,11 +199,14 @@ function TeamFlag({ flag, sizeClass = "w-6 h-6 sm:w-8 sm:h-8" }) {
   return <span className="drop-shadow-sm text-[1em] leading-none inline-block flex-shrink-0">{flag}</span>;
 }
 
+// 真实的二维码接入 (利用公共API生成)
 const GlobalQRLogo = () => (
-  <div className="flex flex-col items-center justify-center bg-white p-0.5 sm:p-1 rounded shadow-md shrink-0">
-    <div className="grid grid-cols-3 gap-[1px] w-6 h-6 sm:w-8 sm:h-8">
-      {[1,0,1,0,1,0,1,1,1].map((v, i) => <div key={i} className={v ? 'bg-slate-900' : 'bg-transparent'} />)}
-    </div>
+  <div className="flex flex-col items-center justify-center bg-white p-0.5 rounded shadow-lg shrink-0 w-8 h-8 sm:w-10 sm:h-10">
+    <img 
+      src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=http://www.xiaohuang365.com&margin=0" 
+      alt="QR" 
+      className="w-full h-full object-contain"
+    />
   </div>
 );
 
@@ -266,7 +273,7 @@ export default function App() {
 
   const [apiKey] = useState('8c135d4da927727e57fbf81f6e011d02');
   const [apiStatus, setApiStatus] = useState('LOCAL'); 
-  const [apiErrorMsg, setApiErrorMsg] = useState('本地数据 | 赛后API自动同步');
+  const [apiErrorMsg, setApiErrorMsg] = useState('本地赛前模式 | 开赛后API自动同步');
 
   const fetchRealData = useCallback(async () => {
     if (!apiKey) return;
@@ -290,7 +297,7 @@ export default function App() {
       if (hasErrors) {
         setGroups(initialGroups);
         setApiStatus('LOCAL');
-        setApiErrorMsg("本地数据 | 赛后API自动同步");
+        setApiErrorMsg("本地赛前模式 | 开赛后API自动同步");
         return;
       }
 
@@ -361,7 +368,7 @@ export default function App() {
 
     } catch (err) {
       setGroups(initialGroups);
-      setApiErrorMsg("本地数据 | 赛后API自动同步");
+      setApiErrorMsg("本地赛前模式 | 开赛后API自动同步");
       setApiStatus('LOCAL');
     }
   }, [apiKey]);
@@ -391,26 +398,32 @@ export default function App() {
     else return { id: slotStr, name: slotStr, flag: '❔', isPlaceholder: true, placeholderName: team.name !== `${groupName}组第${rank+1}档` && team.name !== `1${groupName}` ? team.name : `${groupName}组第${rank + 1}` };
   };
 
+  // 横屏且在画布页面时，彻底隐藏 Header 的利器
+  const isCanvasTab = activeTab === 'bracket' || activeTab === 'prediction';
+  const headerClass = `bg-slate-900 border-b border-slate-800 px-2 py-1.5 sm:px-4 sm:py-3 flex flex-col z-20 shadow-xl relative gap-1.5 sm:gap-3 transition-all duration-300 ${isCanvasTab ? 'landscape:hidden' : ''}`;
+
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-200 font-sans flex flex-col h-screen overflow-hidden selection:bg-emerald-500/30">
+    <div className="min-h-screen bg-slate-950 text-slate-200 font-sans flex flex-col h-[100dvh] overflow-hidden selection:bg-emerald-500/30">
       
-      <header className="bg-slate-900 border-b border-slate-800 px-3 sm:px-4 py-2 sm:py-3 flex flex-col z-20 shadow-xl relative gap-2 sm:gap-3">
+      <header className={headerClass}>
         <div className="flex flex-row items-center justify-between w-full">
           <div className="flex items-center gap-2 sm:gap-3">
             <GlobalQRLogo />
             <div className="flex flex-col">
               <div className="flex items-center space-x-1 sm:space-x-2">
-                <Trophy className="text-yellow-500 w-4 h-4 sm:w-5 sm:h-5" />
+                <Trophy className="text-yellow-500 w-3.5 h-3.5 sm:w-5 sm:h-5" />
                 <h1 className="text-sm sm:text-xl font-black bg-gradient-to-r from-emerald-400 to-blue-500 bg-clip-text text-transparent tracking-wider">
                   2026美加墨世界杯
                 </h1>
               </div>
-              <span className="text-[9px] sm:text-xs text-slate-400 font-mono tracking-widest pl-5 sm:pl-7 mt-0.5">xiaohuang365.com</span>
+              <span className="text-[9px] sm:text-xs text-slate-400 font-mono tracking-widest pl-5 sm:pl-7 mt-0.5">
+                www.xiaohuang365.com
+              </span>
             </div>
           </div>
-          <div className="flex items-center gap-3">
-            <span className="text-[10px] text-slate-500 hidden sm:block">{apiErrorMsg}</span>
-            <div className="flex items-center bg-slate-950 border border-slate-800 rounded-full p-1 pl-2 sm:pl-3 shadow-inner">
+          <div className="flex flex-col items-end pt-1">
+            <span className="text-[9px] text-slate-500 mb-0.5 mr-2">{apiErrorMsg}</span>
+            <div className="flex items-center bg-slate-950 border border-slate-800 rounded-full p-1 pl-2 sm:pl-3 shadow-inner hidden sm:flex">
               <KeyRound className="w-3 h-3 sm:w-4 sm:h-4 text-slate-500 mr-1 sm:mr-2" />
               <input type="password" value={apiKey} readOnly className="bg-transparent text-[10px] sm:text-xs text-emerald-400/80 outline-none w-16 sm:w-48 font-mono cursor-not-allowed tracking-widest" />
               <button onClick={fetchRealData} disabled={apiStatus === 'LOADING'}
@@ -423,18 +436,19 @@ export default function App() {
           </div>
         </div>
 
-        <div className="w-full overflow-x-auto hide-scrollbar px-1 flex justify-start sm:justify-center mt-1">
-          <div className="flex bg-slate-950/80 rounded-lg p-1 border border-slate-800 shadow-inner min-w-max space-x-1">
-            <TabButton active={activeTab === 'group_schedule'} onClick={() => setActiveTab('group_schedule')} icon={<CalendarDays className="w-3 h-3 sm:w-4 sm:h-4"/>} text="小组赛程" color="emerald" />
-            <TabButton active={activeTab === 'knockout_schedule'} onClick={() => setActiveTab('knockout_schedule')} icon={<ListOrdered className="w-3 h-3 sm:w-4 sm:h-4"/>} text="淘汰赛程" color="purple" />
-            <TabButton active={activeTab === 'rules'} onClick={() => setActiveTab('rules')} icon={<BookOpen className="w-3 h-3 sm:w-4 sm:h-4"/>} text="赛事规则" color="emerald" />
-            <TabButton active={activeTab === 'bracket'} onClick={() => setActiveTab('bracket')} icon={<GitBranch className="w-3 h-3 sm:w-4 sm:h-4"/>} text="全景对阵树" color="blue" />
-            <TabButton active={activeTab === 'prediction'} onClick={() => setActiveTab('prediction')} icon={<Wand2 className="w-3 h-3 sm:w-4 sm:h-4"/>} text="冠军推演" color="yellow" />
+        {/* 导航条 100% 宽度等分平铺，绝不滑动 */}
+        <div className="w-full px-0.5 flex justify-center mt-1">
+          <div className="flex bg-slate-950/80 rounded-lg p-1 border border-slate-800 shadow-inner w-full justify-between items-center gap-1">
+            <TabButton active={activeTab === 'group_schedule'} onClick={() => setActiveTab('group_schedule')} icon={<CalendarDays className="w-3.5 h-3.5 sm:w-4 sm:h-4"/>} text="小组赛程" color="emerald" />
+            <TabButton active={activeTab === 'knockout_schedule'} onClick={() => setActiveTab('knockout_schedule')} icon={<ListOrdered className="w-3.5 h-3.5 sm:w-4 sm:h-4"/>} text="淘汰赛程" color="purple" />
+            <TabButton active={activeTab === 'rules'} onClick={() => setActiveTab('rules')} icon={<BookOpen className="w-3.5 h-3.5 sm:w-4 sm:h-4"/>} text="赛事规则" color="emerald" />
+            <TabButton active={activeTab === 'bracket'} onClick={() => setActiveTab('bracket')} icon={<GitBranch className="w-3.5 h-3.5 sm:w-4 sm:h-4"/>} text="全景大树" color="blue" />
+            <TabButton active={activeTab === 'prediction'} onClick={() => setActiveTab('prediction')} icon={<Wand2 className="w-3.5 h-3.5 sm:w-4 sm:h-4"/>} text="冠军推演" color="yellow" />
           </div>
         </div>
       </header>
 
-      <div className="flex-1 overflow-hidden relative">
+      <div className="flex-1 overflow-hidden relative w-full h-full">
         {activeTab === 'group_schedule' && <GroupScheduleView groups={groups} onMatchClick={handleOpenMatch} onTeamClick={handleOpenTeam} />}
         {activeTab === 'knockout_schedule' && <KnockoutScheduleView getTeamFromSlot={getTeamFromSlot} onMatchClick={handleOpenMatch} />}
         {activeTab === 'rules' && <RulesView />}
@@ -448,16 +462,17 @@ export default function App() {
   );
 }
 
+// 修改为强制垂直排列，5等分
 function TabButton({ active, onClick, icon, text, color }) {
   const colorStyles = {
-    emerald: active ? 'bg-slate-800 text-emerald-400 border-emerald-500/30 shadow-[0_0_10px_rgba(16,185,129,0.15)]' : 'text-slate-400 hover:bg-slate-900',
-    purple: active ? 'bg-slate-800 text-purple-400 border-purple-500/30 shadow-[0_0_10px_rgba(168,85,247,0.15)]' : 'text-slate-400 hover:bg-slate-900',
-    blue: active ? 'bg-slate-800 text-blue-400 border-blue-500/30 shadow-[0_0_10px_rgba(59,130,246,0.15)]' : 'text-slate-400 hover:bg-slate-900',
-    yellow: active ? 'bg-slate-800 text-yellow-500 border-yellow-500/30 shadow-[0_0_10px_rgba(234,179,8,0.15)]' : 'text-slate-400 hover:bg-slate-900',
+    emerald: active ? 'bg-slate-800 text-emerald-400 border-emerald-500/30 shadow-inner' : 'text-slate-400 hover:bg-slate-900',
+    purple: active ? 'bg-slate-800 text-purple-400 border-purple-500/30 shadow-inner' : 'text-slate-400 hover:bg-slate-900',
+    blue: active ? 'bg-slate-800 text-blue-400 border-blue-500/30 shadow-inner' : 'text-slate-400 hover:bg-slate-900',
+    yellow: active ? 'bg-slate-800 text-yellow-500 border-yellow-500/30 shadow-inner' : 'text-slate-400 hover:bg-slate-900',
   };
   return (
-    <button onClick={onClick} className={`flex items-center justify-center space-x-1.5 px-3 sm:px-6 py-2 rounded-md font-medium text-[11px] sm:text-sm transition-all border border-transparent ${colorStyles[color]}`}>
-      {icon} <span className="whitespace-nowrap">{text}</span>
+    <button onClick={onClick} className={`flex flex-col items-center justify-center flex-1 px-1 py-1.5 sm:py-2 rounded-md font-medium transition-all border border-transparent gap-0.5 sm:gap-1.5 ${colorStyles[color]}`}>
+      {icon} <span className="whitespace-nowrap text-[9px] sm:text-xs leading-none">{text}</span>
     </button>
   );
 }
@@ -599,12 +614,12 @@ function GroupScheduleByTime({ groups, onMatchClick, onTeamClick }) {
 
   const renderSidebarTeamRow = (team, type, idx, gName) => (
     <div key={`sb-team-${gName}-${team.id || 'no-id'}-${idx}-${type}`} onClick={() => !team.isPlaceholder && onTeamClick && onTeamClick(team)} 
-         className={`relative flex items-center justify-between text-xs px-1 sm:px-2 py-2 transition-colors border-b border-slate-800/30 last:border-b-0
+         className={`relative flex items-center justify-between text-[10px] sm:text-xs px-1 sm:px-2 py-1.5 sm:py-2 transition-colors border-b border-slate-800/30 last:border-b-0
            ${!team.isPlaceholder ? 'cursor-pointer hover:bg-white/5' : ''} 
            ${type === 'top2' ? 'bg-emerald-900/20' : type === 'third' ? 'bg-yellow-900/20' : 'bg-transparent'}`}>
       <span className={`flex items-center flex-1 truncate pr-1 z-10 mt-0.5 ${type === 'top2' ? 'font-bold text-emerald-100' : type === 'third' ? 'font-bold text-yellow-100' : 'text-slate-400'}`}>
         <TeamFlag flag={team.flag} sizeClass="w-3 h-3 sm:w-4 sm:h-4 mr-1 flex-shrink-0"/>
-        <span className="truncate max-w-[50px] sm:max-w-none" title={team.name}>{team.name}</span>
+        <span className="truncate max-w-[45px] sm:max-w-none" title={team.name}>{team.name}</span>
       </span>
       <div className="flex items-center justify-end font-mono z-10 mt-0.5 gap-0.5 sm:gap-1.5">
         <span className="w-3 sm:w-4 text-center text-slate-500 hidden sm:block">{team.w}</span>
@@ -617,17 +632,17 @@ function GroupScheduleByTime({ groups, onMatchClick, onTeamClick }) {
   );
 
   return (
-    // 强制横竖屏均为双列均分架构 (各占 50%)
+    // 强制双列结构，各占 50%
     <div className="max-w-[1600px] mx-auto flex flex-row gap-0 sm:gap-4 pb-20 animate-fade-in w-full relative">
       
       {/* 左侧：严格时间轴 (固定占比 50%) */}
       <div className="w-1/2 relative pl-1 sm:pl-2 border-r border-slate-800/50 pr-1 sm:pr-2">
         <div className="absolute left-2 sm:left-3 top-4 bottom-0 w-px bg-gradient-to-b from-cyan-900 via-cyan-800/50 to-transparent z-0 hidden sm:block"></div>
         {Object.keys(groupedMatches).length === 0 && <div className="text-slate-500 py-10 text-xs">等待数据...</div>}
-        <div className="space-y-8">
+        <div className="space-y-6 sm:space-y-8">
           {Object.keys(groupedMatches).map((date, dIdx) => (
             <div key={`timeline-date-${date}-${dIdx}`} className="relative z-10">
-              <div className="flex items-center mb-3 sm:mb-4">
+              <div className="flex items-center mb-2 sm:mb-4">
                 <div className="w-2.5 h-2.5 sm:w-3.5 sm:h-3.5 rounded-full bg-cyan-500 shadow-[0_0_10px_rgba(6,182,212,0.8)] border-2 border-slate-950 flex-shrink-0 hidden sm:block"></div>
                 <div className="sm:ml-2 px-2 sm:px-4 py-1 sm:py-1.5 rounded-full bg-cyan-950/60 border border-cyan-500/30 text-cyan-300 text-[9px] sm:text-xs font-bold tracking-widest flex items-center backdrop-blur-md">
                   <CalendarDays className="w-3 h-3 mr-1 sm:mr-2 text-cyan-400" /> {date}
@@ -646,10 +661,10 @@ function GroupScheduleByTime({ groups, onMatchClick, onTeamClick }) {
                         <span className="text-[8px] text-slate-600 truncate max-w-[50px] sm:max-w-none"><MapPin className="w-2 h-2 inline opacity-50" /> {match.venue}</span>
                       </div>
                       
-                      {/* 压缩队距居中排版 */}
-                      <div className="flex justify-center items-center w-full mt-1 gap-1 sm:gap-2">
+                      {/* 极限压缩间距排版 */}
+                      <div className="flex justify-center items-center w-full mt-1 gap-1">
                         <div className="flex items-center justify-end flex-1 overflow-hidden">
-                          <span className="truncate text-[9px] sm:text-xs font-bold text-slate-300 group-hover:text-white text-right" title={match.home?.name || '待定'}>{match.home?.name || '待定'}</span>
+                          <span className="truncate text-[10px] sm:text-xs font-bold text-slate-300 group-hover:text-white text-right" title={match.home?.name || '待定'}>{match.home?.name || '待定'}</span>
                           <TeamFlag flag={match.home?.flag} sizeClass="w-3.5 h-3.5 sm:w-5 sm:h-5 ml-1" />
                         </div>
                         <div className="flex flex-col justify-center items-center shrink-0 relative px-1">
@@ -660,7 +675,7 @@ function GroupScheduleByTime({ groups, onMatchClick, onTeamClick }) {
                         </div>
                         <div className="flex items-center justify-start flex-1 overflow-hidden">
                           <TeamFlag flag={match.away?.flag} sizeClass="w-3.5 h-3.5 sm:w-5 sm:h-5 mr-1" />
-                          <span className="truncate text-[9px] sm:text-xs font-bold text-slate-300 group-hover:text-white text-left" title={match.away?.name || '待定'}>{match.away?.name || '待定'}</span>
+                          <span className="truncate text-[10px] sm:text-xs font-bold text-slate-300 group-hover:text-white text-left" title={match.away?.name || '待定'}>{match.away?.name || '待定'}</span>
                         </div>
                       </div>
                     </div>
@@ -694,11 +709,11 @@ function GroupScheduleByTime({ groups, onMatchClick, onTeamClick }) {
                  </div>
 
                  <div className="bg-slate-950 rounded border border-slate-800/80 overflow-hidden flex flex-col">
-                    <div className="relative bg-emerald-900/20 border border-emerald-500/20 rounded-md mb-1 pt-4 pb-0.5 overflow-hidden">
+                    <div className="relative bg-emerald-900/20 border border-emerald-500/20 rounded-md mb-1 pt-3 sm:pt-4 pb-0.5 overflow-hidden">
                        <div className="absolute top-0 right-0 bg-emerald-500/90 text-emerald-950 text-[7px] sm:text-[9px] font-black px-1.5 py-px rounded-bl-xl shadow z-10">晋级32强</div>
                        {groups[g].teams.slice(0, 2).map((team, idx) => <React.Fragment key={`sb-team-${team.id}`}>{renderSidebarTeamRow(team, 'top2', idx, g)}</React.Fragment>)}
                     </div>
-                    <div className="relative bg-yellow-900/20 border border-yellow-500/20 rounded-md mb-1 pt-4 pb-0.5 overflow-hidden">
+                    <div className="relative bg-yellow-900/20 border border-yellow-500/20 rounded-md mb-1 pt-3 sm:pt-4 pb-0.5 overflow-hidden">
                        <div className="absolute top-0 right-0 bg-yellow-500/90 text-yellow-950 text-[7px] sm:text-[9px] font-black px-1.5 py-px rounded-bl-xl shadow z-10">待定区</div>
                        {groups[g].teams.slice(2, 3).map((team, idx) => <React.Fragment key={`sb-team-${team.id}`}>{renderSidebarTeamRow(team, 'third', idx + 2, g)}</React.Fragment>)}
                     </div>
@@ -840,7 +855,7 @@ function KnockoutCleanListCard({ match, onClick }) {
       </div>
       <div className="flex justify-center items-center w-full mt-1 gap-2">
         <div className="flex items-center justify-end flex-1">
-          <span className={`text-[9px] sm:text-sm truncate font-bold text-right ${match.home.isPlaceholder ? 'text-slate-500 font-mono font-normal' : 'text-slate-200 group-hover:text-white'}`} title={match.home.placeholderName || match.home.name}>{match.home.name}</span>
+          <span className={`text-[10px] sm:text-sm truncate font-bold text-right ${match.home.isPlaceholder ? 'text-slate-500 font-mono font-normal' : 'text-slate-200 group-hover:text-white'}`} title={match.home.placeholderName || match.home.name}>{match.home.name}</span>
           <TeamFlag flag={match.home.flag} sizeClass="w-3.5 h-3.5 sm:w-6 sm:h-6 ml-1 flex-shrink-0" />
         </div>
         <div className="flex justify-center items-center shrink-0">
@@ -849,12 +864,12 @@ function KnockoutCleanListCard({ match, onClick }) {
                {match.homeScore} - {match.awayScore}
              </span>
           ) : (
-             <span className="font-black text-[9px] sm:text-sm text-slate-700">VS</span>
+             <span className="font-black text-[10px] sm:text-sm text-slate-700">VS</span>
           )}
         </div>
         <div className="flex items-center justify-start flex-1">
           <TeamFlag flag={match.away.flag} sizeClass="w-3.5 h-3.5 sm:w-6 sm:h-6 mr-1 flex-shrink-0" />
-          <span className={`text-[9px] sm:text-sm truncate text-left font-bold ${match.away.isPlaceholder ? 'text-slate-500 font-mono font-normal' : 'text-slate-200 group-hover:text-white'}`} title={match.away.placeholderName || match.away.name}>{match.away.name}</span>
+          <span className={`text-[10px] sm:text-sm truncate text-left font-bold ${match.away.isPlaceholder ? 'text-slate-500 font-mono font-normal' : 'text-slate-200 group-hover:text-white'}`} title={match.away.placeholderName || match.away.name}>{match.away.name}</span>
         </div>
       </div>
     </div>
@@ -885,13 +900,11 @@ function KnockoutCompactTree({ round, matches, onMatchClick }) {
   if (round === 'final') {
     return (
       <div className="flex flex-col md:flex-row items-center justify-center gap-6 md:gap-12 w-full">
-        {/* 季军战在左 */}
-        <div className="text-center w-full max-w-xs opacity-90 order-1">
+        <div className="text-center w-full md:w-[45%] opacity-90 order-1">
           <div className="text-slate-400 font-bold mb-1 sm:mb-2 tracking-widest text-[10px] sm:text-xs bg-slate-800/50 py-1.5 rounded-t-lg border border-slate-700 border-b-0">季军战</div>
           <CompactTreeNode match={matches[0]} onClick={onMatchClick} />
         </div>
-        {/* 冠军战在右 */}
-        <div className="text-center w-full max-w-sm order-2">
+        <div className="text-center w-full md:w-[45%] order-2">
           <div className="text-yellow-500 font-bold mb-1 sm:mb-2 tracking-widest text-xs sm:text-sm flex justify-center items-center bg-yellow-500/10 py-1.5 rounded-t-lg border border-yellow-500/30 border-b-0">
             <Crown className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1.5"/> 冠军战
           </div>
@@ -908,7 +921,7 @@ function CompactTreeNode({ match, isFinal, onClick }) {
     <div onClick={() => onClick && onClick(match)} className={`bg-slate-900/80 border transition-all cursor-pointer group ${isFinal ? 'border-yellow-500/50 shadow-[0_0_20px_rgba(234,179,8,0.1)] hover:border-yellow-400/80' : 'border-slate-800 hover:border-purple-500/50'} rounded-lg p-1.5 sm:p-2 flex flex-col relative overflow-hidden`}>
       <div className="flex justify-between items-center mb-1.5 px-1 border-b border-slate-800/50 pb-1.5 pt-0.5">
         <span className="text-[10px] sm:text-xs font-bold text-slate-300 group-hover:text-slate-100 flex items-center bg-slate-950 px-1.5 py-0.5 rounded"><Clock className="w-3 h-3 inline mr-1 opacity-70"/>{match.timeStr}</span>
-        <span className="text-[8px] sm:text-[9px] text-slate-500 truncate max-w-[80px] sm:max-w-[120px] group-hover:text-slate-400 flex items-center"><MapPin className="w-2.5 h-2.5 inline mr-0.5 opacity-70"/>{match.venue}</span>
+        <span className="text-[9px] text-slate-500 truncate max-w-[80px] sm:max-w-[120px] group-hover:text-slate-400 flex items-center"><MapPin className="w-2.5 h-2.5 inline mr-0.5 opacity-70"/>{match.venue}</span>
       </div>
       <CompactTeamRow team={home} isWin={isHomeWin} isLoss={isFinished && !isHomeWin} score={match.homeScore} isFinished={isFinished} />
       <div className="h-px w-full bg-slate-800/50 my-1"></div>
@@ -924,7 +937,7 @@ function CompactTeamRow({ team, isWin, isLoss, score, isFinished }) {
       <div className="flex items-center space-x-2 pl-1 w-[70%]">
         {isLoss && <span className="absolute -left-1 text-[8px] bg-slate-950 rounded-full border border-slate-800 z-10"><X className="w-3 h-3 text-red-500 p-0.5" /></span>}
         {isWin && <span className="absolute -left-1 text-[8px] font-black bg-yellow-500 text-slate-950 px-1 py-0.5 rounded shadow-lg transform -rotate-12 z-10">WIN</span>}
-        <TeamFlag flag={team.flag} sizeClass="w-4 h-4 sm:w-6 sm:h-6 flex-shrink-0" />
+        <TeamFlag flag={team.flag} sizeClass="w-5 h-5 sm:w-6 sm:h-6 flex-shrink-0" />
         <span className={`text-[10px] sm:text-sm truncate w-full ${isWin ? 'text-white font-bold' : isLoss || team.isPlaceholder ? 'text-slate-500 font-mono font-normal' : 'text-slate-300 font-medium'}`} title={team.placeholderName || team.name}>{team.name}</span>
       </div>
       <div className="w-[30%] text-right pr-2">
@@ -942,22 +955,33 @@ function BracketView({ getTeamFromSlot, onMatchClick }) {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const containerRef = useRef(null);
 
-  const getInitialScale = () => {
+  const getInitialScale = useCallback(() => {
     if (typeof window !== 'undefined') {
       const w = window.innerWidth;
       const h = window.innerHeight;
-      const scaleX = w / 2200;
-      const scaleY = h / 1600;
-      return Math.min(scaleX, scaleY, 0.9);
+      const scaleX = w / 2400; // 根据新字号增加宽度计算
+      const scaleY = (h - 100) / 1600;
+      return Math.max(Math.min(scaleX, scaleY, 0.95), 0.15); // 确保最小缩放能看到全貌
     }
     return 0.35;
-  };
+  }, []);
 
   const [transform, setTransform] = useState({ x: 0, y: 0, scale: getInitialScale() });
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [lastTouchDist, setLastTouchDist] = useState(null);
 
+  useEffect(() => {
+    const handleResize = () => setTransform(p => ({ ...p, scale: getInitialScale(), x: 0, y: 0 }));
+    window.addEventListener('resize', handleResize);
+    window.addEventListener('orientationchange', handleResize);
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      window.removeEventListener('orientationchange', handleResize);
+    };
+  }, [getInitialScale]);
+
+  // 极限防下拉刷新与原生缩放
   useEffect(() => {
     const canvas = containerRef.current;
     if (!canvas) return;
@@ -1091,8 +1115,9 @@ function BracketView({ getTeamFromSlot, onMatchClick }) {
 
 function BracketColumn({ title, children, gap, isCenter }) {
   return (
-    <div className={`flex flex-col w-44 sm:w-64 ${isCenter ? 'justify-center' : 'justify-around'} h-[1600px]`}>
-      <div className="text-center font-bold text-slate-400 tracking-widest text-xs sm:text-base mb-6 shrink-0 bg-slate-800/80 py-2 sm:py-3 border border-slate-700 rounded shadow-lg backdrop-blur-sm">{title}</div>
+    // 增加卡片宽度以容纳更大字号
+    <div className={`flex flex-col w-52 sm:w-72 ${isCenter ? 'justify-center' : 'justify-around'} h-[1600px]`}>
+      <div className="text-center font-bold text-slate-400 tracking-widest text-sm sm:text-base mb-6 shrink-0 bg-slate-800/80 py-2 sm:py-3 border border-slate-700 rounded shadow-lg backdrop-blur-sm">{title}</div>
       <div className={`flex flex-col flex-1 justify-center ${gap}`}>{children}</div>
     </div>
   );
@@ -1105,7 +1130,7 @@ function MatchCard({ match, home, away, isTBD, highlight, isFinal, onClick }) {
   return (
     <div onClick={() => match && onClick && onClick({...match, home: displayHome, away: displayAway})} className={`w-full relative rounded-xl border bg-slate-900/95 backdrop-blur overflow-hidden transition-all duration-300 shadow-xl cursor-pointer group ${isTBD ? 'border-slate-800 opacity-60 hover:opacity-100 hover:border-slate-600' : 'border-slate-600'} ${highlight ? 'border-blue-500/60 shadow-[0_0_30px_rgba(59,130,246,0.3)]' : ''} ${isFinal ? 'border-yellow-500/80 bg-gradient-to-br from-slate-900 to-yellow-900/30 shadow-[0_0_40px_rgba(234,179,8,0.2)]' : ''}`}>
       <div className="flex justify-between items-center px-2 sm:px-3 pt-1.5 sm:pt-2 pb-1 sm:pb-1.5 border-b border-slate-800/50 bg-slate-950/40">
-        <span className="text-[10px] sm:text-xs font-bold text-slate-400 group-hover:text-slate-200 flex items-center"><Clock className="w-2.5 h-2.5 sm:w-3.5 sm:h-3.5 inline mr-1 opacity-70"/>{match?.timeStr || 'TBD'}</span>
+        <span className="text-[11px] sm:text-sm font-bold text-slate-400 group-hover:text-slate-200 flex items-center"><Clock className="w-3.5 h-3.5 sm:w-4 sm:h-4 inline mr-1 opacity-70"/>{match?.timeStr || 'TBD'}</span>
       </div>
       <div className="p-1 sm:p-2">
         <TeamRow team={displayHome} isTBD={isTBD} />
@@ -1120,9 +1145,9 @@ function TeamRow({ team, isTBD }) {
   return (
     <div className={`flex items-center justify-between p-1.5 sm:p-3 rounded bg-slate-800/40`}>
       <div className="flex items-center space-x-2 sm:space-x-4 text-sm sm:text-base w-full">
-        <TeamFlag flag={team?.flag} sizeClass="w-5 h-5 sm:w-8 sm:h-8 flex-shrink-0" />
-        <div className="flex flex-col w-[70%]">
-          <span className={`truncate max-w-[80px] sm:max-w-[140px] w-full ${team?.isPlaceholder ? 'text-slate-500 font-mono font-normal text-xs sm:text-sm' : 'text-slate-100 font-bold text-xs sm:text-base'}`} title={team?.placeholderName || team?.name}>{team?.name || '待定'}</span>
+        <TeamFlag flag={team?.flag} sizeClass="w-6 h-6 sm:w-8 sm:h-8 flex-shrink-0" />
+        <div className="flex flex-col w-[80%]">
+          <span className={`truncate w-full ${team?.isPlaceholder ? 'text-slate-500 font-mono font-normal text-xs sm:text-sm' : 'text-slate-100 font-bold text-sm sm:text-base'}`} title={team?.placeholderName || team?.name}>{team?.name || '待定'}</span>
         </div>
       </div>
     </div>
@@ -1143,20 +1168,20 @@ function TreeConnector({ count, height, reverse }) {
 }
 
 // ================= 7. Tab 4: 冠军推演沙盒 =================
-function PredictionSandbox({ getTeamFromSlot, groups, onMatchClick }) {
+function PredictionSandbox({ getTeamFromSlot, groups }) {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const containerRef = useRef(null);
 
-  const getInitialScale = () => {
+  const getInitialScale = useCallback(() => {
     if (typeof window !== 'undefined') {
       const w = window.innerWidth;
       const h = window.innerHeight;
-      const scaleX = w / 2200;
-      const scaleY = h / 1600;
-      return Math.min(scaleX, scaleY, 0.9);
+      const scaleX = w / 2400; // 适配大字号的大尺寸
+      const scaleY = (h - 100) / 1600;
+      return Math.max(Math.min(scaleX, scaleY, 0.95), 0.15);
     }
     return 0.35;
-  };
+  }, []);
 
   const initPredictions = () => {
     let nodes = {};
@@ -1183,6 +1208,16 @@ function PredictionSandbox({ getTeamFromSlot, groups, onMatchClick }) {
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [lastTouchDist, setLastTouchDist] = useState(null);
+
+  useEffect(() => {
+    const handleResize = () => setTransform(p => ({ ...p, scale: getInitialScale(), x: 0, y: 0 }));
+    window.addEventListener('resize', handleResize);
+    window.addEventListener('orientationchange', handleResize);
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      window.removeEventListener('orientationchange', handleResize);
+    };
+  }, [getInitialScale]);
 
   useEffect(() => {
     const canvas = containerRef.current;
@@ -1220,6 +1255,7 @@ function PredictionSandbox({ getTeamFromSlot, groups, onMatchClick }) {
     }
   };
   const handleTouchEnd = () => { setIsDragging(false); setLastTouchDist(null); };
+
   const resetView = () => setTransform({ x: 0, y: 0, scale: getInitialScale() });
 
   const handleAdvance = (nodeId, team) => {
@@ -1253,7 +1289,6 @@ function PredictionSandbox({ getTeamFromSlot, groups, onMatchClick }) {
   return (
     <div className={`relative bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-slate-900 via-slate-950 to-black overflow-hidden flex flex-col ${isFullscreen ? 'fixed inset-0 z-[100] w-full h-full' : 'h-[calc(100vh-72px)] w-full'}`}>
       
-      {/* 提示信息移到顶部居中 */}
       <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 flex flex-col items-center pointer-events-none space-y-2 opacity-90">
         <div className="flex items-center bg-yellow-500/20 text-yellow-400 border border-yellow-500/50 px-4 py-1.5 rounded-full font-bold shadow-[0_0_15px_rgba(234,179,8,0.2)] animate-pulse backdrop-blur-md text-[10px] sm:text-xs whitespace-nowrap">
           <Wand2 className="w-3 h-3 sm:w-4 sm:h-4 mr-1.5" /> 点击边缘占位选队，一路晋级！
@@ -1271,7 +1306,7 @@ function PredictionSandbox({ getTeamFromSlot, groups, onMatchClick }) {
             disabled={!tree.champion}
             className={`p-2 sm:p-2.5 rounded font-bold text-[10px] sm:text-xs flex items-center transition-all px-2 sm:px-4 ${tree.champion ? 'bg-gradient-to-r from-yellow-500 to-amber-600 text-slate-950 hover:scale-105 shadow-lg' : 'bg-slate-700 text-slate-500 cursor-not-allowed'}`}
           >
-            <Camera className="w-3 h-3 sm:w-4 sm:h-4 sm:mr-1.5"/> <span>生成海报</span>
+            <Camera className="w-3 h-3 sm:w-4 sm:h-4 sm:mr-1.5"/> <span>分享海报</span>
         </button>
       </div>
 
@@ -1304,7 +1339,7 @@ function PredictionSandbox({ getTeamFromSlot, groups, onMatchClick }) {
                {Array.from({length: 4}).map((_,i) => <InteractiveNode key={`node-l-17-${i}`} node={tree.nodes[17+i]} onTeamClick={handleAdvance} />)}
              </BracketColumn>
              <TreeConnector count={2} height="h-[1550px]" />
-             <BracketColumn title="1/4 决赛" gap="space-y-[580px]">
+             <BracketColumn title="1/4 决赛" gap="space-y-[620px]">
                {Array.from({length: 2}).map((_,i) => <InteractiveNode key={`node-l-25-${i}`} node={tree.nodes[25+i]} onTeamClick={handleAdvance} />)}
              </BracketColumn>
              <TreeConnector count={1} height="h-[1550px]" />
@@ -1363,18 +1398,17 @@ function InteractiveNode({ node, onTeamClick, onSelectClick, isFinal }) {
   return (
     <div className={`w-full relative rounded-xl border bg-slate-900/95 backdrop-blur overflow-hidden transition-all duration-300 shadow-xl ${isFinal ? 'border-yellow-500/80 shadow-[0_0_40px_rgba(234,179,8,0.2)]' : 'border-slate-800 opacity-90'}`}>
       <div className="flex justify-between items-center px-2 sm:px-3 pt-1.5 sm:pt-2 pb-1 sm:pb-1.5 border-b border-slate-800/50 bg-slate-950/40">
-        <span className="text-[10px] sm:text-xs font-bold text-slate-400"><Clock className="w-2.5 h-2.5 sm:w-3.5 sm:h-3.5 inline mr-1 opacity-70"/>{node.matchData?.timeStr || 'TBD'}</span>
+        <span className="text-[11px] sm:text-sm font-bold text-slate-400"><Clock className="w-3.5 h-3.5 inline mr-1 opacity-70"/>{node.matchData?.timeStr || 'TBD'}</span>
       </div>
       <div className="p-1 sm:p-2">
         <InteractiveTeamRow 
           team={node.home} 
           isWinner={node.winner?.id === node.home?.id} 
           onClick={() => onTeamClick(node.id, node.home)} 
-          // 移除限制，允许随时点击改选队伍
           onSelectClick={() => isR32 ? onSelectClick({nodeId: node.id, type: 'home', placeholderStr: node.homePlaceholder}) : null}
           placeholder={node.homePlaceholder}
         />
-        <div className="h-[2px] w-full bg-slate-800/80 my-0.5 sm:my-1"></div>
+        <div className="h-[2px] w-full bg-slate-800/80 my-1 sm:my-1.5"></div>
         <InteractiveTeamRow 
           team={node.away} 
           isWinner={node.winner?.id === node.away?.id} 
@@ -1391,22 +1425,21 @@ function InteractiveTeamRow({ team, isWinner, onClick, onSelectClick, placeholde
   const isFilled = !!team;
   if (!isFilled) {
     return (
-      <div onClick={onSelectClick} className={`flex items-center space-x-2 sm:space-x-4 p-1.5 sm:p-3 rounded transition-all ${onSelectClick ? 'cursor-pointer hover:bg-yellow-500/10 active:scale-95 border border-dashed border-slate-700 hover:border-yellow-500/50' : 'bg-slate-800/20'}`}>
-        <span className="text-sm sm:text-2xl opacity-20">❔</span>
-        {onSelectClick ? <span className="text-[10px] sm:text-sm font-mono text-yellow-500/70 flex items-center"><PlusCircle className="w-2.5 h-2.5 sm:w-4 sm:h-4 mr-1.5"/> 选择 {placeholder}</span> : <span className="text-[10px] sm:text-sm font-mono text-slate-600">等待晋级</span>}
+      <div onClick={onSelectClick} className={`flex items-center space-x-2 sm:space-x-4 p-2 sm:p-3 rounded transition-all ${onSelectClick ? 'cursor-pointer hover:bg-yellow-500/10 active:scale-95 border border-dashed border-slate-700 hover:border-yellow-500/50' : 'bg-slate-800/20'}`}>
+        <span className="text-base sm:text-2xl opacity-20">❔</span>
+        {onSelectClick ? <span className="text-xs sm:text-base font-mono text-yellow-500/70 flex items-center"><PlusCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1.5"/> 选择 {placeholder}</span> : <span className="text-xs sm:text-base font-mono text-slate-600">等待晋级</span>}
       </div>
     );
   }
   return (
-    // 增加改选区域指示
     <div className={`flex items-center justify-between p-1.5 sm:p-3 rounded transition-all cursor-pointer hover:bg-yellow-500/20 active:scale-95 ${isWinner ? 'bg-yellow-500/30 border-l-4 border-yellow-400' : 'bg-slate-800/40 border-l-4 border-transparent'}`}>
       <div onClick={onClick} className="flex items-center space-x-2 sm:space-x-4 w-[75%]">
-        <TeamFlag flag={team.flag} sizeClass="w-5 h-5 sm:w-8 sm:h-8 flex-shrink-0" />
-        <span className={`text-xs sm:text-base truncate max-w-[80px] sm:max-w-[140px] font-bold ${isWinner ? 'text-yellow-400' : 'text-slate-100'}`}>{team.name}</span>
+        <TeamFlag flag={team.flag} sizeClass="w-6 h-6 sm:w-8 sm:h-8 flex-shrink-0" />
+        <span className={`text-xs sm:text-base truncate max-w-[90px] sm:max-w-[140px] font-bold ${isWinner ? 'text-yellow-400' : 'text-slate-100'}`}>{team.name}</span>
       </div>
       {onSelectClick && (
-         <div onClick={(e) => { e.stopPropagation(); onSelectClick(); }} className="w-[25%] text-right text-[9px] sm:text-xs text-slate-500 hover:text-yellow-400 px-1 underline decoration-dashed">
-            改选
+         <div onClick={(e) => { e.stopPropagation(); onSelectClick(); }} className="w-[25%] text-right text-[10px] sm:text-xs text-slate-500 hover:text-yellow-400 px-1 underline decoration-dashed">
+            重新选
          </div>
       )}
     </div>
@@ -1423,29 +1456,29 @@ function TeamSelectorModal({ selectingSlot, onClose, onSelect, groups }) {
   const allowedGroups = parseGroupsFromPlaceholder(selectingSlot.placeholderStr);
 
   return (
-    // 固定在视口，完全不受底层 Canvas 放大缩小的影响
+    // 固定的绝对弹窗，拒绝随画布放大
     <div className="fixed top-0 left-0 w-screen h-screen bg-black/80 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
       <div className="w-full max-w-2xl bg-slate-900 border border-slate-700 rounded-2xl overflow-hidden shadow-2xl flex flex-col max-h-[85vh]">
-        <div className="p-4 border-b border-slate-800 flex justify-between items-center bg-slate-950">
+        <div className="p-3 sm:p-4 border-b border-slate-800 flex justify-between items-center bg-slate-950">
           <div>
-            <h3 className="text-base sm:text-lg font-bold text-white flex items-center"><Shield className="w-4 h-4 sm:w-5 sm:h-5 mr-2 text-emerald-500" />落位选择：<span className="text-emerald-400 ml-2 font-mono">{selectingSlot.placeholderStr}</span></h3>
-            <p className="text-[10px] sm:text-xs text-slate-500 mt-1">系统已根据最新规则过滤了可选球队。</p>
+            <h3 className="text-sm sm:text-lg font-bold text-white flex items-center"><Shield className="w-4 h-4 sm:w-5 sm:h-5 mr-2 text-emerald-500" />落位选择：<span className="text-emerald-400 ml-2 font-mono">{selectingSlot.placeholderStr}</span></h3>
+            <p className="text-[9px] sm:text-xs text-slate-500 mt-1">系统已根据最新规则过滤了可选球队。</p>
           </div>
           <button onClick={onClose} className="text-slate-400 hover:text-white bg-slate-800 p-2 rounded-full"><X className="w-4 h-4 sm:w-5 sm:h-5"/></button>
         </div>
-        <div className="flex-1 overflow-y-auto p-4 sm:p-6 custom-scrollbar bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] space-y-6">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6 custom-scrollbar bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] space-y-4 sm:space-y-6">
           {allowedGroups.length === 0 && <div className="text-center text-slate-500 py-10">等待 API 同步，无可用球队</div>}
           {allowedGroups.map(groupName => {
             const teamsInGroup = groups[groupName]?.teams || [];
             if (teamsInGroup.length === 0) return null;
             return (
               <div key={`selector-group-${groupName}`}>
-                <div className="text-xs sm:text-sm font-bold text-slate-400 mb-3 border-b border-slate-800 pb-1 flex items-center"><div className="w-1.5 h-4 bg-emerald-500 rounded mr-2"></div>{groupName}组</div>
+                <div className="text-xs sm:text-sm font-bold text-slate-400 mb-2 sm:mb-3 border-b border-slate-800 pb-1 flex items-center"><div className="w-1.5 h-3 sm:h-4 bg-emerald-500 rounded mr-2"></div>{groupName}组</div>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
                   {teamsInGroup.map(team => (
-                    <button key={`selector-team-${team.id}`} onClick={() => onSelect(team)} className="flex flex-col items-center justify-center p-3 sm:p-4 bg-slate-950 border border-slate-800 rounded-xl hover:border-emerald-500/50 hover:bg-slate-900 transition-all hover:scale-105">
-                      <TeamFlag flag={team.flag} sizeClass="w-8 h-8 sm:w-10 sm:h-10 mb-2" />
-                      <span className="text-xs sm:text-sm font-bold text-slate-200 truncate w-full px-1">{team.name}</span>
+                    <button key={`selector-team-${team.id}`} onClick={() => onSelect(team)} className="flex flex-col items-center justify-center p-2 sm:p-4 bg-slate-950 border border-slate-800 rounded-xl hover:border-emerald-500/50 hover:bg-slate-900 transition-all active:scale-95">
+                      <TeamFlag flag={team.flag} sizeClass="w-6 h-6 sm:w-10 sm:h-10 mb-1 sm:mb-2" />
+                      <span className="text-xs sm:text-sm font-bold text-slate-200 truncate w-full px-1 text-center">{team.name}</span>
                     </button>
                   ))}
                 </div>
@@ -1459,7 +1492,8 @@ function TeamSelectorModal({ selectingSlot, onClose, onSelect, groups }) {
 }
 
 function PosterModal({ tree, onClose }) {
-  const handleDownload = async () => {
+  // 原生分享或下载逻辑
+  const handleShareOrDownload = async () => {
     try {
       const btn = document.getElementById('dl-btn');
       if(btn) btn.innerHTML = '正在生成...';
@@ -1472,16 +1506,38 @@ function PosterModal({ tree, onClose }) {
       const element = document.getElementById('poster-area');
       const canvas = await window.html2canvas(element, { scale: 2, backgroundColor: '#020617' });
       const dataUrl = canvas.toDataURL('image/png');
-      const link = document.createElement('a');
-      link.download = '2026-WC-Prediction.png';
-      link.href = dataUrl;
-      link.click();
-      if(btn) btn.innerHTML = '保存成功！';
-      setTimeout(() => { if(btn) btn.innerHTML = '保存高清海报'; }, 2000);
+      
+      // 检查浏览器是否支持原生的 Web Share API (微信/朋友圈/QQ的系统入口)
+      if (navigator.share) {
+         try {
+           const blob = await (await fetch(dataUrl)).blob();
+           const file = new File([blob], '2026-WC-Prediction.png', { type: 'image/png' });
+           await navigator.share({
+             title: '我的2026世界杯冠军预测',
+             text: '快来看看我的2026美加墨世界杯冠军推演！',
+             files: [file]
+           });
+           if(btn) btn.innerHTML = '分享成功！';
+         } catch(e) {
+           // 如果分享文件失败，则直接下载
+           downloadImg(dataUrl, btn);
+         }
+      } else {
+         downloadImg(dataUrl, btn);
+      }
+      setTimeout(() => { if(btn) btn.innerHTML = '保存/分享高清海报'; }, 2000);
     } catch (e) {
       alert('保存失败，请直接截图保存');
     }
   };
+
+  const downloadImg = (dataUrl, btn) => {
+      const link = document.createElement('a');
+      link.download = '2026-WC-Prediction.png';
+      link.href = dataUrl;
+      link.click();
+      if(btn) btn.innerHTML = '已保存到相册！';
+  }
 
   return (
     <div className="fixed top-0 left-0 w-screen h-screen bg-black/90 backdrop-blur-md z-[200] flex items-center justify-center p-4">
@@ -1508,19 +1564,17 @@ function PosterModal({ tree, onClose }) {
                 <div className="text-slate-200 font-black text-xs sm:text-sm mt-1">WC Live Engine 2026</div>
               </div>
               <div className="flex flex-col items-center">
-                 <div className="w-12 h-12 sm:w-14 sm:h-14 bg-white rounded flex items-center justify-center p-1 shadow-lg">
-                   <div className="w-full h-full border-2 border-slate-900 grid grid-cols-3 gap-px p-0.5">
-                     {[1,0,1,0,1,0,1,1,1].map((v, i) => <div key={`qr-${i}`} className={`bg-slate-900 ${v?'opacity-100':'opacity-0'}`}></div>)}
-                   </div>
+                 <div className="bg-white p-0.5 rounded shadow-lg shrink-0 w-12 h-12 sm:w-14 sm:h-14">
+                   <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=http://www.xiaohuang365.com&margin=0" alt="QR" className="w-full h-full object-contain" />
                  </div>
                  <span className="text-[8px] text-slate-400 font-mono mt-1 tracking-widest">xiaohuang365.com</span>
               </div>
             </div>
           </div>
 
-          <div className="p-4 sm:p-5 bg-slate-950 border-t border-slate-800 flex gap-3">
-             <button id="dl-btn" onClick={handleDownload} className="flex-1 py-3 bg-yellow-500 hover:bg-yellow-400 text-slate-950 text-sm sm:text-base font-bold rounded-xl flex items-center justify-center transition-all shadow-[0_0_15px_rgba(234,179,8,0.3)]">
-               <Download className="w-4 h-4 sm:w-5 sm:h-5 mr-2" /> 保存高清海报
+          <div className="p-4 sm:p-5 bg-slate-950 border-t border-slate-800 flex flex-col gap-3">
+             <button id="dl-btn" onClick={handleShareOrDownload} className="w-full py-3.5 bg-yellow-500 hover:bg-yellow-400 text-slate-950 text-sm sm:text-base font-bold rounded-xl flex items-center justify-center transition-all shadow-[0_0_15px_rgba(234,179,8,0.3)]">
+               <Share2 className="w-4 h-4 sm:w-5 sm:h-5 mr-2" /> 保存/分享高清海报
              </button>
           </div>
        </div>
