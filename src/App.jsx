@@ -10,9 +10,20 @@ import {
 // 1. 全局配置与基础 UI 组件 (Unit 1)
 // ==========================================
 
-const RealTrophy = ({ className }) => (
-  <img src="/trophy.png" alt="World Cup Trophy" className={`object-contain drop-shadow-[0_10px_15px_rgba(234,179,8,0.4)] ${className}`} />
-);
+const RealTrophy = ({ className }) => {
+  const [imgError, setImgError] = useState(false);
+  if (imgError) {
+    return <span className={`inline-block drop-shadow-md text-yellow-500 ${className}`} style={{fontSize: '1.25em'}}>🏆</span>;
+  }
+  return (
+    <img 
+      src="/trophy.png" 
+      alt="World Cup Trophy" 
+      onError={() => setImgError(true)}
+      className={`object-contain drop-shadow-[0_10px_15px_rgba(234,179,8,0.4)] ${className}`} 
+    />
+  );
+};
 
 const setupViewport = () => {
   let meta = document.querySelector('meta[name="viewport"]');
@@ -101,41 +112,6 @@ const handleGlobalShare = async (elementId, fileName, setShowWechatPopup) => {
   }
 };
 
-const Podium = ({ finalMatch, thirdPlaceMatch, mode }) => {
-    const champion = finalMatch?.predictedWinner || (mode === 'live' && finalMatch?.status === 'FINISHED' ? (finalMatch.homeScore > finalMatch.awayScore ? finalMatch.home : finalMatch.away) : null);
-    const runnerUp = champion ? (champion.id === finalMatch.home?.id ? finalMatch.away : finalMatch.home) : null;
-    const thirdPlace = thirdPlaceMatch?.predictedWinner || (mode === 'live' && thirdPlaceMatch?.status === 'FINISHED' ? (thirdPlaceMatch.homeScore > thirdPlaceMatch.awayScore ? thirdPlaceMatch.home : thirdPlaceMatch.away) : null);
-    
-    return (
-        <div className="mt-8 flex flex-col items-center z-20 relative w-full">
-            <h3 className="text-slate-400 mb-6 flex items-center gap-2 font-bold tracking-widest bg-slate-900/80 px-4 py-2 rounded-full border border-slate-700 shadow-lg">
-                <Crown className="text-yellow-500" size={18} /> 最终荣耀领奖台
-            </h3>
-            <div className="flex items-end justify-center gap-2 sm:gap-6 h-48 sm:h-56 mt-6 w-full max-w-2xl mx-auto">
-                <div className="w-24 sm:w-32 bg-gradient-to-t from-slate-800 to-slate-600 rounded-t-lg flex flex-col items-center justify-end pb-4 border-t-2 border-slate-400 h-[65%] relative shadow-2xl">
-                    {runnerUp && !runnerUp.isPlaceholder && <TeamFlag flag={runnerUp.flag} sizeClass="w-10 h-10 sm:w-12 sm:h-12 absolute -top-14 sm:-top-16 drop-shadow-lg" />}
-                    {runnerUp && !runnerUp.isPlaceholder && <span className="text-[10px] sm:text-xs font-bold text-white mb-1 absolute -top-20 sm:-top-24 whitespace-nowrap bg-slate-900/80 px-2 py-0.5 rounded border border-slate-600">{runnerUp.name}</span>}
-                    <span className="text-2xl sm:text-3xl font-black text-slate-300">2</span>
-                    <span className="text-[10px] font-bold text-slate-400 mt-1">亚军</span>
-                </div>
-                <div className="w-28 sm:w-36 bg-gradient-to-t from-yellow-700 to-yellow-500 rounded-t-xl flex flex-col items-center justify-end pb-6 shadow-[0_0_40px_rgba(234,179,8,0.6)] border-t-4 border-yellow-200 h-[100%] relative z-10">
-                    <RealTrophy className="w-16 h-16 sm:w-24 sm:h-24 absolute -top-20 sm:-top-28 animate-bounce drop-shadow-[0_0_20px_rgba(234,179,8,0.8)]" />
-                    {champion && !champion.isPlaceholder && <TeamFlag flag={champion.flag} sizeClass="w-12 h-12 sm:w-16 sm:h-16 absolute -top-32 sm:-top-44 drop-shadow-xl" />}
-                    {champion && !champion.isPlaceholder && <span className="text-xs sm:text-sm font-black text-yellow-300 mb-1 absolute -top-40 sm:-top-52 whitespace-nowrap bg-slate-950/90 px-3 py-1 rounded-lg border border-yellow-500/50 shadow-lg">{champion.name}</span>}
-                    <span className="text-4xl sm:text-5xl font-black text-yellow-100">1</span>
-                    <span className="text-xs font-bold text-yellow-200 mt-1">冠军🏆</span>
-                </div>
-                <div className="w-24 sm:w-32 bg-gradient-to-t from-amber-900 to-amber-700 rounded-t-lg flex flex-col items-center justify-end pb-4 border-t-2 border-amber-500 h-[50%] relative shadow-2xl">
-                    {thirdPlace && !thirdPlace.isPlaceholder && <TeamFlag flag={thirdPlace.flag} sizeClass="w-10 h-10 sm:w-12 sm:h-12 absolute -top-14 sm:-top-16 drop-shadow-lg" />}
-                    {thirdPlace && !thirdPlace.isPlaceholder && <span className="text-[10px] sm:text-xs font-bold text-white mb-1 absolute -top-20 sm:-top-24 whitespace-nowrap bg-slate-900/80 px-2 py-0.5 rounded border border-slate-600">{thirdPlace.name}</span>}
-                    <span className="text-2xl sm:text-3xl font-black text-amber-300">3</span>
-                    <span className="text-[10px] font-bold text-amber-400 mt-1">季军</span>
-                </div>
-            </div>
-        </div>
-    );
-};
-
 // ==========================================
 // 2. 静态数据与逻辑运算 (Unit 2)
 // ==========================================
@@ -154,8 +130,6 @@ const teamsData = {
   K: [{ id: 'k1', name: '葡萄牙', flag: '🇵🇹' }, { id: 'k2', name: '刚果(金)', flag: '🇨🇩' }, { id: 'k3', name: '乌兹别克斯坦', flag: '🇺🇿' }, { id: 'k4', name: '哥伦比亚', flag: '🇨🇴' }],
   L: [{ id: 'l1', name: '英格兰', flag: '🏴󠁧󠁢󠁥󠁮󠁧󠁿' }, { id: 'l2', name: '克罗地亚', flag: '🇭🇷' }, { id: 'l3', name: '加纳', flag: '🇬🇭' }, { id: 'l4', name: '巴拿马', flag: '🇵🇦' }]
 };
-
-const allTeamsFlat = Object.entries(teamsData).flatMap(([group, teams]) => teams.map(t => ({ ...t, group })));
 
 const groupStageSchedule = {
   "墨西哥 vs 南非": "6月12日 03:00", "韩国 vs 捷克": "6月12日 10:00",
@@ -243,7 +217,7 @@ const officialKnockoutRounds = {
     { id: 'ko_102', homeStr: 'W99', awayStr: 'W100', timeStr: '7月16日 03:00', ...baseMatchProps, round: '半决赛' }  
   ],
   third: [
-    { id: 'ko_103', homeStr: 'L101', awayStr: 'L102', timeStr: '7月19日 05:00', isThirdPlace: true, ...baseMatchProps, round: '季军赛' } 
+    { id: 'ko_103', homeStr: 'L101', awayStr: 'L102', timeStr: '7月19日 05:00', isThirdPlace: true, ...baseMatchProps, round: '季军战' } 
   ],
   final: [
     { id: 'ko_104', homeStr: 'W101', awayStr: 'W102', timeStr: '7月20日 03:00', isFinal: true, ...baseMatchProps, round: '决赛' } 
@@ -766,6 +740,46 @@ const getPath = (node) => {
   return path;
 };
 
+// 提取到根层级，解决输入法失去焦点问题
+const TeamSearchInput = ({ value, onChange, onSelect, selectedTeam, placeholder, allTeams }) => {
+    const filtered = value ? allTeams.filter(t => t.name.includes(value) || t.id.includes(value.toLowerCase())).slice(0, 5) : [];
+    
+    if (selectedTeam) {
+        return (
+            <div className="flex flex-col items-center justify-center p-4 bg-slate-800 border-2 border-emerald-500/50 rounded-2xl relative w-full h-24 shadow-lg">
+                <button onClick={() => onSelect(null)} className="absolute top-2 right-2 text-slate-400 hover:text-white bg-slate-900 rounded-full p-1 transition-colors"><X className="w-3 h-3"/></button>
+                <TeamFlag flag={selectedTeam.flag} sizeClass="w-8 h-8 mb-2" />
+                <span className="font-bold text-white text-sm">{selectedTeam.name}</span>
+                <span className="text-[10px] text-emerald-400 absolute bottom-2 left-3 font-mono">{selectedTeam.group}组</span>
+            </div>
+        )
+    }
+
+    return (
+        <div className="relative w-full h-24 flex items-center">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500 pointer-events-none" />
+            <input 
+                type="text" 
+                value={value} 
+                onChange={e => onChange(e.target.value)} 
+                placeholder={placeholder}
+                className="w-full h-14 bg-slate-900 border border-slate-700 rounded-xl pl-10 pr-4 text-white placeholder:text-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
+            />
+            {filtered.length > 0 && (
+                <div className="absolute top-[calc(50%+30px)] left-0 w-full bg-slate-800 border border-slate-600 rounded-xl shadow-2xl overflow-hidden z-50">
+                    {filtered.map(t => (
+                        <button key={t.id} onClick={() => { onSelect(t); onChange(''); }} className="w-full text-left px-4 py-3 hover:bg-slate-700 flex items-center transition-all border-b border-slate-700/50 last:border-0">
+                            <TeamFlag flag={t.flag} sizeClass="w-5 h-5 mr-3" />
+                            <span className="text-slate-200 text-sm font-bold">{t.name}</span>
+                            <span className="ml-auto text-xs text-slate-500 font-mono">{t.group}组</span>
+                        </button>
+                    ))}
+                </div>
+            )}
+        </div>
+    )
+};
+
 function TeamMeetingPredictor({ groups, setShowWechatPopup }) {
     const [teamA, setTeamA] = useState(null);
     const [teamB, setTeamB] = useState(null);
@@ -837,45 +851,6 @@ function TeamMeetingPredictor({ groups, setShowWechatPopup }) {
         setResults(null);
     };
 
-    const TeamSearchInput = ({ value, onChange, onSelect, selectedTeam, placeholder }) => {
-        const filtered = value ? allTeams.filter(t => t.name.includes(value) || t.id.includes(value.toUpperCase())).slice(0, 5) : [];
-        
-        if (selectedTeam) {
-            return (
-                <div className="flex flex-col items-center justify-center p-4 bg-slate-800 border-2 border-emerald-500/50 rounded-2xl relative w-full h-24">
-                    <button onClick={() => onSelect(null)} className="absolute top-2 right-2 text-slate-400 hover:text-white bg-slate-900 rounded-full p-1"><X className="w-3 h-3"/></button>
-                    <TeamFlag flag={selectedTeam.flag} sizeClass="w-8 h-8 mb-2" />
-                    <span className="font-bold text-white text-sm">{selectedTeam.name}</span>
-                    <span className="text-[10px] text-emerald-400 absolute bottom-2 left-3 font-mono">{selectedTeam.group}组</span>
-                </div>
-            )
-        }
-
-        return (
-            <div className="relative w-full h-24 flex items-center">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
-                <input 
-                    type="text" 
-                    value={value} 
-                    onChange={e => onChange(e.target.value)} 
-                    placeholder={placeholder}
-                    className="w-full h-full bg-slate-900 border border-slate-700 rounded-2xl pl-10 pr-4 text-white placeholder:text-slate-600 focus:outline-none focus:border-blue-500 transition-all"
-                />
-                {filtered.length > 0 && (
-                    <div className="absolute top-full mt-2 left-0 w-full bg-slate-800 border border-slate-600 rounded-xl shadow-2xl overflow-hidden z-50">
-                        {filtered.map(t => (
-                            <button key={t.id} onClick={() => { onSelect(t); onChange(''); }} className="w-full text-left px-4 py-3 hover:bg-slate-700 flex items-center transition-all border-b border-slate-700/50 last:border-0">
-                                <TeamFlag flag={t.flag} sizeClass="w-5 h-5 mr-3" />
-                                <span className="text-slate-200 text-sm font-bold">{t.name}</span>
-                                <span className="ml-auto text-xs text-slate-500">{t.group}组</span>
-                            </button>
-                        ))}
-                    </div>
-                )}
-            </div>
-        )
-    };
-
     return (
         <div className="flex flex-col h-full bg-slate-950 relative overflow-y-auto custom-scrollbar pb-20">
             <div className="text-center pt-8 pb-6 px-4 shrink-0">
@@ -888,11 +863,11 @@ function TeamMeetingPredictor({ groups, setShowWechatPopup }) {
             <div className="px-4 max-w-2xl mx-auto w-full z-20">
                 <div className="flex flex-col sm:flex-row items-center gap-4 mb-6">
                     <div className="w-full sm:w-1/2">
-                        <TeamSearchInput value={searchA} onChange={setSearchA} onSelect={setTeamA} selectedTeam={teamA} placeholder="输入第一支球队名..." />
+                        <TeamSearchInput value={searchA} onChange={setSearchA} onSelect={setTeamA} selectedTeam={teamA} placeholder="输入第一支球队名..." allTeams={allTeams} />
                     </div>
                     <div className="shrink-0 hidden sm:flex text-slate-600 font-black italic text-2xl">VS</div>
                     <div className="w-full sm:w-1/2">
-                        <TeamSearchInput value={searchB} onChange={setSearchB} onSelect={setTeamB} selectedTeam={teamB} placeholder="输入第二支球队名..." />
+                        <TeamSearchInput value={searchB} onChange={setSearchB} onSelect={setTeamB} selectedTeam={teamB} placeholder="输入第二支球队名..." allTeams={allTeams} />
                     </div>
                 </div>
 
@@ -1091,48 +1066,53 @@ function RulesView({ groups, knockouts, getTeamFromSlot }) {
   );
 }
 
+// 提取了导航 Tab 机制，取代了之前无脑滑动的列表展示
 function KnockoutScheduleView({ knockouts, getTeamFromSlot, onMatchClick, setShowWechatPopup }) {
-  const groupedRounds = knockouts.reduce((acc, match) => {
-    if (!acc[match.round]) acc[match.round] = [];
-    acc[match.round].push(match);
-    return acc;
-  }, {});
+  const roundTabs = ['1/16决赛', '1/8决赛', '1/4决赛', '半决赛', '季军战', '决赛'];
+  const [activeRound, setActiveRound] = useState('1/16决赛');
+
+  const currentMatches = knockouts.filter(m => m.round === activeRound);
 
   return (
-    <div className="h-full overflow-y-auto hide-scrollbar p-2 sm:p-4 pb-20">
-      <div className="max-w-3xl mx-auto space-y-6">
-        {Object.entries(groupedRounds).map(([roundName, matches]) => (
-          <div key={roundName} className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-lg">
-            <div className="bg-gradient-to-r from-purple-900 to-slate-900 px-4 py-2 border-b border-slate-800 font-black text-purple-400">
-              {roundName}
-            </div>
-            <div className="divide-y divide-slate-800/50">
-              {matches.map((match) => {
-                const homeTeam = getTeamFromSlot(match.homeStr);
-                const awayTeam = getTeamFromSlot(match.awayStr);
-                return (
-                  <div 
-                    key={match.id} 
-                    onClick={() => onMatchClick({ ...match, homeTeam, awayTeam })}
-                    className="flex flex-col sm:flex-row items-center justify-between p-3 hover:bg-slate-800/50 cursor-pointer transition-colors gap-2"
-                  >
-                    <div className="text-xs text-slate-500 font-mono w-full sm:w-auto text-center sm:text-left">
-                      {match.timeStr}
-                    </div>
-                    <div className="flex items-center justify-center gap-3 flex-1 w-full">
-                      <div className="flex-1 text-right text-sm font-bold truncate">{homeTeam.isPlaceholder ? homeTeam.placeholderName : homeTeam.name}</div>
-                      <div className="bg-slate-950 border border-slate-700 px-3 py-1 rounded-md font-black min-w-[60px] text-center">VS</div>
-                      <div className="flex-1 text-left text-sm font-bold truncate">{awayTeam.isPlaceholder ? awayTeam.placeholderName : awayTeam.name}</div>
-                    </div>
-                    <div className="text-[10px] text-slate-600 bg-slate-950 px-2 py-0.5 rounded w-full sm:w-auto text-center">
-                      第 {match.id.replace('ko_', '')} 场
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
+    <div className="h-full flex flex-col bg-slate-950 pb-20">
+      <div className="flex overflow-x-auto hide-scrollbar border-b border-slate-800 shrink-0 bg-slate-900 px-2 py-3 gap-2 sticky top-0 z-10">
+        {roundTabs.map(r => (
+          <button 
+            key={r} 
+            onClick={() => setActiveRound(r)} 
+            className={`px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-colors ${activeRound === r ? 'bg-purple-600 text-white shadow-lg' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}
+          >
+            {r}
+          </button>
         ))}
+      </div>
+      <div className="flex-1 overflow-y-auto p-2 sm:p-4 animate-fade-in">
+        <div className="max-w-3xl mx-auto space-y-3">
+          {currentMatches.map((match) => {
+            const homeTeam = getTeamFromSlot(match.homeStr);
+            const awayTeam = getTeamFromSlot(match.awayStr);
+            return (
+              <div 
+                key={match.id} 
+                onClick={() => onMatchClick({ ...match, homeTeam, awayTeam })}
+                className="flex flex-col sm:flex-row items-center justify-between p-4 bg-slate-900 border border-slate-800 rounded-xl hover:border-purple-500/50 cursor-pointer transition-colors gap-3 shadow-sm"
+              >
+                <div className="text-xs text-slate-400 font-mono w-full sm:w-auto text-center sm:text-left flex items-center justify-center sm:justify-start">
+                  <Clock className="w-3.5 h-3.5 mr-1.5 opacity-70"/> {match.timeStr}
+                </div>
+                <div className="flex items-center justify-center gap-3 flex-1 w-full">
+                  <div className="flex-1 text-right text-sm font-bold truncate">{homeTeam.isPlaceholder ? homeTeam.placeholderName : homeTeam.name}</div>
+                  <div className="bg-slate-950 border border-slate-700 px-3 py-1 rounded-lg font-black min-w-[60px] text-center text-slate-300">VS</div>
+                  <div className="flex-1 text-left text-sm font-bold truncate">{awayTeam.isPlaceholder ? awayTeam.placeholderName : awayTeam.name}</div>
+                </div>
+                <div className="text-[10px] text-purple-400 bg-purple-900/20 px-2 py-1 rounded w-full sm:w-auto text-center font-bold border border-purple-500/20">
+                  第 {match.id.replace('ko_', '')} 场
+                </div>
+              </div>
+            );
+          })}
+          {currentMatches.length === 0 && <div className="text-center text-slate-500 py-10 text-sm">此阶段对阵生成中...</div>}
+        </div>
       </div>
     </div>
   );
@@ -1205,7 +1185,7 @@ function TeamDetailDrawer({ team, onClose, onMatchClick, groups, isTop }) {
 }
 
 // ==========================================
-// 6. 小组赛程视图 (Unit 7 - 修复截断补全)
+// 6. 小组赛程视图 (Unit 7)
 // ==========================================
 
 function GroupScheduleView({ groups, onMatchClick, onTeamClick, setShowWechatPopup }) {
@@ -1245,7 +1225,9 @@ function GroupScheduleView({ groups, onMatchClick, onTeamClick, setShowWechatPop
 
 function GroupScheduleByGroup({ groups, onMatchClick, onTeamClick }) {
   const [expandedGroups, setExpandedGroups] = useState({});
-  const toggleGroup = (g) => setExpandedGroups(prev => ({ ...prev, [g]: !prev[g] }));
+  const toggleGroup = (g) => {
+    setExpandedGroups(prev => ({ ...prev, [g]: !prev[g] }));
+  };
 
   const renderTeamRow = (team, type, gName, idx) => (
     <div key={`team-row-${gName}-${team.id || 'no-id'}-${idx}-${type}`} onClick={() => !team.isPlaceholder && onTeamClick && onTeamClick(team)} 
@@ -1272,14 +1254,15 @@ function GroupScheduleByGroup({ groups, onMatchClick, onTeamClick }) {
         const isExpanded = expandedGroups[g];
 
         return (
-          <div key={`group-board-${g}`} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 sm:p-4 flex flex-col shadow-xl hover:border-emerald-500/40 transition-all group">
-            <div onClick={() => toggleGroup(g)} className="cursor-pointer flex justify-between items-center bg-slate-950/50 p-3 rounded-lg border border-slate-800/80 mb-3 group-hover:border-emerald-500/30 transition-all">
+          <div key={`group-board-${g}`} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 sm:p-4 flex flex-col shadow-xl hover:border-emerald-500/40 transition-colors group">
+            {/* 提升了点击区域的 z-index 防止遮挡失效 */}
+            <div role="button" tabIndex={0} onClick={() => toggleGroup(g)} className="cursor-pointer flex justify-between items-center bg-slate-950/50 p-3 rounded-lg border border-slate-800/80 mb-3 hover:border-emerald-500/50 transition-all relative z-10">
               <div className="flex items-center space-x-2">
                 <div className="bg-gradient-to-b from-emerald-400 to-emerald-600 w-1.5 h-6 rounded-full"></div>
                 <span className="font-black text-white text-lg tracking-wider">{g}组</span>
               </div>
-              <span className="text-[10px] text-emerald-400 font-bold px-2 py-1 bg-emerald-900/30 rounded border border-emerald-500/30">
-                {isExpanded ? '收起赛程 ▲' : '点击展开该组赛程 ▼'}
+              <span className="text-[10px] text-emerald-400 font-bold px-2 py-1 bg-emerald-900/30 rounded border border-emerald-500/30 flex items-center">
+                {isExpanded ? '收起赛程 ▲' : '点击展开赛程 ▼'}
               </span>
             </div>
             
@@ -1357,11 +1340,12 @@ function GroupScheduleByTime({ groups, onMatchClick, onTeamClick }) {
          className={`relative flex items-center justify-between text-[10px] sm:text-xs px-1 sm:px-2 py-1.5 sm:py-2 transition-colors border-b border-slate-800/30 last:border-b-0
            ${!team.isPlaceholder ? 'cursor-pointer hover:bg-white/5' : ''} 
            ${type === 'top2' ? 'bg-emerald-900/40' : type === 'third' ? 'bg-yellow-900/40' : 'bg-transparent'}`}>
-      <span className={`flex items-center flex-1 truncate pr-1 z-10 mt-0.5 ${type === 'top2' ? 'font-bold text-emerald-100' : type === 'third' ? 'font-bold text-yellow-100' : 'text-slate-400'}`}>
+      {/* 彻底移除了固定宽度，启用 min-w-0 保证伸缩不断行，显示超长名字 */}
+      <span className={`flex items-center flex-1 min-w-0 pr-1 z-10 mt-0.5 ${type === 'top2' ? 'font-bold text-emerald-100' : type === 'third' ? 'font-bold text-yellow-100' : 'text-slate-400'}`}>
         <TeamFlag flag={team.flag} sizeClass="w-3 h-3 sm:w-4 sm:h-4 mr-1 flex-shrink-0"/>
-        <span className="truncate max-w-[45px] sm:max-w-none" title={team.name}>{team.name}</span>
+        <span className="truncate flex-1" title={team.name}>{team.name}</span>
       </span>
-      <div className="flex items-center justify-end font-mono z-10 mt-0.5 gap-0.5 sm:gap-1.5">
+      <div className="flex items-center justify-end font-mono z-10 mt-0.5 gap-0.5 sm:gap-1.5 shrink-0">
         <span className="w-3 sm:w-4 text-center text-slate-500 hidden sm:block">{team.w}</span>
         <span className="w-3 sm:w-4 text-center text-slate-500 hidden sm:block">{team.d}</span>
         <span className="w-3 sm:w-4 text-center text-slate-500 hidden sm:block">{team.l}</span>
@@ -1385,24 +1369,24 @@ function GroupScheduleByTime({ groups, onMatchClick, onTeamClick }) {
                   {date}
                 </div>
               </div>
-              <div className="space-y-3 sm:space-y-4 pl-4 sm:pl-8 border-l-2 border-slate-800/50 ml-1.5 sm:ml-2 pb-6">
+              <div className="space-y-3 sm:space-y-4 pl-2 sm:pl-8 sm:border-l-2 border-slate-800/50 sm:ml-2 pb-6">
                 {groupedMatches[date].map((match, mIdx) => (
-                  <div key={match.id} onClick={() => onMatchClick(match)} className="bg-slate-900 border border-slate-800 rounded-xl p-3 sm:p-4 hover:border-cyan-500/50 transition-all cursor-pointer group">
+                  <div key={match.id} onClick={() => onMatchClick(match)} className="bg-slate-900 border border-slate-800 rounded-xl p-2.5 sm:p-4 hover:border-cyan-500/50 transition-all cursor-pointer group">
                     <div className="flex justify-between items-center mb-2">
                       <span className="text-[10px] sm:text-xs text-slate-400 font-mono flex items-center"><Clock className="w-3 h-3 mr-1"/>{match.timeStr}</span>
                       <span className="text-[9px] text-slate-500">{match.venue}</span>
                     </div>
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2 w-[40%] justify-end">
-                        <span className="text-xs sm:text-sm font-bold text-slate-300 group-hover:text-cyan-100 truncate">{match.home?.name || '待定'}</span>
-                        <TeamFlag flag={match.home?.flag} sizeClass="w-5 h-5 sm:w-6 sm:h-6" />
+                      <div className="flex items-center gap-1.5 w-[42%] justify-end">
+                        <span className="text-[10px] sm:text-sm font-bold text-slate-300 group-hover:text-cyan-100 truncate flex-1 text-right">{match.home?.name || '待定'}</span>
+                        <TeamFlag flag={match.home?.flag} sizeClass="w-5 h-5 sm:w-6 sm:h-6 shrink-0" />
                       </div>
-                      <div className="flex flex-col items-center justify-center w-[20%]">
+                      <div className="flex flex-col items-center justify-center w-[16%]">
                         <span className="text-xs sm:text-lg font-black text-slate-500 group-hover:text-cyan-400">VS</span>
                       </div>
-                      <div className="flex items-center gap-2 w-[40%] justify-start">
-                        <TeamFlag flag={match.away?.flag} sizeClass="w-5 h-5 sm:w-6 sm:h-6" />
-                        <span className="text-xs sm:text-sm font-bold text-slate-300 group-hover:text-cyan-100 truncate">{match.away?.name || '待定'}</span>
+                      <div className="flex items-center gap-1.5 w-[42%] justify-start">
+                        <TeamFlag flag={match.away?.flag} sizeClass="w-5 h-5 sm:w-6 sm:h-6 shrink-0" />
+                        <span className="text-[10px] sm:text-sm font-bold text-slate-300 group-hover:text-cyan-100 truncate flex-1 text-left">{match.away?.name || '待定'}</span>
                       </div>
                     </div>
                   </div>
@@ -1418,7 +1402,8 @@ function GroupScheduleByTime({ groups, onMatchClick, onTeamClick }) {
            <div key={`sidebar-group-${gName}`} className="bg-slate-900 border border-slate-800 rounded-xl p-2 sticky top-4 shadow-xl">
              <div className="text-emerald-400 font-bold text-[10px] sm:text-xs mb-2 border-b border-slate-800 pb-1.5 flex justify-between">
                <span>{gName}组 积分榜</span>
-               <span className="text-slate-500 font-normal">胜 平 负 净 分</span>
+               <span className="text-slate-500 font-normal hidden sm:block">胜 平 负 净 分</span>
+               <span className="text-slate-500 font-normal sm:hidden">净 分</span>
              </div>
              {groups[gName].teams.slice(0, 2).map((t, i) => renderSidebarTeamRow(t, 'top2', i, gName))}
              {groups[gName].teams.slice(2, 3).map((t, i) => renderSidebarTeamRow(t, 'third', i+2, gName))}
@@ -1487,8 +1472,6 @@ export default function App() {
           return;
         }
 
-        // 注意：此处若有自定义的动态数据展平逻辑，可在此处插入。
-        // 此处为了保证功能跑通，当 API 请求成功后，以 initialGroups 结构作为 Fallback。
         setGroups(initialGroups);
         setApiStatus('SUCCESS');
 
@@ -1545,7 +1528,6 @@ export default function App() {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-200 font-sans flex flex-col h-[100dvh] overflow-hidden selection:bg-emerald-500/30">
       
-      {/* 现代化全功能 Header */}
       <header className={`${headerClass} px-2 py-2 sm:px-4 sm:py-3 gap-2`}>
          <div className="flex items-center justify-between">
             <h1 className="text-lg sm:text-xl font-black text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-400 flex items-center">
@@ -1559,7 +1541,7 @@ export default function App() {
          </div>
          <nav className="flex space-x-1 overflow-x-auto hide-scrollbar pb-1 pt-1">
             <button onClick={() => setActiveTab('group_schedule')} className={`whitespace-nowrap px-3 sm:px-4 py-1.5 rounded-full text-[10px] sm:text-xs font-bold transition-all ${activeTab === 'group_schedule' ? 'bg-emerald-600 text-white shadow-lg' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}>小组全景</button>
-            <button onClick={() => setActiveTab('knockout_schedule')} className={`whitespace-nowrap px-3 sm:px-4 py-1.5 rounded-full text-[10px] sm:text-xs font-bold transition-all ${activeTab === 'knockout_schedule' ? 'bg-emerald-600 text-white shadow-lg' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}>淘汰赛程</button>
+            <button onClick={() => setActiveTab('knockout_schedule')} className={`whitespace-nowrap px-3 sm:px-4 py-1.5 rounded-full text-[10px] sm:text-xs font-bold transition-all ${activeTab === 'knockout_schedule' ? 'bg-purple-600 text-white shadow-lg' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}>淘汰赛程</button>
             <button onClick={() => setActiveTab('bracket')} className={`whitespace-nowrap px-3 sm:px-4 py-1.5 rounded-full text-[10px] sm:text-xs font-bold transition-all ${activeTab === 'bracket' ? 'bg-blue-600 text-white shadow-lg' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}>大树瀑布流</button>
             <button onClick={() => setActiveTab('prediction')} className={`whitespace-nowrap px-3 sm:px-4 py-1.5 rounded-full text-[10px] sm:text-xs font-bold transition-all ${activeTab === 'prediction' ? 'bg-yellow-600 text-white shadow-lg' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}>夺冠推演</button>
             <button onClick={() => setActiveTab('meeting')} className={`whitespace-nowrap px-3 sm:px-4 py-1.5 rounded-full text-[10px] sm:text-xs font-bold transition-all ${activeTab === 'meeting' ? 'bg-red-600 text-white shadow-lg' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}>宿命对决</button>
@@ -1567,7 +1549,6 @@ export default function App() {
          </nav>
       </header>
 
-      {/* 核心视图层分发 */}
       <div className="flex-1 overflow-hidden relative w-full h-full">
         {activeTab === 'group_schedule' && <GroupScheduleView groups={groups} onMatchClick={handleOpenMatch} onTeamClick={handleOpenTeam} setShowWechatPopup={setShowWechatPopup} />}
         {activeTab === 'knockout_schedule' && <KnockoutScheduleView knockouts={officialKnockoutRoundsFlat} getTeamFromSlot={getTeamFromSlot} onMatchClick={handleOpenMatch} setShowWechatPopup={setShowWechatPopup} />}
@@ -1577,7 +1558,6 @@ export default function App() {
         {activeTab === 'meeting' && <TeamMeetingPredictor groups={groups} setShowWechatPopup={setShowWechatPopup} />}
       </div>
 
-      {/* 补充的底层抽屉组件 */}
       <MatchDetailDrawer match={selectedMatch} onClose={handleCloseMatch} onTeamClick={handleOpenTeam} isTop={lastOpened === 'match'} />
       <TeamDetailDrawer team={selectedTeam} onClose={handleCloseTeam} onMatchClick={handleOpenMatch} groups={groups} isTop={lastOpened === 'team'} />
     </div>
