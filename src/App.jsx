@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 
 // ==========================================
-// 全局脚本静默预加载 (彻底解决第一次点击延迟)
+// 全局脚本静默预加载 
 // ==========================================
 if (typeof window !== 'undefined') {
   const loadHtml2Canvas = () => {
@@ -24,78 +24,77 @@ if (typeof window !== 'undefined') {
 // ==========================================
 
 const generateImageWithFallback = async (elementId, watermarkId, setGeneratedImage) => {
-    // 1. 显示原生加载提示，让用户知道正在处理
-    const toast = document.createElement('div');
-    toast.className = 'fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-slate-900 text-white px-6 py-4 rounded-2xl z-[9999] font-black text-sm border-2 border-emerald-500 shadow-[0_0_30px_rgba(16,185,129,0.3)] flex flex-col items-center gap-3 animate-fade-in';
-    toast.innerHTML = '<span class="animate-spin text-emerald-400 text-2xl">⏳</span> <span>正在极速渲染全景长图...</span>';
-    document.body.appendChild(toast);
+    let attempts = 0;
+    while (!window.html2canvas && attempts < 50) {
+        await new Promise(r => setTimeout(r, 100));
+        attempts++;
+    }
+    if (!window.html2canvas) {
+        alert("截图组件正在初始化，请稍后再试一次");
+        return;
+    }
+
+    const element = document.getElementById(elementId);
+    const watermark = document.getElementById(watermarkId);
+
+    // 核心修复：仅修改高度，绝不使用 position absolute 打乱 Flex 布局
+    const originalStyle = element.getAttribute('style') || '';
+    const scrollH = element.scrollHeight;
+    
+    element.style.setProperty('overflow', 'visible', 'important');
+    element.style.setProperty('height', `${scrollH}px`, 'important');
+    element.style.setProperty('max-height', 'none', 'important');
+
+    if (watermark) watermark.style.display = 'flex';
+    // 等待极短时间让浏览器重排，不加转圈提示，做到无感
+    await new Promise(r => setTimeout(r, 200));
 
     try {
-        let attempts = 0;
-        while (!window.html2canvas && attempts < 50) {
-            await new Promise(r => setTimeout(r, 100));
-            attempts++;
-        }
-        if (!window.html2canvas) throw new Error("截图引擎加载异常，请检查网络");
-
-        const element = document.getElementById(elementId);
-        const watermark = document.getElementById(watermarkId);
-
-        // 2. 核心修复：解除所有高度限制，暴露完整DOM以供完美截取
-        const originalCss = element.style.cssText;
-        element.style.cssText += "height: auto !important; max-height: none !important; overflow: visible !important;";
-        if (watermark) watermark.style.display = 'flex';
-
-        // 等待DOM重排
-        await new Promise(r => setTimeout(r, 600));
-
         const canvas = await window.html2canvas(element, { 
-            scale: 2, 
+            scale: 3, // 强行拉升到 3倍 超高清分辨率，解决模糊问题
             backgroundColor: '#020617', 
             useCORS: true, 
             allowTaint: true,
-            scrollY: -window.scrollY // 修复滚动偏移导致截屏发虚的问题
+            scrollY: 0,
+            windowHeight: scrollH,
+            logging: false
         });
         
-        const dataUrl = canvas.toDataURL('image/png');
+        const dataUrl = canvas.toDataURL('image/png', 1.0);
         const isWeChat = /MicroMessenger/i.test(navigator.userAgent);
 
-        // 3. 智能分享与下载分发
+        // 智能分享与下载分发
         if (navigator.share && navigator.canShare && !isWeChat) {
             try {
                 const blob = await (await fetch(dataUrl)).blob();
-                const file = new File([blob], '2026_WorldCup_Prediction.png', { type: 'image/png' });
+                const file = new File([blob], '2026_WorldCup.png', { type: 'image/png' });
                 await navigator.share({
                     files: [file],
-                    title: '2026世界杯推演长图',
-                    text: '来看看我的2026世界杯对阵全景图！'
+                    title: '2026世界杯长图',
+                    text: '来看看这个世界杯实况与推演图！'
                 });
             } catch (e) {
-                // 用户取消分享或失败，自动降级为直接下载
+                // 用户取消或失败，降级原生下载
                 const a = document.createElement('a');
                 a.href = dataUrl;
-                a.download = '2026_WorldCup_Prediction.png';
+                a.download = '2026_WorldCup.png';
                 a.click();
             }
         } else if (!isWeChat) {
-            // 普通浏览器直接唤起下载
             const a = document.createElement('a');
             a.href = dataUrl;
-            a.download = '2026_WorldCup_Prediction.png';
+            a.download = '2026_WorldCup.png';
             a.click();
         } else {
-            // 微信环境强制弹窗 (因微信严格封锁直接下载功能)
+            // 微信/QQ环境内，强制把图传给兜底组件显示
             setGeneratedImage(dataUrl);
         }
     } catch (e) { 
-        alert("生成长图失败：" + e.message); 
+        alert("生成图表失败：" + e.message); 
     } finally {
-        // 4. 瞬间恢复原状
-        const element = document.getElementById(elementId);
-        const watermark = document.getElementById(watermarkId);
-        if (element) element.style.cssText = originalCss;
+        // 瞬间恢复，页面不跳动
+        element.setAttribute('style', originalStyle);
         if (watermark) watermark.style.display = 'none';
-        document.body.removeChild(toast);
     }
 };
 
@@ -136,8 +135,17 @@ const GlobalQRLogo = () => (
   </div>
 );
 
+// 全局一致的底部“生成图片”悬浮按钮组件
+const CaptureButton = ({ onClick, text="一键生成并保存当前界面长图" }) => (
+  <div className="w-full flex justify-center pb-12 pt-6 bg-slate-950 relative z-50 shrink-0">
+      <button onClick={onClick} className="bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 text-white shadow-[0_0_20px_rgba(37,99,235,0.4)] px-8 py-3.5 rounded-full font-black text-sm flex items-center transition-all active:scale-95">
+          <Share className="w-5 h-5 mr-2" /> <span>{text}</span>
+      </button>
+  </div>
+);
+
 // ==========================================
-// 2. 静态数据字典与核心逻辑 (含真实2026对阵映射)
+// 2. 静态数据字典与核心逻辑
 // ==========================================
 
 const teamsData = {
@@ -255,24 +263,16 @@ const groupByDate = (matches) => {
 };
 
 const REAL_BRACKET_PARENT_MAP = {
-  73: 89, 75: 89, 74: 90, 77: 90,
-  76: 91, 78: 91, 79: 92, 80: 92,
-  83: 93, 84: 93, 81: 94, 82: 94,
-  86: 95, 88: 95, 85: 96, 87: 96,
-  89: 97, 90: 97, 93: 98, 94: 98,
-  91: 99, 92: 99, 95: 100, 96: 100,
-  97: 101, 98: 101, 99: 102, 100: 102,
-  101: 104, 102: 104
+  73: 89, 75: 89, 74: 90, 77: 90, 76: 91, 78: 91, 79: 92, 80: 92,
+  83: 93, 84: 93, 81: 94, 82: 94, 86: 95, 88: 95, 85: 96, 87: 96,
+  89: 97, 90: 97, 93: 98, 94: 98, 91: 99, 92: 99, 95: 100, 96: 100,
+  97: 101, 98: 101, 99: 102, 100: 102, 101: 104, 102: 104
 };
 
 const getMeetingRound = (matchIdA, matchIdB) => {
     if (matchIdA === matchIdB) return '1/16决赛';
-    const pathA = [matchIdA];
-    let currA = matchIdA;
-    while(REAL_BRACKET_PARENT_MAP[currA]) {
-        currA = REAL_BRACKET_PARENT_MAP[currA];
-        pathA.push(currA);
-    }
+    const pathA = [matchIdA]; let currA = matchIdA;
+    while(REAL_BRACKET_PARENT_MAP[currA]) { currA = REAL_BRACKET_PARENT_MAP[currA]; pathA.push(currA); }
     let currB = matchIdB;
     if (pathA.includes(currB)) return officialKnockoutRoundsFlat.find(m => m.id === `ko_${currB}`)?.round;
     while(REAL_BRACKET_PARENT_MAP[currB]) {
@@ -283,22 +283,16 @@ const getMeetingRound = (matchIdA, matchIdB) => {
 };
 
 const SLOT_TO_MATCH = {
-  'A1': [79], 'A2': [73], 'A3': [74, 82],
-  'B1': [85], 'B2': [73], 'B3': [74, 81],
-  'C1': [76], 'C2': [75], 'C3': [74, 77, 79],
-  'D1': [81], 'D2': [88], 'D3': [74, 77, 87],
-  'E1': [74], 'E2': [78], 'E3': [79, 80, 81, 82, 85],
-  'F1': [75], 'F2': [76], 'F3': [74, 77, 79, 81, 85],
-  'G1': [82], 'G2': [88], 'G3': [77, 85],
-  'H1': [84], 'H2': [86], 'H3': [77, 79, 80, 82],
-  'I1': [77], 'I2': [78], 'I3': [79, 80, 81, 82, 85, 87],
-  'J1': [86], 'J2': [84], 'J3': [80, 81, 82, 85, 87],
-  'K1': [87], 'K2': [83], 'K3': [80],
-  'L1': [80], 'L2': [83], 'L3': [87]
+  'A1': [79], 'A2': [73], 'A3': [74, 82], 'B1': [85], 'B2': [73], 'B3': [74, 81],
+  'C1': [76], 'C2': [75], 'C3': [74, 77, 79], 'D1': [81], 'D2': [88], 'D3': [74, 77, 87],
+  'E1': [74], 'E2': [78], 'E3': [79, 80, 81, 82, 85], 'F1': [75], 'F2': [76], 'F3': [74, 77, 79, 81, 85],
+  'G1': [82], 'G2': [88], 'G3': [77, 85], 'H1': [84], 'H2': [86], 'H3': [77, 79, 80, 82],
+  'I1': [77], 'I2': [78], 'I3': [79, 80, 81, 82, 85, 87], 'J1': [86], 'J2': [84], 'J3': [80, 81, 82, 85, 87],
+  'K1': [87], 'K2': [83], 'K3': [80], 'L1': [80], 'L2': [83], 'L3': [87]
 };
 
 // ==========================================
-// 3. 全景大树引擎 (新增独立冠军分支)
+// 3. 全景大树引擎 (完美居中与专属冠军分支)
 // ==========================================
 
 const FullScreenBracket = ({ mode, r32Selections = {}, thirdPlaceAssignments = {}, predictions = {}, setPrediction, getTeamFromSlot, onMatchClick }) => {
@@ -314,83 +308,37 @@ const FullScreenBracket = ({ mode, r32Selections = {}, thirdPlaceAssignments = {
     const resolveMatch = useCallback((matchId) => {
         const baseMatch = officialKnockoutRoundsFlat.find(m => m.id === matchId);
         if (!baseMatch) return null;
-
-        if (mode === 'live') {
-            return { ...baseMatch, home: getTeamFromSlot(baseMatch.homeStr), away: getTeamFromSlot(baseMatch.awayStr) };
-        }
-
+        if (mode === 'live') return { ...baseMatch, home: getTeamFromSlot(baseMatch.homeStr), away: getTeamFromSlot(baseMatch.awayStr) };
         const resolveSlot = (slotStr) => {
             if (!slotStr || slotStr === '?') return { id: `tbd_${Math.random()}`, name: '待定', flag: '❔', isPlaceholder: true };
-
-            if (slotStr.startsWith('W')) {
-                const prevMatch = resolveMatch(`ko_${slotStr.slice(1)}`);
-                return prevMatch?.predictedWinner || { id: slotStr, name: `待决出`, flag: '❔', isPlaceholder: true };
-            }
-            if (slotStr.startsWith('L')) {
-                const prevMatch = resolveMatch(`ko_${slotStr.slice(1)}`);
-                if (prevMatch?.predictedWinner) return prevMatch.predictedWinner.id === prevMatch.home.id ? prevMatch.away : prevMatch.home;
-                return { id: slotStr, name: `待决出`, flag: '❔', isPlaceholder: true };
-            }
-
+            if (slotStr.startsWith('W')) { const prevMatch = resolveMatch(`ko_${slotStr.slice(1)}`); return prevMatch?.predictedWinner || { id: slotStr, name: `待决出`, flag: '❔', isPlaceholder: true }; }
+            if (slotStr.startsWith('L')) { const prevMatch = resolveMatch(`ko_${slotStr.slice(1)}`); if (prevMatch?.predictedWinner) return prevMatch.predictedWinner.id === prevMatch.home.id ? prevMatch.away : prevMatch.home; return { id: slotStr, name: `待决出`, flag: '❔', isPlaceholder: true }; }
             if (mode === 'sandbox' && Object.keys(r32Selections).length > 0) {
-                if (slotStr.length === 2 && /[A-L][1-4]/.test(slotStr)) {
-                    if (r32Selections[slotStr]) return { ...r32Selections[slotStr], isPlaceholder: false };
-                } else if (slotStr.includes('/')) {
-                    const groupAssigned = thirdPlaceAssignments[matchId];
-                    if (groupAssigned && r32Selections[`${groupAssigned}3`]) {
-                        return { ...r32Selections[`${groupAssigned}3`], isPlaceholder: false };
-                    }
-                }
+                if (slotStr.length === 2 && /[A-L][1-4]/.test(slotStr)) { if (r32Selections[slotStr]) return { ...r32Selections[slotStr], isPlaceholder: false }; }
+                else if (slotStr.includes('/')) { const groupAssigned = thirdPlaceAssignments[matchId]; if (groupAssigned && r32Selections[`${groupAssigned}3`]) return { ...r32Selections[`${groupAssigned}3`], isPlaceholder: false }; }
             }
             return getTeamFromSlot(slotStr);
         };
-
-        const homeTeam = resolveSlot(baseMatch.homeStr);
-        const awayTeam = resolveSlot(baseMatch.awayStr);
-
+        const homeTeam = resolveSlot(baseMatch.homeStr); const awayTeam = resolveSlot(baseMatch.awayStr);
         let winner = predictions[matchId];
         if (winner && homeTeam && awayTeam && winner.id !== homeTeam.id && winner.id !== awayTeam.id) winner = null; 
         return { ...baseMatch, home: homeTeam, away: awayTeam, predictedWinner: winner };
     }, [mode, r32Selections, thirdPlaceAssignments, predictions, getTeamFromSlot]);
 
-    const bracketMatrix = {
-        top: [ 
-            ['ko_73', 'ko_75', 'ko_74', 'ko_77', 'ko_83', 'ko_84', 'ko_81', 'ko_82'],
-            ['ko_89', 'ko_90', 'ko_93', 'ko_94'],
-            ['ko_97', 'ko_98'],
-            ['ko_101']
-        ],
-        bottom: [ 
-            ['ko_76', 'ko_78', 'ko_79', 'ko_80', 'ko_86', 'ko_88', 'ko_85', 'ko_87'],
-            ['ko_91', 'ko_92', 'ko_95', 'ko_96'],
-            ['ko_99', 'ko_100'],
-            ['ko_102']
-        ]
-    };
-
+    const bracketMatrix = { top: [ ['ko_73', 'ko_75', 'ko_74', 'ko_77', 'ko_83', 'ko_84', 'ko_81', 'ko_82'], ['ko_89', 'ko_90', 'ko_93', 'ko_94'], ['ko_97', 'ko_98'], ['ko_101'] ], bottom: [ ['ko_76', 'ko_78', 'ko_79', 'ko_80', 'ko_86', 'ko_88', 'ko_85', 'ko_87'], ['ko_91', 'ko_92', 'ko_95', 'ko_96'], ['ko_99', 'ko_100'], ['ko_102'] ] };
     const getPos = (half, depth, index) => {
         const mainAxes = isPortrait ? [6, 18, 30, 42] : [8, 21, 34, 44]; 
-        let main = mainAxes[depth];
-        if (half === 'bottom') main = 100 - main;
-        
-        const crossAxes = [ 
-            [6.25, 18.75, 31.25, 43.75, 56.25, 68.75, 81.25, 93.75], 
-            [12.5, 37.5, 62.5, 87.5], 
-            [25, 75], 
-            [50] 
-        ];
+        let main = mainAxes[depth]; if (half === 'bottom') main = 100 - main;
+        const crossAxes = [ [6.25, 18.75, 31.25, 43.75, 56.25, 68.75, 81.25, 93.75], [12.5, 37.5, 62.5, 87.5], [25, 75], [50] ];
         let cross = crossAxes[depth][index];
         return isPortrait ? { x: cross, y: main } : { x: main, y: cross };
     };
 
-    const nodes = [];
-    const lines = [];
-    const sw = isPortrait ? 0.3 : 0.2; 
+    const nodes = []; const lines = []; const sw = isPortrait ? 0.3 : 0.2; 
 
     ['top', 'bottom'].forEach(half => {
         [0, 1, 2, 3].forEach(depth => {
-            const matchIds = bracketMatrix[half][depth];
-            matchIds.forEach((mId, index) => {
+            bracketMatrix[half][depth].forEach((mId, index) => {
                 const pos = getPos(half, depth, index);
                 nodes.push( <BracketNode key={mId} match={resolveMatch(mId)} x={pos.x} y={pos.y} isPortrait={isPortrait} mode={mode} setPrediction={setPrediction} onMatchClick={onMatchClick} /> );
             });
@@ -399,138 +347,84 @@ const FullScreenBracket = ({ mode, r32Selections = {}, thirdPlaceAssignments = {
         [0, 1, 2].forEach(depth => {
             const numPairs = 4 / Math.pow(2, depth);
             for (let i = 0; i < numPairs; i++) {
-                const A = getPos(half, depth, i * 2);
-                const B = getPos(half, depth, i * 2 + 1);
-                const Next = getPos(half, depth + 1, i);
-
-                const matchA = resolveMatch(bracketMatrix[half][depth][i * 2]);
-                const matchB = resolveMatch(bracketMatrix[half][depth][i * 2 + 1]);
-
+                const A = getPos(half, depth, i * 2); const B = getPos(half, depth, i * 2 + 1); const Next = getPos(half, depth + 1, i);
+                const matchA = resolveMatch(bracketMatrix[half][depth][i * 2]); const matchB = resolveMatch(bracketMatrix[half][depth][i * 2 + 1]);
                 const winA = mode === 'sandbox' ? !!matchA?.predictedWinner : (matchA?.status === 'FINISHED' && matchA?.homeScore !== matchA?.awayScore);
                 const winB = mode === 'sandbox' ? !!matchB?.predictedWinner : (matchB?.status === 'FINISHED' && matchB?.homeScore !== matchB?.awayScore);
-
-                const colorA = winA ? '#eab308' : '#334155'; 
-                const colorB = winB ? '#eab308' : '#334155';
-                const colorNext = (winA || winB) ? '#eab308' : '#334155';
-
+                const colorA = winA ? '#eab308' : '#334155'; const colorB = winB ? '#eab308' : '#334155'; const colorNext = (winA || winB) ? '#eab308' : '#334155';
                 if (isPortrait) {
                     const midY = (A.y + Next.y) / 2;
-                    lines.push(<path key={`L-${half}-${depth}-${i}-A`} d={`M ${A.x} ${A.y} L ${A.x} ${midY} L ${Next.x} ${midY}`} stroke={colorA} strokeWidth={sw} fill="none" className="transition-all duration-500" />);
-                    lines.push(<path key={`L-${half}-${depth}-${i}-B`} d={`M ${B.x} ${B.y} L ${B.x} ${midY} L ${Next.x} ${midY}`} stroke={colorB} strokeWidth={sw} fill="none" className="transition-all duration-500" />);
-                    lines.push(<path key={`L-${half}-${depth}-${i}-N`} d={`M ${Next.x} ${midY} L ${Next.x} ${Next.y}`} stroke={colorNext} strokeWidth={sw} fill="none" className="transition-all duration-500" />);
+                    lines.push(<path key={`L-${half}-${depth}-${i}-A`} d={`M ${A.x} ${A.y} L ${A.x} ${midY} L ${Next.x} ${midY}`} stroke={colorA} strokeWidth={sw} fill="none" />);
+                    lines.push(<path key={`L-${half}-${depth}-${i}-B`} d={`M ${B.x} ${B.y} L ${B.x} ${midY} L ${Next.x} ${midY}`} stroke={colorB} strokeWidth={sw} fill="none" />);
+                    lines.push(<path key={`L-${half}-${depth}-${i}-N`} d={`M ${Next.x} ${midY} L ${Next.x} ${Next.y}`} stroke={colorNext} strokeWidth={sw} fill="none" />);
                 } else {
                     const midX = (A.x + Next.x) / 2;
-                    lines.push(<path key={`L-${half}-${depth}-${i}-A`} d={`M ${A.x} ${A.y} L ${midX} ${A.y} L ${midX} ${Next.y}`} stroke={colorA} strokeWidth={sw} fill="none" className="transition-all duration-500" />);
-                    lines.push(<path key={`L-${half}-${depth}-${i}-B`} d={`M ${B.x} ${B.y} L ${midX} ${B.y} L ${midX} ${Next.y}`} stroke={colorB} strokeWidth={sw} fill="none" className="transition-all duration-500" />);
-                    lines.push(<path key={`L-${half}-${depth}-${i}-N`} d={`M ${midX} ${Next.y} L ${Next.x} ${Next.y}`} stroke={colorNext} strokeWidth={sw} fill="none" className="transition-all duration-500" />);
+                    lines.push(<path key={`L-${half}-${depth}-${i}-A`} d={`M ${A.x} ${A.y} L ${midX} ${A.y} L ${midX} ${Next.y}`} stroke={colorA} strokeWidth={sw} fill="none" />);
+                    lines.push(<path key={`L-${half}-${depth}-${i}-B`} d={`M ${B.x} ${B.y} L ${midX} ${B.y} L ${midX} ${Next.y}`} stroke={colorB} strokeWidth={sw} fill="none" />);
+                    lines.push(<path key={`L-${half}-${depth}-${i}-N`} d={`M ${midX} ${Next.y} L ${Next.x} ${Next.y}`} stroke={colorNext} strokeWidth={sw} fill="none" />);
                 }
             }
         });
     });
 
     const finalPos = { x: 50, y: 50 };
-    const topSemi = getPos('top', 3, 0);
-    const bottomSemi = getPos('bottom', 3, 0);
-    
-    // ！！！新增：冠军左侧专属线路坐标 ！！！
+    const topSemi = getPos('top', 3, 0); const bottomSemi = getPos('bottom', 3, 0);
     const championPos = isPortrait ? { x: 18, y: 50 } : { x: 50, y: 18 };
     const thirdPos = isPortrait ? { x: 84, y: 50 } : { x: 50, y: 84 };
     
-    const matchTopSemi = resolveMatch(bracketMatrix.top[3][0]);
-    const matchBotSemi = resolveMatch(bracketMatrix.bottom[3][0]);
-    
+    const matchTopSemi = resolveMatch(bracketMatrix.top[3][0]); const matchBotSemi = resolveMatch(bracketMatrix.bottom[3][0]);
     const winTopSF = mode === 'sandbox' ? !!matchTopSemi?.predictedWinner : (matchTopSemi?.status === 'FINISHED' && matchTopSemi?.homeScore !== matchTopSemi?.awayScore);
     const winBotSF = mode === 'sandbox' ? !!matchBotSemi?.predictedWinner : (matchBotSemi?.status === 'FINISHED' && matchBotSemi?.homeScore !== matchBotSemi?.awayScore);
 
-    lines.push(<line key="L-final-top" x1={topSemi.x} y1={topSemi.y} x2={finalPos.x} y2={finalPos.y} stroke={winTopSF ? '#eab308' : '#334155'} strokeWidth={sw} className="transition-all duration-500" />);
-    lines.push(<line key="L-final-bot" x1={bottomSemi.x} y1={bottomSemi.y} x2={finalPos.x} y2={finalPos.y} stroke={winBotSF ? '#eab308' : '#334155'} strokeWidth={sw} className="transition-all duration-500" />);
+    lines.push(<line key="L-final-top" x1={topSemi.x} y1={topSemi.y} x2={finalPos.x} y2={finalPos.y} stroke={winTopSF ? '#eab308' : '#334155'} strokeWidth={sw} />);
+    lines.push(<line key="L-final-bot" x1={bottomSemi.x} y1={bottomSemi.y} x2={finalPos.x} y2={finalPos.y} stroke={winBotSF ? '#eab308' : '#334155'} strokeWidth={sw} />);
 
-    const finalMatch = resolveMatch('ko_104');
-    const thirdPlaceMatch = resolveMatch('ko_103');
-
-    // ！！！新增：向左延申的专属冠军黄色实线 ！！！
+    const finalMatch = resolveMatch('ko_104'); const thirdPlaceMatch = resolveMatch('ko_103');
     const isChampionGenerated = mode === 'sandbox' ? !!finalMatch?.predictedWinner : (finalMatch?.status === 'FINISHED' && finalMatch?.homeScore !== finalMatch?.awayScore);
     const championTeam = mode === 'sandbox' ? finalMatch?.predictedWinner : (finalMatch?.status === 'FINISHED' ? (finalMatch?.homeScore > finalMatch?.awayScore ? finalMatch?.home : finalMatch?.away) : null);
     
-    lines.push(
-        <line key="L-champion" x1={finalPos.x} y1={finalPos.y} x2={championPos.x} y2={championPos.y} 
-              stroke={isChampionGenerated ? '#eab308' : '#334155'} 
-              strokeWidth={isChampionGenerated ? sw * 2 : sw} // 夺冠时线条加粗
-              className="transition-all duration-500" 
-              strokeDasharray={isChampionGenerated ? "0" : "1,1"} />
-    );
+    // 专门为冠军增加引人注目的黄色实线贯通
+    lines.push( <line key="L-champion" x1={finalPos.x} y1={finalPos.y} x2={championPos.x} y2={championPos.y} stroke={isChampionGenerated ? '#eab308' : '#334155'} strokeWidth={isChampionGenerated ? sw * 2 : sw} strokeDasharray={isChampionGenerated ? "0" : "1,1"} /> );
 
     nodes.push(<BracketNode key="ko_104" match={finalMatch} x={finalPos.x} y={finalPos.y} isPortrait={isPortrait} mode={mode} isFinal setPrediction={setPrediction} onMatchClick={onMatchClick} />);
     nodes.push(<BracketNode key="ko_103" match={thirdPlaceMatch} x={thirdPos.x} y={thirdPos.y} isPortrait={isPortrait} mode={mode} isThirdPlace setPrediction={setPrediction} onMatchClick={onMatchClick} />);
 
-    // ！！！新增：独立炫酷渲染冠军宝座节点 ！！！
     nodes.push(
-        <div key="champion_node" className={`absolute flex flex-col items-center justify-center border-2 rounded-xl z-[60] transition-all duration-500 ${championTeam ? 'bg-yellow-500/20 border-yellow-400 shadow-[0_0_30px_rgba(234,179,8,0.7)] scale-125' : 'bg-slate-900 border-dashed border-slate-700'}`}
-            style={{ left: `${championPos.x}%`, top: `${championPos.y}%`, transform: 'translate(-50%, -50%)', width: isPortrait ? '14vw' : '10vw', height: isPortrait ? '6vh' : '8vh', maxWidth: '100px', minWidth: '50px' }}>
+        <div key="champion_node" className={`absolute flex flex-col items-center justify-center border-2 rounded-xl z-[60] transition-all duration-500 ${championTeam ? 'bg-yellow-500/20 border-yellow-400 shadow-[0_0_30px_rgba(234,179,8,0.7)] scale-125' : 'bg-slate-900 border-dashed border-slate-700'}`} style={{ left: `${championPos.x}%`, top: `${championPos.y}%`, transform: 'translate(-50%, -50%)', width: isPortrait ? '14vw' : '10vw', height: isPortrait ? '6vh' : '8vh', maxWidth: '100px', minWidth: '50px' }}>
             <div className="absolute -top-6 text-xl sm:text-2xl animate-bounce drop-shadow-[0_0_10px_rgba(234,179,8,0.8)]">👑</div>
-            {championTeam ? (
-                <>
-                   <TeamFlag flag={championTeam.flag} sizeClass="w-6 h-6 sm:w-8 sm:h-8 mb-1 drop-shadow-md" />
-                   <span className="text-[10px] sm:text-xs font-black text-yellow-400 truncate w-full text-center px-1 leading-none">{championTeam.name}</span>
-                </>
-            ) : (
-                <span className="text-[9px] sm:text-[11px] text-slate-500 font-bold whitespace-nowrap">冠军之路</span>
-            )}
+            {championTeam ? ( <><TeamFlag flag={championTeam.flag} sizeClass="w-6 h-6 sm:w-8 sm:h-8 mb-1 drop-shadow-md" /><span className="text-[10px] sm:text-xs font-black text-yellow-400 truncate w-full text-center px-1 leading-none">{championTeam.name}</span></> ) : ( <span className="text-[9px] sm:text-[11px] text-slate-500 font-bold whitespace-nowrap">冠军之路</span> )}
         </div>
     );
 
     return (
         <div className="flex flex-col w-full h-[calc(100dvh-120px)] sm:h-[calc(100dvh-100px)] bg-slate-950 overflow-hidden relative">
-            <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="absolute inset-0 w-full h-full pointer-events-none z-0">
-                {lines}
-            </svg>
+            <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="absolute inset-0 w-full h-full pointer-events-none z-0">{lines}</svg>
             {nodes}
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none z-0 opacity-20">
-                <RealTrophy className="w-32 h-32 lg:w-48 lg:h-48 grayscale opacity-40" />
-            </div>
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none z-0 opacity-20"><RealTrophy className="w-32 h-32 lg:w-48 lg:h-48 grayscale opacity-40" /></div>
         </div>
     )
 }
 
 const BracketNode = ({ match, x, y, isPortrait, mode, isFinal, isThirdPlace, setPrediction, onMatchClick }) => {
     if (!match) return null;
-    const isSandbox = mode === 'sandbox';
-    const isLive = mode === 'live';
+    const isSandbox = mode === 'sandbox'; const isLive = mode === 'live';
     const homeWinner = isSandbox ? match.predictedWinner?.id === match.home?.id : (isLive && match.status === 'FINISHED' && match.homeScore > match.awayScore);
     const awayWinner = isSandbox ? match.predictedWinner?.id === match.away?.id : (isLive && match.status === 'FINISHED' && match.awayScore > match.homeScore);
 
-    const handleHomeClick = () => {
-        if (isLive) { onMatchClick && onMatchClick(match); }
-        if (isSandbox && !match.home.isPlaceholder) setPrediction(match.id, match.home);
-    }
-    const handleAwayClick = () => {
-        if (isLive) { onMatchClick && onMatchClick(match); }
-        if (isSandbox && !match.away.isPlaceholder) setPrediction(match.id, match.away);
-    }
+    const handleHomeClick = () => { if (isLive && onMatchClick) onMatchClick(match); if (isSandbox && !match.home.isPlaceholder) setPrediction(match.id, match.home); }
+    const handleAwayClick = () => { if (isLive && onMatchClick) onMatchClick(match); if (isSandbox && !match.away.isPlaceholder) setPrediction(match.id, match.away); }
 
+    // 修复文本对其方式，确保即使 HTML2Canvas 渲染也不会走位
     return (
-        <div 
-            className={`absolute flex flex-col justify-center bg-slate-900 border ${isSandbox && match.predictedWinner ? 'border-yellow-500 shadow-[0_0_8px_rgba(234,179,8,0.4)]' : isFinal ? 'border-yellow-600/80 shadow-[0_0_15px_rgba(234,179,8,0.3)] z-40' : 'border-slate-700'} rounded overflow-hidden z-10 hover:z-50 hover:scale-150 transition-all duration-300`}
-            style={{ left: `${x}%`, top: `${y}%`, transform: 'translate(-50%, -50%)', width: isPortrait ? '14vw' : '11vw', height: isPortrait ? '4.8vh' : '7.5vh', maxWidth: '120px', minWidth: '45px', minHeight: '28px' }}
-        >
+        <div className={`absolute flex flex-col justify-center bg-slate-900 border ${isSandbox && match.predictedWinner ? 'border-yellow-500 shadow-[0_0_8px_rgba(234,179,8,0.4)]' : isFinal ? 'border-yellow-600/80 shadow-[0_0_15px_rgba(234,179,8,0.3)] z-40' : 'border-slate-700'} rounded overflow-hidden z-10 hover:z-50 hover:scale-150 transition-all duration-300`} style={{ left: `${x}%`, top: `${y}%`, transform: 'translate(-50%, -50%)', width: isPortrait ? '14vw' : '11vw', height: isPortrait ? '4.8vh' : '7.5vh', maxWidth: '120px', minWidth: '45px', minHeight: '28px' }}>
             {isFinal && <div className="absolute -top-3 left-1/2 -translate-x-1/2 text-[6px] text-yellow-500 font-bold whitespace-nowrap bg-yellow-500/20 px-1 rounded flex items-center gap-0.5">终极决战</div>}
             {isThirdPlace && <div className="absolute -top-3 left-1/2 -translate-x-1/2 text-[6px] text-slate-400 font-bold whitespace-nowrap bg-slate-800 px-1 rounded">季军战</div>}
-
-            <div className={`flex flex-1 items-center justify-between px-1 border-b border-slate-800/80 cursor-pointer 
-                ${isSandbox && !match.home.isPlaceholder && !homeWinner ? 'hover:bg-yellow-500/20' : ''} 
-                ${!isSandbox && !match.home.isPlaceholder ? 'hover:bg-slate-800' : ''} 
-                ${homeWinner ? 'bg-emerald-900/60 border-l-2 border-emerald-500' : 'border-l-2 border-transparent'}`}
-                onClick={handleHomeClick}>
+            <div className={`flex flex-1 items-center justify-between px-1 border-b border-slate-800/80 cursor-pointer ${isSandbox && !match.home.isPlaceholder && !homeWinner ? 'hover:bg-yellow-500/20' : ''} ${!isSandbox && !match.home.isPlaceholder ? 'hover:bg-slate-800' : ''} ${homeWinner ? 'bg-emerald-900/60 border-l-2 border-emerald-500' : 'border-l-2 border-transparent'}`} onClick={handleHomeClick}>
                 <TeamFlag flag={match.home.flag} sizeClass="w-3 h-3 lg:w-4 lg:h-4 shrink-0" />
                 <span className={`text-[7px] sm:text-[9px] ml-0.5 flex-1 leading-none ${homeWinner ? 'font-bold text-yellow-400' : match.home.isPlaceholder ? 'text-slate-500' : 'text-slate-200'}`} style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={match.home.name}>{match.home.name}</span>
                 {isLive && <span className={`text-[6px] lg:text-[8px] ml-0.5 leading-none ${homeWinner ? 'text-yellow-400 font-bold' : 'text-slate-500'}`}>{match.status === 'FINISHED' || match.status === 'LIVE' ? match.homeScore : '-'}</span>}
             </div>
-
-            <div className={`flex flex-1 items-center justify-between px-1 cursor-pointer 
-                ${isSandbox && !match.away.isPlaceholder && !awayWinner ? 'hover:bg-yellow-500/20' : ''} 
-                ${!isSandbox && !match.away.isPlaceholder ? 'hover:bg-slate-800' : ''} 
-                ${awayWinner ? 'bg-emerald-900/60 border-l-2 border-emerald-500' : 'border-l-2 border-transparent'}`}
-                onClick={handleAwayClick}>
+            <div className={`flex flex-1 items-center justify-between px-1 cursor-pointer ${isSandbox && !match.away.isPlaceholder && !awayWinner ? 'hover:bg-yellow-500/20' : ''} ${!isSandbox && !match.away.isPlaceholder ? 'hover:bg-slate-800' : ''} ${awayWinner ? 'bg-emerald-900/60 border-l-2 border-emerald-500' : 'border-l-2 border-transparent'}`} onClick={handleAwayClick}>
                 <TeamFlag flag={match.away.flag} sizeClass="w-3 h-3 lg:w-4 lg:h-4 shrink-0" />
                 <span className={`text-[7px] sm:text-[9px] ml-0.5 flex-1 leading-none ${awayWinner ? 'font-bold text-yellow-400' : match.away.isPlaceholder ? 'text-slate-500' : 'text-slate-200'}`} style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={match.away.name}>{match.away.name}</span>
                 {isLive && <span className={`text-[6px] lg:text-[8px] ml-0.5 leading-none ${awayWinner ? 'text-yellow-400 font-bold' : 'text-slate-500'}`}>{match.status === 'FINISHED' || match.status === 'LIVE' ? match.awayScore : '-'}</span>}
@@ -562,11 +456,7 @@ const TeamSearchInput = ({ value, onChange, onSelect, selectedTeam, placeholder,
             {filtered.length > 0 && (
                 <div className="absolute top-[calc(50%+30px)] left-0 w-full bg-slate-800 border border-slate-600 rounded-xl shadow-2xl overflow-hidden z-50">
                     {filtered.map(t => (
-                        <button type="button" key={t.id} onClick={(e) => { e.preventDefault(); e.stopPropagation(); onSelect(t); onChange(''); }} className="w-full text-left px-4 py-3 hover:bg-slate-700 flex items-center transition-all border-b border-slate-700/50 last:border-0">
-                            <TeamFlag flag={t.flag} sizeClass="w-5 h-5 mr-3" />
-                            <span className="text-slate-200 text-sm font-bold">{t.name}</span>
-                            <span className="ml-auto text-xs text-slate-500 font-mono">{t.group}组</span>
-                        </button>
+                        <button type="button" key={t.id} onClick={(e) => { e.preventDefault(); e.stopPropagation(); onSelect(t); onChange(''); }} className="w-full text-left px-4 py-3 hover:bg-slate-700 flex items-center transition-all border-b border-slate-700/50 last:border-0"><TeamFlag flag={t.flag} sizeClass="w-5 h-5 mr-3" /><span className="text-slate-200 text-sm font-bold">{t.name}</span><span className="ml-auto text-xs text-slate-500 font-mono">{t.group}组</span></button>
                     ))}
                 </div>
             )}
@@ -575,24 +465,15 @@ const TeamSearchInput = ({ value, onChange, onSelect, selectedTeam, placeholder,
 };
 
 const GroupRankingGame = ({ groups, onComplete }) => {
-    const groupLetters = Object.keys(groups);
-    const [currentIndex, setCurrentIndex] = useState(0);
-    const currentGroup = groupLetters[currentIndex];
+    const groupLetters = Object.keys(groups); const [currentIndex, setCurrentIndex] = useState(0); const currentGroup = groupLetters[currentIndex];
     const originalTeams = groups[currentGroup].teams.map(t => ({...t, isPlaceholder: false}));
-    const [slots, setSlots] = useState([null, null, null, null]);
-    const [allRankings, setAllRankings] = useState({});
+    const [slots, setSlots] = useState([null, null, null, null]); const [allRankings, setAllRankings] = useState({});
 
-    const handleTeamClick = (team) => {
-        if (slots.find(t => t?.id === team.id)) return;
-        const emptyIdx = slots.indexOf(null);
-        if (emptyIdx !== -1) { const newSlots = [...slots]; newSlots[emptyIdx] = team; setSlots(newSlots); }
-    };
+    const handleTeamClick = (team) => { if (slots.find(t => t?.id === team.id)) return; const emptyIdx = slots.indexOf(null); if (emptyIdx !== -1) { const newSlots = [...slots]; newSlots[emptyIdx] = team; setSlots(newSlots); } };
     const handleSlotClick = (idx) => { const newSlots = [...slots]; newSlots[idx] = null; setSlots(newSlots); };
     const handleRandomize = () => { const shuffled = [...originalTeams].sort(() => 0.5 - Math.random()); setSlots(shuffled); };
-
     const handleNext = () => {
-        const newRankings = { ...allRankings, [currentGroup]: slots };
-        setAllRankings(newRankings);
+        const newRankings = { ...allRankings, [currentGroup]: slots }; setAllRankings(newRankings);
         if (currentIndex < groupLetters.length - 1) { setCurrentIndex(currentIndex + 1); setSlots([null, null, null, null]); } 
         else { onComplete(newRankings); }
     }
@@ -603,19 +484,14 @@ const GroupRankingGame = ({ groups, onComplete }) => {
             <p className="text-slate-400 text-sm mb-6 text-center">你的选择将直接决定104场鏖战的大树格局！</p>
             <div className="bg-slate-900 border border-slate-700 rounded-2xl p-4 sm:p-6 w-full shadow-2xl relative overflow-hidden">
                 <div className="absolute top-0 left-0 w-full h-1.5 bg-slate-800"><div className="h-full bg-emerald-500 transition-all duration-300" style={{ width: `${(currentIndex / groupLetters.length) * 100}%` }}></div></div>
-                <div className="flex justify-between items-center mb-6 mt-2">
-                    <h3 className="text-xl font-bold text-emerald-400">决战 {currentGroup} 组</h3>
-                    <button onClick={handleRandomize} className="text-xs text-blue-400 bg-blue-900/20 px-3 py-1.5 rounded-full flex items-center hover:bg-blue-600 hover:text-white transition-all"><Dices className="w-3.5 h-3.5 mr-1" /> 一键随机</button>
-                </div>
+                <div className="flex justify-between items-center mb-6 mt-2"><h3 className="text-xl font-bold text-emerald-400">决战 {currentGroup} 组</h3><button onClick={handleRandomize} className="text-xs text-blue-400 bg-blue-900/20 px-3 py-1.5 rounded-full flex items-center hover:bg-blue-600 hover:text-white transition-all"><Dices className="w-3.5 h-3.5 mr-1" /> 一键随机</button></div>
                 <div className="space-y-3 mb-8">
                     {[0, 1, 2, 3].map(i => {
                         const t = slots[i];
                         return (
                             <div key={`slot-${i}`} onClick={() => t && handleSlotClick(i)} className={`flex items-center p-3 rounded-lg border-2 transition-all ${t ? 'border-emerald-500/50 bg-emerald-900/20 cursor-pointer hover:border-red-500/50' : 'border-dashed border-slate-700 bg-slate-950/50'}`}>
                                 <div className={`w-6 h-6 rounded-full flex items-center justify-center font-black text-xs mr-3 shrink-0 ${i < 2 ? 'bg-emerald-500 text-emerald-950' : i === 2 ? 'bg-yellow-500 text-yellow-950' : 'bg-slate-700 text-slate-400'}`}>{i + 1}</div>
-                                {t ? (
-                                    <div className="flex items-center flex-1 animate-fade-in"><TeamFlag flag={t.flag} sizeClass="w-6 h-6 mr-2" /><span className="font-bold text-white text-sm">{t.name}</span><span className="ml-auto text-[10px] text-slate-500">点击撤回</span></div>
-                                ) : ( <span className="text-slate-600 text-sm font-bold flex-1">点击下方球队进入席位...</span> )}
+                                {t ? ( <div className="flex items-center flex-1 animate-fade-in"><TeamFlag flag={t.flag} sizeClass="w-6 h-6 mr-2" /><span className="font-bold text-white text-sm">{t.name}</span><span className="ml-auto text-[10px] text-slate-500">点击撤回</span></div> ) : ( <span className="text-slate-600 text-sm font-bold flex-1">点击下方球队进入席位...</span> )}
                             </div>
                         )
                     })}
@@ -623,41 +499,25 @@ const GroupRankingGame = ({ groups, onComplete }) => {
                 <div className="grid grid-cols-2 gap-3">
                     {originalTeams.map(t => {
                         const isSelected = slots.find(s => s?.id === t.id);
-                        return (
-                            <button key={t.id} disabled={isSelected} onClick={() => handleTeamClick(t)} className={`flex flex-col items-center justify-center p-3 rounded-xl border-2 transition-all ${isSelected ? 'border-slate-800 bg-slate-950 opacity-30 grayscale cursor-not-allowed' : 'border-slate-600 bg-slate-800 hover:border-blue-400 hover:bg-slate-700 hover:-translate-y-1 shadow-lg'}`}>
-                                <TeamFlag flag={t.flag} sizeClass="w-8 h-8 mb-2 drop-shadow-lg" /><span className="font-bold text-slate-200 text-xs">{t.name}</span>
-                            </button>
-                        )
+                        return ( <button key={t.id} disabled={isSelected} onClick={() => handleTeamClick(t)} className={`flex flex-col items-center justify-center p-3 rounded-xl border-2 transition-all ${isSelected ? 'border-slate-800 bg-slate-950 opacity-30 grayscale cursor-not-allowed' : 'border-slate-600 bg-slate-800 hover:border-blue-400 hover:bg-slate-700 hover:-translate-y-1 shadow-lg'}`}><TeamFlag flag={t.flag} sizeClass="w-8 h-8 mb-2 drop-shadow-lg" /><span className="font-bold text-slate-200 text-xs">{t.name}</span></button> )
                     })}
                 </div>
-                {slots.every(s => s !== null) && (
-                    <button onClick={handleNext} className="mt-8 w-full bg-emerald-600 hover:bg-emerald-500 text-white font-black py-3.5 rounded-xl shadow-[0_0_20px_rgba(16,185,129,0.3)] animate-fade-in flex items-center justify-center text-sm transition-all active:scale-95">
-                        确认 {currentGroup} 组排名 <ArrowRight className="w-4 h-4 ml-2" />
-                    </button>
-                )}
+                {slots.every(s => s !== null) && ( <button onClick={handleNext} className="mt-8 w-full bg-emerald-600 hover:bg-emerald-500 text-white font-black py-3.5 rounded-xl shadow-[0_0_20px_rgba(16,185,129,0.3)] animate-fade-in flex items-center justify-center text-sm transition-all active:scale-95">确认 {currentGroup} 组排名 <ArrowRight className="w-4 h-4 ml-2" /></button> )}
             </div>
         </div>
     )
 }
 
-const thirdPlaceConstraints = {
-  'ko_74': ['A', 'B', 'C', 'D', 'F'], 'ko_77': ['C', 'D', 'F', 'G', 'H'], 'ko_79': ['C', 'E', 'F', 'H', 'I'], 'ko_80': ['E', 'H', 'I', 'J', 'K'],
-  'ko_81': ['B', 'E', 'F', 'I', 'J'], 'ko_82': ['A', 'E', 'H', 'I', 'J'], 'ko_85': ['E', 'F', 'G', 'I', 'J'], 'ko_87': ['D', 'E', 'I', 'J', 'L']
-};
+const thirdPlaceConstraints = { 'ko_74': ['A', 'B', 'C', 'D', 'F'], 'ko_77': ['C', 'D', 'F', 'G', 'H'], 'ko_79': ['C', 'E', 'F', 'H', 'I'], 'ko_80': ['E', 'H', 'I', 'J', 'K'], 'ko_81': ['B', 'E', 'F', 'I', 'J'], 'ko_82': ['A', 'E', 'H', 'I', 'J'], 'ko_85': ['E', 'F', 'G', 'I', 'J'], 'ko_87': ['D', 'E', 'I', 'J', 'L'] };
 
 function assignThirdPlaceTeams(selectedGroups) {
-   const slots = Object.keys(thirdPlaceConstraints);
-   let assignment = {}; let found = false;
+   const slots = Object.keys(thirdPlaceConstraints); let assignment = {}; let found = false;
    function backtrack(slotIndex) {
        if (slotIndex === slots.length) { found = true; return true; }
        const slot = slots[slotIndex]; const allowed = thirdPlaceConstraints[slot];
        for (let i = 0; i < selectedGroups.length; i++) {
            const g = selectedGroups[i];
-           if (allowed.includes(g) && !Object.values(assignment).includes(g)) {
-               assignment[slot] = g;
-               if (backtrack(slotIndex + 1)) return true;
-               delete assignment[slot];
-           }
+           if (allowed.includes(g) && !Object.values(assignment).includes(g)) { assignment[slot] = g; if (backtrack(slotIndex + 1)) return true; delete assignment[slot]; }
        }
        return false;
    }
@@ -677,40 +537,21 @@ function PredictionSandbox({ getTeamFromSlot, groups, setGeneratedImage }) {
   const handleRankingComplete = (groupRankings) => {
       const absoluteRankings = {};
       Object.keys(groupRankings).forEach(group => { groupRankings[group].forEach((team, index) => { if (team) absoluteRankings[`${group}${index + 1}`] = team; }); });
-      setSandboxRankings(absoluteRankings);
-      setPhase('select_thirds');
+      setSandboxRankings(absoluteRankings); setPhase('select_thirds');
   };
 
-  const finalizeThirds = () => {
-      setThirdPlaceAssignments(assignThirdPlaceTeams(selectedThirds)); setPhase('generating'); setTimeout(() => setPhase('bracket'), 1500);
-  };
-
-  const handleReset = () => {
-     if (window.confirm("确定要清空推演记录，重新排兵布阵吗？")) {
-         setPredictions({}); setSandboxRankings({}); setSelectedThirds([]); setThirdPlaceAssignments({}); setPhase('intro'); setShowCompletionModal(false);
-     }
-  };
-
-  const handleExit = () => {
-      if(window.confirm("退出推演进度将丢失，确认退出吗？")) {
-         setPredictions({}); setSandboxRankings({}); setSelectedThirds([]); setThirdPlaceAssignments({}); setPhase('intro'); setShowCompletionModal(false);
-      }
-  }
+  const finalizeThirds = () => { setThirdPlaceAssignments(assignThirdPlaceTeams(selectedThirds)); setPhase('generating'); setTimeout(() => setPhase('bracket'), 1500); };
+  const handleReset = () => { if (window.confirm("确定要清空推演记录，重新排兵布阵吗？")) { setPredictions({}); setSandboxRankings({}); setSelectedThirds([]); setThirdPlaceAssignments({}); setPhase('intro'); setShowCompletionModal(false); } };
+  const handleExit = () => { if(window.confirm("退出推演进度将丢失，确认退出吗？")) { setPredictions({}); setSandboxRankings({}); setSelectedThirds([]); setThirdPlaceAssignments({}); setPhase('intro'); setShowCompletionModal(false); } }
 
   const finalMatchWinner = predictions['ko_104']; 
-  useEffect(() => {
-      if (finalMatchWinner) { const timer = setTimeout(() => setShowCompletionModal(true), 1000); return () => clearTimeout(timer); }
-  }, [finalMatchWinner, predictions]);
+  useEffect(() => { if (finalMatchWinner) { const timer = setTimeout(() => setShowCompletionModal(true), 1000); return () => clearTimeout(timer); } }, [finalMatchWinner, predictions]);
 
   return (
     <div className="h-full flex flex-col bg-slate-950 relative overflow-hidden">
         {phase === 'bracket' && (
             <div className="flex justify-between items-center bg-slate-900/80 px-4 py-2 border-b border-slate-800 z-50 shrink-0 shadow-lg">
-                <div className="flex items-center space-x-2">
-                    <button onClick={handleExit} className="text-slate-400 hover:text-white mr-1 transition-all"><X className="w-4 h-4"/></button>
-                    <Wand2 className="w-4 h-4 sm:w-5 sm:h-5 text-yellow-500" />
-                    <span className="font-bold text-white text-xs sm:text-base">神杯之路推演板</span>
-                </div>
+                <div className="flex items-center space-x-2"><button onClick={handleExit} className="text-slate-400 hover:text-white mr-1 transition-all"><X className="w-4 h-4"/></button><Wand2 className="w-4 h-4 sm:w-5 sm:h-5 text-yellow-500" /><span className="font-bold text-white text-xs sm:text-base">神杯之路推演板</span></div>
                 <button onClick={handleReset} className="text-[10px] sm:text-xs text-slate-400 hover:text-white px-3 py-1 bg-slate-800 rounded-full flex items-center transition-all"><RotateCcw className="w-3 h-3 mr-1" /> 清空重推</button>
             </div>
         )}
@@ -721,68 +562,41 @@ function PredictionSandbox({ getTeamFromSlot, groups, setGeneratedImage }) {
                     <RealTrophy className="w-32 h-32 mb-6 drop-shadow-[0_0_30px_rgba(234,179,8,0.3)] animate-bounce" />
                     <h2 className="text-3xl sm:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-orange-500 tracking-widest mb-4">冠军推演沙盘</h2>
                     <p className="text-slate-400 text-sm sm:text-base mb-10 max-w-md leading-relaxed">首创沉浸式推演小游戏！先为 12 个小组排兵布阵并选拔最佳第三名，然后自由点击晋级，决出2026世界之王！</p>
-                    <button onClick={() => setPhase('ranking')} className="bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 text-white font-black text-lg px-10 py-4 rounded-full shadow-[0_0_25px_rgba(59,130,246,0.5)] transition-all hover:scale-105 active:scale-95 flex items-center">
-                        开始排兵布阵 <ArrowRight className="w-5 h-5 ml-2" />
-                    </button>
+                    <button onClick={() => setPhase('ranking')} className="bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 text-white font-black text-lg px-10 py-4 rounded-full shadow-[0_0_25px_rgba(59,130,246,0.5)] transition-all hover:scale-105 active:scale-95 flex items-center">开始排兵布阵 <ArrowRight className="w-5 h-5 ml-2" /></button>
                 </div>
             )}
-
             {phase === 'ranking' && ( <GroupRankingGame groups={groups} onComplete={handleRankingComplete} /> )}
-
             {phase === 'select_thirds' && (
                 <div className="flex flex-col items-center max-w-2xl mx-auto w-full animate-fade-in px-4 pt-4 sm:pt-10 h-full pb-20">
                     <h2 className="text-xl sm:text-3xl font-black text-white mb-2 flex items-center"><Crown className="w-5 h-5 sm:w-6 sm:h-6 mr-2 text-yellow-400"/>选取8支晋级第三名</h2>
                     <p className="text-slate-400 text-xs sm:text-sm mb-6 text-center">48强扩军特有规则：12个小组的第三名中，成绩最好的 8 支球队将晋级 32 强。</p>
                     <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 sm:gap-3 w-full mb-8">
                         {Object.keys(groups).map(g => {
-                            const team = sandboxRankings[`${g}3`];
-                            if (!team) return null;
-                            const isSelected = selectedThirds.includes(g);
+                            const team = sandboxRankings[`${g}3`]; if (!team) return null; const isSelected = selectedThirds.includes(g);
                             return (
-                                <button key={g} onClick={() => {
-                                    if (isSelected) setSelectedThirds(selectedThirds.filter(x => x !== g));
-                                    else if (selectedThirds.length < 8) setSelectedThirds([...selectedThirds, g]);
-                                }} className={`p-2 sm:p-3 rounded-xl border-2 flex flex-col items-center transition-all ${isSelected ? 'border-yellow-500 bg-yellow-900/30 shadow-[0_0_10px_rgba(234,179,8,0.3)] scale-105' : 'border-slate-700 bg-slate-800 hover:border-slate-500'}`}>
-                                    <TeamFlag flag={team.flag} sizeClass="w-6 h-6 sm:w-8 sm:h-8 mb-2" />
-                                    <span className="font-bold text-[10px] sm:text-xs text-white truncate w-full text-center">{team.name}</span>
-                                    <span className="text-[9px] text-slate-400 mt-1">{g}组第三</span>
-                                    {isSelected && <CheckCircle2 className="absolute top-1 right-1 w-3 h-3 text-yellow-500" />}
+                                <button key={g} onClick={() => { if (isSelected) setSelectedThirds(selectedThirds.filter(x => x !== g)); else if (selectedThirds.length < 8) setSelectedThirds([...selectedThirds, g]); }} className={`p-2 sm:p-3 rounded-xl border-2 flex flex-col items-center transition-all ${isSelected ? 'border-yellow-500 bg-yellow-900/30 shadow-[0_0_10px_rgba(234,179,8,0.3)] scale-105' : 'border-slate-700 bg-slate-800 hover:border-slate-500'}`}>
+                                    <TeamFlag flag={team.flag} sizeClass="w-6 h-6 sm:w-8 sm:h-8 mb-2" /><span className="font-bold text-[10px] sm:text-xs text-white truncate w-full text-center">{team.name}</span><span className="text-[9px] text-slate-400 mt-1">{g}组第三</span>{isSelected && <CheckCircle2 className="absolute top-1 right-1 w-3 h-3 text-yellow-500" />}
                                 </button>
                             )
                         })}
                     </div>
-                    <button disabled={selectedThirds.length !== 8} onClick={finalizeThirds} className={`w-full py-3.5 rounded-xl font-black transition-all ${selectedThirds.length === 8 ? 'bg-yellow-600 hover:bg-yellow-500 text-white shadow-lg shadow-yellow-600/30' : 'bg-slate-800 text-slate-500 cursor-not-allowed'}`}>
-                        {selectedThirds.length === 8 ? '生成最终 32 强对阵树' : `已选 ${selectedThirds.length} / 8 支球队`}
-                    </button>
+                    <button disabled={selectedThirds.length !== 8} onClick={finalizeThirds} className={`w-full py-3.5 rounded-xl font-black transition-all ${selectedThirds.length === 8 ? 'bg-yellow-600 hover:bg-yellow-500 text-white shadow-lg shadow-yellow-600/30' : 'bg-slate-800 text-slate-500 cursor-not-allowed'}`}>{selectedThirds.length === 8 ? '生成最终 32 强对阵树' : `已选 ${selectedThirds.length} / 8 支球队`}</button>
                 </div>
             )}
-
-            {phase === 'generating' && (
-                <div className="flex flex-col items-center justify-center h-full text-center px-6 animate-fade-in pb-20">
-                    <RefreshCw className="w-16 h-16 text-blue-500 animate-spin mb-6" />
-                    <h3 className="text-xl font-bold text-white mb-2">正在将 32 强名单导入国际足联落位图...</h3>
-                </div>
-            )}
-
+            {phase === 'generating' && ( <div className="flex flex-col items-center justify-center h-full text-center px-6 animate-fade-in pb-20"><RefreshCw className="w-16 h-16 text-blue-500 animate-spin mb-6" /><h3 className="text-xl font-bold text-white mb-2">正在将 32 强名单导入国际足联落位图...</h3></div> )}
+            
             {phase === 'bracket' && (
                 <>
                     {/* 捕获区域：仅限大树和二维码 */}
-                    <div id="capture-prediction" className="w-full flex flex-col relative bg-slate-950 px-1 sm:px-2 pt-2 sm:pt-4 overflow-hidden pb-6">
+                    <div id="capture-prediction" className="w-full flex flex-col relative bg-slate-950 px-1 sm:px-2 pt-2 sm:pt-4 overflow-hidden">
                         <div className="text-center mb-1 shrink-0 z-20 pointer-events-none bg-slate-950/80 backdrop-blur-md rounded-b-2xl pb-2 border-b border-slate-800 sticky top-0 left-0 right-0 max-w-[600px] mx-auto">
                             <h2 className="text-lg sm:text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-orange-500 tracking-wider">我的2026冠军预测卷</h2>
                         </div>
                         <div className="w-full relative mx-auto"><FullScreenBracket mode="sandbox" r32Selections={sandboxRankings} thirdPlaceAssignments={thirdPlaceAssignments} predictions={predictions} setPrediction={(mId, team) => setPredictions(p => ({...p, [mId]: team}))} getTeamFromSlot={getTeamFromSlot} /></div>
                         <div id="watermark-capture-prediction" className="hidden w-full flex-col items-center justify-center py-6 bg-slate-900 mt-10 z-[100] border-t border-slate-800"><GlobalQRLogo /></div>
                     </div>
-                    
-                    {/* ！！！完全脱离截图区域：固定放置在滚动列表最底部，永不遮挡 ！！！ */}
-                    {!finalMatchWinner && (
-                        <div className="w-full flex justify-center pb-20 pt-4 bg-slate-950 relative z-50">
-                            <button onClick={() => generateImageWithFallback('capture-prediction', 'watermark-capture-prediction', setGeneratedImage)} className="text-white px-8 py-3.5 rounded-full font-black text-sm flex items-center transition-all bg-gradient-to-r from-yellow-600 to-orange-500 shadow-[0_0_25px_rgba(234,179,8,0.5)] whitespace-nowrap hover:scale-105 active:scale-95">
-                                <Share className="w-5 h-5 mr-2" /> <span>一键分享或保存当前长图</span>
-                            </button>
-                        </div>
-                    )}
+                    {/* 放置在滚动区域最底部的按钮，不再悬浮遮挡 */}
+                    {!finalMatchWinner && ( <CaptureButton onClick={() => generateImageWithFallback('capture-prediction', 'watermark-capture-prediction', setGeneratedImage)} text="一键分享或保存推演全图" /> )}
                 </>
             )}
         </div>
@@ -794,8 +608,8 @@ function PredictionSandbox({ getTeamFromSlot, groups, setGeneratedImage }) {
                     <RealTrophy className="w-24 h-24 mb-4 drop-shadow-2xl animate-bounce" />
                     <h3 className="text-2xl font-black text-white mb-2">神杯易主，推演完成！</h3>
                     <p className="text-sm text-slate-400 mb-6">你预测 <span className="font-bold text-yellow-400">{finalMatchWinner.name}</span> 将捧起2026年大力神杯。</p>
-                    <button onClick={() => { setShowCompletionModal(false); setTimeout(() => generateImageWithFallback('capture-prediction', 'watermark-capture-prediction', setGeneratedImage), 500); }} className="w-full bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-400 hover:to-orange-400 text-slate-950 font-black text-lg py-3 rounded-xl shadow-lg transition-all active:scale-95 flex items-center justify-center mb-3">
-                        <Share className="w-5 h-5 mr-2" /> 一键分享总冠军全景图
+                    <button onClick={() => { setShowCompletionModal(false); setTimeout(() => generateImageWithFallback('capture-prediction', 'watermark-capture-prediction', setGeneratedImage), 300); }} className="w-full bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-400 hover:to-orange-400 text-slate-950 font-black text-lg py-3 rounded-xl shadow-lg transition-all active:scale-95 flex items-center justify-center mb-3">
+                        <Share className="w-5 h-5 mr-2" /> 一键分享总冠军长图
                     </button>
                     <button onClick={() => setShowCompletionModal(false)} className="text-xs text-slate-500 hover:text-slate-300">返回查看大树</button>
                 </div>
@@ -806,44 +620,34 @@ function PredictionSandbox({ getTeamFromSlot, groups, setGeneratedImage }) {
 }
 
 function TeamMeetingPredictor({ groups, setGeneratedImage }) {
-    const [teamA, setTeamA] = useState(null);
-    const [teamB, setTeamB] = useState(null);
-    const [searchA, setSearchA] = useState('');
-    const [searchB, setSearchB] = useState('');
-    const [isCalculating, setIsCalculating] = useState(false);
-    const [results, setResults] = useState(null);
+    const [teamA, setTeamA] = useState(null); const [teamB, setTeamB] = useState(null);
+    const [searchA, setSearchA] = useState(''); const [searchB, setSearchB] = useState('');
+    const [isCalculating, setIsCalculating] = useState(false); const [results, setResults] = useState(null);
 
-    const allTeams = useMemo(() => {
-        let teams = []; Object.keys(groups).forEach(g => { groups[g].teams.forEach(t => teams.push({...t, group: g})); }); return teams;
-    }, [groups]);
+    const allTeams = useMemo(() => { let teams = []; Object.keys(groups).forEach(g => { groups[g].teams.forEach(t => teams.push({...t, group: g})); }); return teams; }, [groups]);
 
     const calculateMeetings = () => {
         if (!teamA || !teamB) return;
         setIsCalculating(true);
         setTimeout(() => {
-            const ranks = [1, 2, 3];
-            let scenarios = [];
+            const ranks = [1, 2, 3]; let scenarios = [];
             ranks.forEach(rankA => {
                 ranks.forEach(rankB => {
                     if (teamA.group === teamB.group && rankA === rankB) return;
-                    const slotsA = SLOT_TO_MATCH[`${teamA.group}${rankA}`] || [];
-                    const slotsB = SLOT_TO_MATCH[`${teamB.group}${rankB}`] || [];
+                    const slotsA = SLOT_TO_MATCH[`${teamA.group}${rankA}`] || []; const slotsB = SLOT_TO_MATCH[`${teamB.group}${rankB}`] || [];
                     let possibleRounds = new Set();
                     slotsA.forEach(m1 => { slotsB.forEach(m2 => { const meetRound = getMeetingRound(m1, m2); if (meetRound) possibleRounds.add(meetRound); }); });
                     const roundOrder = { '1/16决赛':1, '1/8决赛':2, '1/4决赛':3, '半决赛':4, '决赛':5 };
                     const sortedRounds = Array.from(possibleRounds).sort((a,b) => roundOrder[a] - roundOrder[b]);
-
                     if (sortedRounds.length > 0) {
-                        const earliest = sortedRounds[0];
-                        let meetAtStr = earliest;
-                        if (earliest === '决赛') meetAtStr = '分属不同半区，最早只能在决赛相逢';
-                        else if (sortedRounds.length > 1) meetAtStr = sortedRounds.join(' 或 ');
+                        const earliest = sortedRounds[0]; let meetAtStr = earliest;
+                        if (earliest === '决赛') meetAtStr = '分属不同半区，最早只能在决赛相逢'; else if (sortedRounds.length > 1) meetAtStr = sortedRounds.join(' 或 ');
                         scenarios.push({ rankA, rankB, meetAt: meetAtStr, earliestRound: earliest });
                     }
                 });
             });
             setResults(scenarios); setIsCalculating(false);
-        }, 800); 
+        }, 500); 
     };
 
     const handleClear = () => { setTeamA(null); setTeamB(null); setSearchA(''); setSearchB(''); setResults(null); };
@@ -851,9 +655,7 @@ function TeamMeetingPredictor({ groups, setGeneratedImage }) {
     return (
         <div className="flex flex-col h-full bg-slate-950 relative overflow-y-auto custom-scrollbar">
             <div className="text-center pt-6 pb-4 px-4 shrink-0">
-                <h2 className="text-2xl sm:text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-red-500 to-orange-400 tracking-wider flex items-center justify-center mb-2">
-                    <Swords className="w-6 h-6 mr-2 text-red-500"/>宿命对决：相遇推演
-                </h2>
+                <h2 className="text-2xl sm:text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-red-500 to-orange-400 tracking-wider flex items-center justify-center mb-2"><Swords className="w-6 h-6 mr-2 text-red-500"/>宿命对决：相遇推演</h2>
                 <p className="text-slate-400 text-xs sm:text-sm max-w-lg mx-auto">精准计算两支主队在104场鏖战中，最早可能发生遭遇战的轮次。严格依据国际足联 2026 最新上下半区分区法则计算。</p>
             </div>
 
@@ -863,11 +665,9 @@ function TeamMeetingPredictor({ groups, setGeneratedImage }) {
                     <div className="shrink-0 hidden sm:flex text-slate-600 font-black italic text-2xl">VS</div>
                     <div className="w-full sm:w-1/2"><TeamSearchInput value={searchB} onChange={setSearchB} onSelect={setTeamB} selectedTeam={teamB} placeholder="输入第二支球队名..." allTeams={allTeams} /></div>
                 </form>
-
                 <div className="flex gap-3">
                     <button onClick={calculateMeetings} disabled={!teamA || !teamB || isCalculating} className={`flex-1 py-4 rounded-xl font-black text-lg flex items-center justify-center transition-all shadow-lg ${teamA && teamB ? 'bg-gradient-to-r from-blue-600 to-cyan-500 text-white hover:scale-[1.02] active:scale-95 shadow-blue-500/30' : 'bg-slate-800 text-slate-500 cursor-not-allowed'}`}>
-                        {isCalculating ? <RefreshCw className="w-5 h-5 animate-spin mr-2" /> : <Swords className="w-5 h-5 mr-2" />}
-                        {isCalculating ? '正在穷举二叉树...' : '开始推演宿命相遇点'}
+                        {isCalculating ? <RefreshCw className="w-5 h-5 animate-spin mr-2" /> : <Swords className="w-5 h-5 mr-2" />}{isCalculating ? '正在穷举二叉树...' : '开始推演宿命相遇点'}
                     </button>
                     {results && <button onClick={handleClear} className="px-6 bg-slate-800 text-slate-400 hover:text-white rounded-xl hover:bg-slate-700 transition-all font-bold">重置</button>}
                 </div>
@@ -875,18 +675,14 @@ function TeamMeetingPredictor({ groups, setGeneratedImage }) {
 
             {results && !isCalculating && (
                 <>
-                    <div className="mt-8 px-2 sm:px-4 max-w-2xl mx-auto w-full animate-fade-in relative z-10 pb-6">
-                        <div id="capture-meeting" className="bg-slate-900 border border-slate-700 rounded-2xl overflow-hidden relative shadow-2xl pb-4">
+                    <div id="capture-meeting" className="mt-8 px-2 sm:px-4 max-w-2xl mx-auto w-full animate-fade-in relative z-10 pb-6">
+                        <div className="bg-slate-900 border border-slate-700 rounded-2xl overflow-hidden relative shadow-2xl pb-4">
                             <div className="bg-slate-800/80 p-6 text-center border-b border-slate-700">
                                 <h3 className="text-xl font-black text-white mb-4">宿命相遇可能性报告</h3>
                                 <div className="flex items-center justify-center space-x-6">
-                                    <div className="flex flex-col items-center">
-                                        <TeamFlag flag={teamA.flag} sizeClass="w-10 h-10 mb-1 shadow-lg" /><span className="text-sm font-bold text-slate-300">{teamA.name}</span>
-                                    </div>
+                                    <div className="flex flex-col items-center"><TeamFlag flag={teamA.flag} sizeClass="w-10 h-10 mb-1 shadow-lg" /><span className="text-sm font-bold text-slate-300">{teamA.name}</span></div>
                                     <span className="text-2xl font-black text-red-500 italic">VS</span>
-                                    <div className="flex flex-col items-center">
-                                        <TeamFlag flag={teamB.flag} sizeClass="w-10 h-10 mb-1 shadow-lg" /><span className="text-sm font-bold text-slate-300">{teamB.name}</span>
-                                    </div>
+                                    <div className="flex flex-col items-center"><TeamFlag flag={teamB.flag} sizeClass="w-10 h-10 mb-1 shadow-lg" /><span className="text-sm font-bold text-slate-300">{teamB.name}</span></div>
                                 </div>
                             </div>
                             <div className="p-2 sm:p-4 bg-slate-950">
@@ -896,9 +692,9 @@ function TeamMeetingPredictor({ groups, setGeneratedImage }) {
                                         return (
                                         <div key={idx} className={`flex items-center p-3 rounded-xl border ${isFinal ? 'bg-yellow-900/10 border-yellow-500/30' : 'bg-slate-900 border-slate-800'} transition-all`}>
                                             <div className="flex-1 flex flex-col sm:flex-row sm:items-center text-[10px] sm:text-sm font-bold text-slate-300">
-                                                <div className="flex items-center"><span className="w-14 sm:w-16 truncate">{teamA.name}</span><span className="px-2 py-0.5 bg-slate-800 rounded text-blue-400 mx-1 sm:mx-2 text-[9px] sm:text-[10px]">第{res.rankA}名晋级</span></div>
+                                                <div className="flex items-center"><span className="w-14 sm:w-16 truncate leading-tight">{teamA.name}</span><span className="px-2 py-0.5 bg-slate-800 rounded text-blue-400 mx-1 sm:mx-2 text-[9px] sm:text-[10px]">第{res.rankA}名晋级</span></div>
                                                 <span className="hidden sm:inline text-slate-600 mx-2">+</span>
-                                                <div className="flex items-center mt-2 sm:mt-0"><span className="w-14 sm:w-16 truncate">{teamB.name}</span><span className="px-2 py-0.5 bg-slate-800 rounded text-blue-400 mx-1 sm:mx-2 text-[9px] sm:text-[10px]">第{res.rankB}名晋级</span></div>
+                                                <div className="flex items-center mt-2 sm:mt-0"><span className="w-14 sm:w-16 truncate leading-tight">{teamB.name}</span><span className="px-2 py-0.5 bg-slate-800 rounded text-blue-400 mx-1 sm:mx-2 text-[9px] sm:text-[10px]">第{res.rankB}名晋级</span></div>
                                             </div>
                                             <div className={`ml-auto shrink-0 flex items-center justify-end w-32 sm:w-48 font-black text-[10px] sm:text-sm ${isFinal ? 'text-yellow-400' : isEarly ? 'text-red-400' : 'text-emerald-400'}`}>
                                                 {isFinal ? '🏆 ' : isEarly ? '⚔️ ' : '🎯 '} {res.meetAt}
@@ -910,25 +706,16 @@ function TeamMeetingPredictor({ groups, setGeneratedImage }) {
                             <div id="watermark-capture-meeting" className="hidden w-full flex-col items-center justify-center py-6 bg-slate-900 border-t border-slate-800 mt-4"><GlobalQRLogo /></div>
                         </div>
                     </div>
-                    {/* ！！！放置在内容底部的分享按钮，彻底告别悬浮遮挡 ！！！ */}
-                    <div className="w-full flex justify-center pb-20 pt-2 bg-slate-950 relative z-50">
-                       <button onClick={() => generateImageWithFallback('capture-meeting', 'watermark-capture-meeting', setGeneratedImage)} className="w-[90%] max-w-sm bg-gradient-to-r from-yellow-600 to-orange-500 text-white font-black py-4 rounded-full shadow-[0_0_25px_rgba(234,179,8,0.5)] hover:scale-[1.01] active:scale-95 transition-all flex items-center justify-center">
-                            <Share className="w-5 h-5 mr-2" /> 一键分享或保存相遇报告长图
-                        </button>
-                    </div>
+                    {/* 最底部的统一生成按钮 */}
+                    <CaptureButton onClick={() => generateImageWithFallback('capture-meeting', 'watermark-capture-meeting', setGeneratedImage)} text="生成并分享相遇报告" />
                 </>
             )}
         </div>
     )
 }
 
-// ==========================================
-// 5. 视图模块：规则与淘汰赛列表
-// ==========================================
-
 function RulesView({ groups, knockouts, getTeamFromSlot, setGeneratedImage }) {
   const [subTab, setSubTab] = useState('rules');
-
   const grouped104 = useMemo(() => {
     const allGroupMatches = []; Object.keys(groups).forEach(g => { groups[g].matches.forEach(m => { allGroupMatches.push({ ...m, groupName: g }); }); });
     const allKnockoutMatches = ['r32', 'r16', 'qf', 'sf', 'third', 'final'].flatMap(round => (knockouts[round] || []).map(m => ({ ...m, home: getTeamFromSlot(m.homeStr), away: getTeamFromSlot(m.awayStr) })));
@@ -944,7 +731,6 @@ function RulesView({ groups, knockouts, getTeamFromSlot, setGeneratedImage }) {
           <button onClick={() => setSubTab('schedule')} className={`flex-1 sm:flex-none justify-center px-4 sm:px-6 py-1.5 rounded font-bold text-xs sm:text-sm transition-all whitespace-nowrap flex items-center ml-2 ${subTab === 'schedule' ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30' : 'text-slate-500 hover:text-slate-300'}`}><CalendarDays className="w-4 h-4 mr-1.5" /> 104场全赛程长图</button>
         </div>
       </div>
-
       <div className="flex-1 overflow-y-auto custom-scrollbar relative">
         <div id="capture-rules" className="max-w-4xl lg:max-w-6xl mx-auto p-2 sm:p-6 space-y-6 sm:space-y-8 animate-fade-in bg-slate-950 pb-6">
           {subTab === 'rules' ? (
@@ -954,10 +740,7 @@ function RulesView({ groups, knockouts, getTeamFromSlot, setGeneratedImage }) {
                 <div className="bg-slate-950/50 p-5 rounded-xl border border-slate-800/80"><h3 className="text-xl font-bold text-emerald-400 mb-3 flex items-center"><Users className="w-5 h-5 mr-2" /> 48强与12大分组</h3><p className="text-slate-400">首次扩军至 48 支队伍，分为 12 个小组，赛事总计 104 场对决。</p></div>
                 <div className="bg-emerald-900/10 p-5 rounded-xl border border-emerald-500/20">
                   <h3 className="text-xl font-bold text-emerald-400 mb-3 flex items-center"><ListOrdered className="w-5 h-5 mr-2" /> 晋级 32 强区规则</h3>
-                  <div className="grid sm:grid-cols-2 gap-4">
-                    <div className="bg-emerald-950/40 p-4 rounded-lg border-l-4 border-emerald-500"><h4 className="font-bold text-white mb-2">✅ 前两名直通</h4><p className="text-sm text-slate-400">12个小组的前两名直接晋级 32 强。</p></div>
-                    <div className="bg-yellow-950/40 p-4 rounded-lg border-l-4 border-yellow-500"><h4 className="font-bold text-white mb-2">⚠️ 小组第三待定</h4><p className="text-sm text-slate-400">成绩最好的 8 个小组第三获得复活晋级资格。</p></div>
-                  </div>
+                  <div className="grid sm:grid-cols-2 gap-4"><div className="bg-emerald-950/40 p-4 rounded-lg border-l-4 border-emerald-500"><h4 className="font-bold text-white mb-2">✅ 前两名直通</h4><p className="text-sm text-slate-400">12个小组的前两名直接晋级 32 强。</p></div><div className="bg-yellow-950/40 p-4 rounded-lg border-l-4 border-yellow-500"><h4 className="font-bold text-white mb-2">⚠️ 小组第三待定</h4><p className="text-sm text-slate-400">成绩最好的 8 个小组第三获得复活晋级资格。</p></div></div>
                 </div>
               </div>
             </div>
@@ -971,9 +754,9 @@ function RulesView({ groups, knockouts, getTeamFromSlot, setGeneratedImage }) {
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                          {grouped104[date].map(m => (
                             <div key={`all-m-${m.id}`} className="bg-slate-950 border border-slate-800 rounded-lg p-2.5 flex justify-between items-center text-xs sm:text-sm">
-                               <div className="flex items-center space-x-1.5 w-[42%] justify-end"><span className={`truncate ${m.home?.isPlaceholder ? 'text-slate-500' : 'text-slate-200 font-bold'}`}>{m.home?.name || m.homeStr}</span><TeamFlag flag={m.home?.flag} sizeClass="w-4 h-4" /></div>
-                               <div className="flex flex-col items-center w-[16%]"><span className="text-[9px] font-mono text-slate-500 mb-0.5">{m.timeStr.split(' ')[1]}</span><span className="text-[10px] font-black text-slate-600 bg-slate-900 px-1 rounded">VS</span></div>
-                               <div className="flex items-center space-x-1.5 w-[42%] justify-start"><TeamFlag flag={m.away?.flag} sizeClass="w-4 h-4" /><span className={`truncate ${m.away?.isPlaceholder ? 'text-slate-500' : 'text-slate-200 font-bold'}`}>{m.away?.name || m.awayStr}</span></div>
+                               <div className="flex items-center space-x-1.5 w-[42%] justify-end"><span className={`truncate leading-tight ${m.home?.isPlaceholder ? 'text-slate-500' : 'text-slate-200 font-bold'}`}>{m.home?.name || m.homeStr}</span><TeamFlag flag={m.home?.flag} sizeClass="w-4 h-4" /></div>
+                               <div className="flex flex-col items-center w-[16%]"><span className="text-[9px] font-mono text-slate-500 mb-0.5 leading-tight">{m.timeStr.split(' ')[1]}</span><span className="text-[10px] font-black text-slate-600 bg-slate-900 px-1 rounded">VS</span></div>
+                               <div className="flex items-center space-x-1.5 w-[42%] justify-start"><TeamFlag flag={m.away?.flag} sizeClass="w-4 h-4" /><span className={`truncate leading-tight ${m.away?.isPlaceholder ? 'text-slate-500' : 'text-slate-200 font-bold'}`}>{m.away?.name || m.awayStr}</span></div>
                             </div>
                          ))}
                       </div>
@@ -984,12 +767,7 @@ function RulesView({ groups, knockouts, getTeamFromSlot, setGeneratedImage }) {
           )}
           <div id="watermark-capture-rules" className="hidden flex-col items-center justify-center mt-8 w-full"><GlobalQRLogo /></div>
         </div>
-        {/* 到底部渲染按钮，彻底告别遮挡 */}
-        <div className="w-full flex justify-center pb-20 pt-4 bg-slate-950 relative z-50">
-            <button onClick={() => generateImageWithFallback('capture-rules', 'watermark-capture-rules', setGeneratedImage)} className="bg-blue-600 hover:bg-blue-500 text-white shadow-[0_0_15px_rgba(37,99,235,0.4)] px-8 py-3.5 rounded-full font-bold text-sm flex items-center transition-all active:scale-95">
-                <Share className="w-4 h-4 mr-2" /> <span>一键分享全赛程长图</span>
-            </button>
-        </div>
+        <CaptureButton onClick={() => generateImageWithFallback('capture-rules', 'watermark-capture-rules', setGeneratedImage)} text={subTab === 'rules' ? "生成并分享规则说明长图" : "生成并分享全赛程长图"} />
       </div>
     </div>
   );
@@ -1002,156 +780,55 @@ function KnockoutScheduleView({ knockouts, getTeamFromSlot, onMatchClick, setGen
   const currentMatches = knockouts.filter(m => m.round === activeRound);
 
   return (
-    <div className="h-full flex flex-col bg-slate-950 pb-0 sm:pb-0 relative overflow-hidden">
+    <div className="h-full flex flex-col bg-slate-950 relative overflow-hidden">
       <div className="bg-slate-900 border-b border-slate-800 px-2 py-2 flex justify-center z-20 shrink-0">
         <div className="flex bg-slate-950/80 p-1 rounded-lg border border-slate-800 w-full sm:w-auto">
           <button onClick={() => setViewMode('tree')} className={`flex-1 sm:flex-none justify-center px-4 sm:px-8 py-1.5 rounded font-bold text-xs sm:text-sm transition-all whitespace-nowrap flex items-center ${viewMode === 'tree' ? 'bg-purple-600/30 text-purple-400 border border-purple-500/50 shadow-[0_0_10px_rgba(168,85,247,0.2)]' : 'text-slate-500 hover:text-slate-300 border border-transparent'}`}><GitBranch className="w-4 h-4 mr-1.5" /> 全景对阵树</button>
           <button onClick={() => setViewMode('list')} className={`flex-1 sm:flex-none justify-center px-4 sm:px-8 py-1.5 rounded font-bold text-xs sm:text-sm transition-all whitespace-nowrap flex items-center ml-2 ${viewMode === 'list' ? 'bg-emerald-600/30 text-emerald-400 border border-emerald-500/50 shadow-[0_0_10px_rgba(16,185,129,0.2)]' : 'text-slate-500 hover:text-slate-300 border border-transparent'}`}><ListOrdered className="w-4 h-4 mr-1.5" /> 实时对阵列表</button>
         </div>
       </div>
-
-      <div className="flex-1 w-full relative overflow-hidden">
+      <div className="flex-1 w-full relative overflow-y-auto custom-scrollbar">
         {viewMode === 'tree' ? (
-           <FullScreenBracket mode="live" getTeamFromSlot={getTeamFromSlot} onMatchClick={onMatchClick} />
+           <>
+              <div id="capture-ko" className="w-full relative bg-slate-950 pb-6">
+                 <FullScreenBracket mode="live" getTeamFromSlot={getTeamFromSlot} onMatchClick={onMatchClick} />
+                 <div id="watermark-capture-ko" className="hidden w-full flex-col items-center justify-center bg-slate-900 py-6 border-t border-slate-800 mt-6"><GlobalQRLogo /></div>
+              </div>
+              <CaptureButton onClick={() => generateImageWithFallback('capture-ko', 'watermark-capture-ko', setGeneratedImage)} text="一键分享全景对阵图" />
+           </>
         ) : (
-           <div className="h-full flex flex-col">
-              <div className="flex overflow-x-auto hide-scrollbar border-b border-slate-800 shrink-0 bg-slate-900 px-2 py-3 gap-2 sticky top-0 z-10">
-                {roundTabs.map(r => ( <button key={r} onClick={() => setActiveRound(r)} className={`px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-colors ${activeRound === r ? 'bg-purple-600 text-white shadow-lg' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}>{r}</button> ))}
-              </div>
-              <div className="flex-1 overflow-y-auto custom-scrollbar relative">
-                <div id="capture-ko" className="max-w-3xl mx-auto bg-slate-950 p-2 sm:p-4 pb-10">
-                  <div className="text-center mb-6">
-                    <h2 className="text-xl sm:text-2xl font-black text-purple-400 mt-4 tracking-wider">{activeRound} 实况对阵表</h2>
-                    <p className="text-xs text-slate-500 mt-1">根据底层 API 实时生成对决名单</p>
-                  </div>
-                  <div className="space-y-4">
-                    {currentMatches.map((match) => {
-                      const homeTeam = getTeamFromSlot(match.homeStr); const awayTeam = getTeamFromSlot(match.awayStr);
-                      return (
-                        <div key={match.id} onClick={() => onMatchClick({ ...match, homeTeam, awayTeam })} className="flex flex-col bg-slate-900 border border-slate-800 rounded-xl hover:border-purple-500/50 cursor-pointer transition-colors shadow-sm overflow-hidden group">
-                          <div className="bg-slate-800/50 px-4 py-1.5 border-b border-slate-700 flex justify-between items-center">
-                             <span className="text-[10px] text-slate-400 flex items-center"><Clock className="w-3 h-3 mr-1 opacity-70"/> {match.timeStr}</span>
-                             <span className="text-[9px] text-purple-400 bg-purple-900/20 px-2 py-0.5 rounded border border-purple-500/20 font-bold">第 {match.id.replace('ko_', '')} 场</span>
-                          </div>
-                          <div className="flex items-center justify-between p-4 gap-3">
-                            <div className="flex flex-col items-center w-[40%] gap-2"><TeamFlag flag={homeTeam.flag} sizeClass="w-8 h-8 sm:w-10 sm:h-10 drop-shadow-md" /><div className="text-sm font-bold text-center group-hover:text-purple-300">{homeTeam.isPlaceholder ? homeTeam.placeholderName : homeTeam.name}</div></div>
-                            <div className="bg-slate-950 border border-slate-700 px-3 py-1.5 rounded-lg font-black min-w-[50px] text-center text-slate-300 text-lg">VS</div>
-                            <div className="flex flex-col items-center w-[40%] gap-2"><TeamFlag flag={awayTeam.flag} sizeClass="w-8 h-8 sm:w-10 sm:h-10 drop-shadow-md" /><div className="text-sm font-bold text-center group-hover:text-purple-300">{awayTeam.isPlaceholder ? awayTeam.placeholderName : awayTeam.name}</div></div>
-                          </div>
+           <div className="flex flex-col">
+              <div className="flex overflow-x-auto hide-scrollbar border-b border-slate-800 shrink-0 bg-slate-900 px-2 py-3 gap-2 sticky top-0 z-10">{roundTabs.map(r => ( <button key={r} onClick={() => setActiveRound(r)} className={`px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-colors ${activeRound === r ? 'bg-purple-600 text-white shadow-lg' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}>{r}</button> ))}</div>
+              <div id="capture-ko-list" className="max-w-3xl mx-auto bg-slate-950 p-2 sm:p-4 pb-6 w-full">
+                <div className="text-center mb-6">
+                  <h2 className="text-xl sm:text-2xl font-black text-purple-400 mt-4 tracking-wider">{activeRound} 实况对阵表</h2>
+                  <p className="text-xs text-slate-500 mt-1">根据底层 API 实时生成对决名单</p>
+                </div>
+                <div className="space-y-4">
+                  {currentMatches.map((match) => {
+                    const homeTeam = getTeamFromSlot(match.homeStr); const awayTeam = getTeamFromSlot(match.awayStr);
+                    return (
+                      <div key={match.id} onClick={() => onMatchClick({ ...match, homeTeam, awayTeam })} className="flex flex-col bg-slate-900 border border-slate-800 rounded-xl hover:border-purple-500/50 cursor-pointer transition-colors shadow-sm overflow-hidden group">
+                        <div className="bg-slate-800/50 px-4 py-1.5 border-b border-slate-700 flex justify-between items-center"><span className="text-[10px] text-slate-400 flex items-center"><Clock className="w-3 h-3 mr-1 opacity-70"/> {match.timeStr}</span><span className="text-[9px] text-purple-400 bg-purple-900/20 px-2 py-0.5 rounded border border-purple-500/20 font-bold">第 {match.id.replace('ko_', '')} 场</span></div>
+                        <div className="flex items-center justify-between p-4 gap-3">
+                          <div className="flex flex-col items-center w-[40%] gap-2"><TeamFlag flag={homeTeam.flag} sizeClass="w-8 h-8 sm:w-10 sm:h-10 drop-shadow-md" /><div className="text-sm font-bold text-center group-hover:text-purple-300 leading-tight">{homeTeam.isPlaceholder ? homeTeam.placeholderName : homeTeam.name}</div></div>
+                          <div className="bg-slate-950 border border-slate-700 px-3 py-1.5 rounded-lg font-black min-w-[50px] text-center text-slate-300 text-lg">VS</div>
+                          <div className="flex flex-col items-center w-[40%] gap-2"><TeamFlag flag={awayTeam.flag} sizeClass="w-8 h-8 sm:w-10 sm:h-10 drop-shadow-md" /><div className="text-sm font-bold text-center group-hover:text-purple-300 leading-tight">{awayTeam.isPlaceholder ? awayTeam.placeholderName : awayTeam.name}</div></div>
                         </div>
-                      );
-                    })}
-                    {currentMatches.length === 0 && <div className="text-center text-slate-500 py-10 text-sm">此阶段对阵生成中...</div>}
-                  </div>
-                  <div id="watermark-capture-ko" className="hidden w-full flex-col items-center justify-center bg-slate-900 py-6 border-t border-slate-800 mt-6"><GlobalQRLogo /></div>
+                      </div>
+                    );
+                  })}
+                  {currentMatches.length === 0 && <div className="text-center text-slate-500 py-10 text-sm">此阶段对阵生成中...</div>}
                 </div>
-                {/* 放置于列表最底部 */}
-                <div className="w-full flex justify-center pb-20 pt-4 bg-slate-950 relative z-50">
-                    <button onClick={() => generateImageWithFallback('capture-ko', 'watermark-capture-ko', setGeneratedImage)} className="bg-blue-600 hover:bg-blue-500 text-white shadow-[0_0_15px_rgba(37,99,235,0.4)] px-8 py-3.5 rounded-full font-bold text-sm flex items-center transition-all active:scale-95">
-                        <Share className="w-4 h-4 mr-2" /> <span>一键分享对阵名单</span>
-                    </button>
-                </div>
+                <div id="watermark-capture-ko-list" className="hidden w-full flex-col items-center justify-center bg-slate-900 py-6 border-t border-slate-800 mt-6"><GlobalQRLogo /></div>
               </div>
+              <CaptureButton onClick={() => generateImageWithFallback('capture-ko-list', 'watermark-capture-ko-list', setGeneratedImage)} text="一键分享对决名单" />
            </div>
         )}
       </div>
     </div>
   );
 }
-
-// ==========================================
-// 6. 抽屉与 API 数据展示层 
-// ==========================================
-
-function MatchDetailDrawer({ match, onClose, onTeamClick, isTop }) {
-  if (!match) return null;
-  const zIndex = isTop ? 'z-[100]' : 'z-[90]';
-  const hTeam = match.homeTeam || match.home; const aTeam = match.awayTeam || match.away;
-  
-  return (
-    <>
-      <div className={`fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity ${zIndex}`} onClick={onClose} />
-      <div className={`fixed bottom-0 left-0 right-0 bg-slate-900 border-t border-slate-700 rounded-t-3xl p-4 sm:p-6 shadow-2xl transform transition-transform duration-300 ease-in-out ${zIndex} max-h-[85vh] overflow-y-auto custom-scrollbar`}>
-        <div className="w-12 h-1.5 bg-slate-700 rounded-full mx-auto mb-6 opacity-50" />
-        <button onClick={onClose} className="absolute top-5 right-5 text-slate-400 hover:text-white bg-slate-800 rounded-full p-1"><X className="w-5 h-5"/></button>
-        <div className="text-center mb-6">
-          <p className="text-emerald-400 font-bold text-sm bg-emerald-900/20 inline-block px-3 py-1 rounded-full border border-emerald-500/30">{match.round || '比赛数据中心'}</p>
-          <p className="text-slate-400 text-xs mt-3 flex items-center justify-center"><Clock className="w-3.5 h-3.5 mr-1" /> {match.timeStr} • {match.venue || '美加墨赛区'}</p>
-        </div>
-        <div className="flex items-center justify-between bg-slate-950 border border-slate-800 p-4 sm:p-6 rounded-2xl mb-6 shadow-inner">
-           <div className="flex flex-col items-center gap-2 w-1/3 cursor-pointer hover:scale-105 transition-transform" onClick={() => onTeamClick(hTeam)}><TeamFlag name={hTeam?.name} flag={hTeam?.flag} sizeClass="w-12 h-12 sm:w-16 sm:h-16" /><span className="font-bold text-sm sm:text-base text-center text-slate-200 mt-2">{hTeam?.isPlaceholder ? hTeam.placeholderName : hTeam?.name}</span><span className="text-[10px] text-blue-400">点击看数据</span></div>
-           <div className="w-1/3 text-center"><div className="text-3xl sm:text-4xl font-black bg-gradient-to-b from-white to-slate-400 bg-clip-text text-transparent mb-1">{match.homeScore !== undefined && match.homeScore !== null ? `${match.homeScore} - ${match.awayScore}` : 'VS'}</div><div className="text-[10px] text-slate-500">{match.status === 'FINISHED' ? '已结束' : match.status === 'LIVE' ? '进行中' : '未开赛'}</div></div>
-           <div className="flex flex-col items-center gap-2 w-1/3 cursor-pointer hover:scale-105 transition-transform" onClick={() => onTeamClick(aTeam)}><TeamFlag name={aTeam?.name} flag={aTeam?.flag} sizeClass="w-12 h-12 sm:w-16 sm:h-16" /><span className="font-bold text-sm sm:text-base text-center text-slate-200 mt-2">{aTeam?.isPlaceholder ? aTeam.placeholderName : aTeam?.name}</span><span className="text-[10px] text-blue-400">点击看数据</span></div>
-        </div>
-        <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4">
-           <h4 className="text-white font-bold mb-4 flex items-center border-b border-slate-700 pb-2"><Activity className="w-4 h-4 mr-2 text-red-400" /> 智能数据前瞻 (API加载区)</h4>
-           <div className="space-y-4">
-              <div className="flex justify-between items-center text-xs sm:text-sm"><span className="text-slate-400">历史交锋 (H2H)</span><span className="font-mono text-slate-300">胜 0 - 平 0 - 负 0 (模拟)</span></div>
-              <div className="flex justify-between items-center text-xs sm:text-sm"><span className="text-slate-400">主队近期战绩</span><span className="font-mono text-emerald-400">W W D W L</span></div>
-              <div className="flex justify-between items-center text-xs sm:text-sm"><span className="text-slate-400">客队近期战绩</span><span className="font-mono text-yellow-400">D W L W W</span></div>
-              <div className="text-center text-[10px] text-slate-500 pt-2 border-t border-slate-700/50 mt-2">详细比赛事件与阵容将在比赛开始前 1 小时经由 Football-API 动态抓取并在此处渲染。</div>
-           </div>
-        </div>
-      </div>
-    </>
-  );
-}
-
-function TeamDetailDrawer({ team, onClose, isTop }) {
-  if (!team || team.isPlaceholder) return null;
-  const zIndex = isTop ? 'z-[100]' : 'z-[90]';
-  const [activeTab, setActiveTab] = useState('stats'); 
-  
-  return (
-    <>
-      <div className={`fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity ${zIndex}`} onClick={onClose} />
-      <div className={`fixed bottom-0 left-0 right-0 bg-slate-900 border-t border-slate-700 rounded-t-3xl p-4 sm:p-6 shadow-2xl transform transition-transform duration-300 ease-in-out ${zIndex} h-[90vh] flex flex-col`}>
-        <div className="w-12 h-1.5 bg-slate-700 rounded-full mx-auto mb-4 shrink-0 opacity-50" />
-        <button onClick={onClose} className="absolute top-5 right-5 text-slate-400 hover:text-white bg-slate-800 rounded-full p-1 z-10"><X className="w-5 h-5"/></button>
-        
-        <div className="flex flex-col items-center text-center shrink-0">
-           <TeamFlag name={team.name} flag={team.flag} sizeClass="w-20 h-20 shadow-lg drop-shadow-xl" />
-           <h2 className="text-2xl sm:text-3xl font-black mt-3 text-white">{team.name}</h2>
-           <span className="text-xs text-slate-400 font-mono mt-1 border border-slate-700 bg-slate-800 px-2 py-0.5 rounded">{team.group} 组</span>
-        </div>
-        <div className="flex mt-6 bg-slate-950 p-1 rounded-lg border border-slate-800 shrink-0 mx-4 sm:mx-10">
-           <button onClick={() => setActiveTab('stats')} className={`flex-1 py-2 text-xs sm:text-sm font-bold rounded transition-colors ${activeTab === 'stats' ? 'bg-emerald-600/30 text-emerald-400' : 'text-slate-400'}`}>本届赛事数据</button>
-           <button onClick={() => setActiveTab('squad')} className={`flex-1 py-2 text-xs sm:text-sm font-bold rounded transition-colors ${activeTab === 'squad' ? 'bg-blue-600/30 text-blue-400' : 'text-slate-400'}`}>大名单与主帅 (API)</button>
-        </div>
-        <div className="flex-1 overflow-y-auto mt-4 px-2 sm:px-6 custom-scrollbar pb-6">
-           {activeTab === 'stats' && (
-             <div className="space-y-4 animate-fade-in">
-               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  <div className="bg-slate-800/80 p-3 rounded-xl border border-slate-700 text-center"><div className="text-[10px] text-slate-400 mb-1">当前积分</div><div className="text-2xl font-black text-emerald-400">{team.pts || 0}</div></div>
-                  <div className="bg-slate-800/80 p-3 rounded-xl border border-slate-700 text-center"><div className="text-[10px] text-slate-400 mb-1">净胜球</div><div className="text-2xl font-black text-blue-400">{team.gd || 0}</div></div>
-                  <div className="bg-slate-800/80 p-3 rounded-xl border border-slate-700 text-center"><div className="text-[10px] text-slate-400 mb-1">进球数</div><div className="text-2xl font-black text-white">{team.gf || 0}</div></div>
-                  <div className="bg-slate-800/80 p-3 rounded-xl border border-slate-700 text-center"><div className="text-[10px] text-slate-400 mb-1">失球数</div><div className="text-2xl font-black text-red-400">{team.ga || 0}</div></div>
-               </div>
-               <div className="bg-slate-950 border border-slate-800 rounded-xl p-4">
-                  <h4 className="text-sm font-bold text-slate-300 mb-3 border-b border-slate-800 pb-2">战绩记录</h4>
-                  <div className="flex justify-around text-center">
-                     <div><div className="text-xl font-black text-emerald-500">{team.w || 0}</div><div className="text-[10px] text-slate-500 mt-1">胜 (WIN)</div></div>
-                     <div><div className="text-xl font-black text-yellow-500">{team.d || 0}</div><div className="text-[10px] text-slate-500 mt-1">平 (DRAW)</div></div>
-                     <div><div className="text-xl font-black text-red-500">{team.l || 0}</div><div className="text-[10px] text-slate-500 mt-1">负 (LOSE)</div></div>
-                  </div>
-               </div>
-             </div>
-           )}
-           {activeTab === 'squad' && (
-             <div className="space-y-4 animate-fade-in">
-                <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4 flex items-center justify-between"><div><div className="text-[10px] text-slate-400">国家队主教练</div><div className="text-sm font-bold text-white mt-1">待 API 更新获取</div></div><UserCircle2 className="w-8 h-8 text-slate-600" /></div>
-                <div className="bg-slate-950 border border-slate-800 rounded-xl p-4"><div className="flex justify-between items-center border-b border-slate-800 pb-2 mb-3"><h4 className="text-sm font-bold text-slate-300">26 人首发与大名单</h4><span className="text-[9px] bg-blue-900/40 text-blue-400 px-2 py-0.5 rounded border border-blue-500/30">API Loading...</span></div><div className="space-y-2"><div className="text-xs text-slate-500 text-center py-8 bg-slate-900 rounded-lg border border-slate-800 border-dashed">大名单数据、场上站位阵型、以及球员伤病情况，<br/>将在世界杯开赛前通过 Football-API 接口精准同步。</div></div></div>
-             </div>
-           )}
-        </div>
-      </div>
-    </>
-  );
-}
-
-// ==========================================
-// 7. 小组赛程视图
-// ==========================================
 
 function GroupScheduleView({ groups, onMatchClick, onTeamClick, setGeneratedImage }) {
   const [viewMode, setViewMode] = useState('by_time'); 
@@ -1164,16 +841,11 @@ function GroupScheduleView({ groups, onMatchClick, onTeamClick, setGeneratedImag
         </div>
       </div>
       <div className="flex-1 overflow-y-auto custom-scrollbar relative">
-        <div id="capture-gs" className="bg-slate-950 p-2 sm:p-4 pb-10">
+        <div id="capture-gs" className="bg-slate-950 p-2 sm:p-4 pb-6">
           {viewMode === 'by_group' ? ( <GroupScheduleByGroup groups={groups} onMatchClick={onMatchClick} onTeamClick={onTeamClick} /> ) : ( <GroupScheduleByTime groups={groups} onMatchClick={onMatchClick} onTeamClick={onTeamClick} /> )}
           <div id="watermark-capture-gs" className="hidden flex-col items-center justify-center mt-8 w-full"><GlobalQRLogo /></div>
         </div>
-        {/* 放至底部 */}
-        <div className="w-full flex justify-center pb-20 pt-4 bg-slate-950 relative z-50">
-            <button onClick={() => generateImageWithFallback('capture-gs', 'watermark-capture-gs', setGeneratedImage)} className="bg-blue-600 hover:bg-blue-500 text-white shadow-[0_0_15px_rgba(37,99,235,0.4)] px-8 py-3.5 rounded-full font-bold text-sm flex items-center transition-all active:scale-95">
-                <Share className="w-4 h-4 mr-2" /> <span>一键分享或保存全景长图</span>
-            </button>
-        </div>
+        <CaptureButton onClick={() => generateImageWithFallback('capture-gs', 'watermark-capture-gs', setGeneratedImage)} text="生成并分享全景长图" />
       </div>
     </div>
   );
@@ -1182,11 +854,10 @@ function GroupScheduleView({ groups, onMatchClick, onTeamClick, setGeneratedImag
 function GroupScheduleByGroup({ groups, onMatchClick, onTeamClick }) {
   const [expandedGroups, setExpandedGroups] = useState({});
   const toggleGroup = (g) => { setExpandedGroups(prev => ({ ...prev, [g]: !prev[g] })); };
-
   const renderTeamRow = (team, type, gName, idx) => (
     <div key={`team-row-${gName}-${team.id || 'no-id'}-${idx}-${type}`} onClick={() => !team.isPlaceholder && onTeamClick && onTeamClick(team)} 
          className={`relative flex items-center text-xs px-2 py-2.5 transition-colors border-b border-slate-800/30 last:border-b-0 ${!team.isPlaceholder ? 'cursor-pointer hover:bg-white/5' : ''} ${type === 'top2' ? 'bg-emerald-900/40' : type === 'third' ? 'bg-yellow-900/40' : 'bg-transparent'}`}>
-      <span className="flex-1 flex items-center truncate pr-2 font-medium z-10 mt-1"><TeamFlag flag={team.flag} sizeClass="w-5 h-5 mr-2" /><span className={type === 'top2' ? 'text-emerald-100 font-bold' : type === 'third' ? 'text-yellow-100 font-bold' : 'text-slate-400'}>{team.name}</span></span>
+      <span className="flex-1 flex items-center truncate pr-2 font-medium z-10 mt-1"><TeamFlag flag={team.flag} sizeClass="w-5 h-5 mr-2" /><span className={`leading-tight ${type === 'top2' ? 'text-emerald-100 font-bold' : type === 'third' ? 'text-yellow-100 font-bold' : 'text-slate-400'}`}>{team.name}</span></span>
       <span className="w-5 sm:w-6 text-center font-mono text-slate-400 z-10 mt-1">{team.w}</span><span className="w-5 sm:w-6 text-center font-mono text-slate-400 z-10 mt-1">{team.d}</span><span className="w-5 sm:w-6 text-center font-mono text-slate-400 z-10 mt-1">{team.l}</span><span className="w-6 sm:w-8 text-center font-mono text-slate-300 z-10 mt-1">{team.gd > 0 ? `+${team.gd}` : team.gd}</span><span className={`w-6 sm:w-8 text-center font-mono font-bold rounded z-10 mt-1 ${type === 'top2' ? 'text-emerald-400' : type === 'third' ? 'text-yellow-400' : 'text-slate-500'}`}>{team.pts}</span>
     </div>
   );
@@ -1217,9 +888,9 @@ function GroupScheduleByGroup({ groups, onMatchClick, onTeamClick }) {
                   <div key={`group-match-${g}-${match.id || 'no-id'}-${idx}`} onClick={() => onMatchClick({ ...match, groupName: g })} className="relative flex flex-col p-2.5 rounded-md border text-sm transition-all border-slate-800/80 bg-slate-950/80 cursor-pointer hover:border-emerald-500/50 hover:bg-slate-900 group/match">
                     <div className="flex justify-between items-center mb-2 border-b border-slate-800/50 pb-1.5"><span className="text-[10px] sm:text-xs font-bold text-slate-300 flex items-center bg-slate-800/60 px-1.5 py-0.5 rounded border border-slate-700/50"><Clock className="w-3 h-3 mr-1 opacity-70" /> {match.timeStr}</span><span className="text-[9px] text-slate-500 flex items-center"><MapPin className="w-2.5 h-2.5 mr-0.5 opacity-50" /> {match.venue}</span></div>
                     <div className="flex justify-center items-center w-full mt-1 gap-2">
-                      <div className="flex items-center justify-end flex-1 max-w-[120px] gap-1.5"><span className="truncate text-[10px] sm:text-xs font-bold text-slate-300 group-hover/match:text-emerald-100 text-right" title={match.home?.name || '待定'}>{match.home?.name || '待定'}</span><TeamFlag flag={match.home?.flag} sizeClass="w-4 h-4 sm:w-5 sm:h-5 ml-1" /></div>
+                      <div className="flex items-center justify-end flex-1 max-w-[120px] gap-1.5"><span className="truncate leading-tight text-[10px] sm:text-xs font-bold text-slate-300 group-hover/match:text-emerald-100 text-right" title={match.home?.name || '待定'}>{match.home?.name || '待定'}</span><TeamFlag flag={match.home?.flag} sizeClass="w-4 h-4 sm:w-5 sm:h-5 ml-1" /></div>
                       <div className="flex flex-col justify-center items-center w-[40px] sm:w-[60px] shrink-0 relative">{match.status === 'LIVE' && <span className="absolute -top-3 text-[9px] text-emerald-400 font-bold animate-pulse">{match.liveMinute}</span>}<span className={`font-mono text-[10px] sm:text-sm font-bold ${match.status === 'LIVE' ? 'text-emerald-400' : 'text-slate-600 group-hover/match:text-emerald-500'}`}>{match.status === 'FINISHED' || match.status === 'LIVE' ? `${match.homeScore} - ${match.awayScore}` : 'VS'}</span></div>
-                      <div className="flex items-center justify-start flex-1 max-w-[120px] gap-1.5"><TeamFlag flag={match.away?.flag} sizeClass="w-4 h-4 sm:w-5 sm:h-5 mr-1" /><span className="truncate text-[10px] sm:text-xs font-bold text-slate-300 group-hover/match:text-emerald-100 text-left" title={match.away?.name || '待定'}>{match.away?.name || '待定'}</span></div>
+                      <div className="flex items-center justify-start flex-1 max-w-[120px] gap-1.5"><TeamFlag flag={match.away?.flag} sizeClass="w-4 h-4 sm:w-5 sm:h-5 mr-1" /><span className="truncate leading-tight text-[10px] sm:text-xs font-bold text-slate-300 group-hover/match:text-emerald-100 text-left" title={match.away?.name || '待定'}>{match.away?.name || '待定'}</span></div>
                     </div>
                   </div>
                 ))}
@@ -1233,15 +904,13 @@ function GroupScheduleByGroup({ groups, onMatchClick, onTeamClick }) {
 }
 
 function GroupScheduleByTime({ groups, onMatchClick, onTeamClick }) {
-  const allMatches = [];
-  Object.keys(groups).forEach(groupName => { groups[groupName].matches.forEach(m => { allMatches.push({ ...m, groupName }); }); });
-  allMatches.sort((a, b) => a.timeStr.localeCompare(b.timeStr));
-  const groupedMatches = groupByDate(allMatches);
+  const allMatches = []; Object.keys(groups).forEach(groupName => { groups[groupName].matches.forEach(m => { allMatches.push({ ...m, groupName }); }); });
+  allMatches.sort((a, b) => a.timeStr.localeCompare(b.timeStr)); const groupedMatches = groupByDate(allMatches);
 
   const renderSidebarTeamRow = (team, type, idx, gName) => (
     <div key={`sb-team-${gName}-${team.id || 'no-id'}-${idx}-${type}`} onClick={() => !team.isPlaceholder && onTeamClick && onTeamClick(team)} 
          className={`relative flex items-center justify-between px-1 sm:px-2 py-1.5 sm:py-2 transition-colors border-b border-slate-800/30 last:border-b-0 ${!team.isPlaceholder ? 'cursor-pointer hover:bg-white/5' : ''} ${type === 'top2' ? 'bg-emerald-900/40' : type === 'third' ? 'bg-yellow-900/40' : 'bg-transparent'}`}>
-      <span className={`flex items-center flex-1 min-w-0 pr-1 z-10 mt-0.5 ${type === 'top2' ? 'font-bold text-emerald-100' : type === 'third' ? 'font-bold text-yellow-100' : 'text-slate-400'}`}><TeamFlag flag={team.flag} sizeClass="w-3 h-3 sm:w-4 sm:h-4 mr-1 flex-shrink-0"/><span className="truncate flex-1 text-[9px] sm:text-xs" title={team.name}>{team.name}</span></span>
+      <span className={`flex items-center flex-1 min-w-0 pr-1 z-10 mt-0.5 ${type === 'top2' ? 'font-bold text-emerald-100' : type === 'third' ? 'font-bold text-yellow-100' : 'text-slate-400'}`}><TeamFlag flag={team.flag} sizeClass="w-3 h-3 sm:w-4 sm:h-4 mr-1 flex-shrink-0"/><span className="truncate leading-tight flex-1 text-[9px] sm:text-xs" title={team.name}>{team.name}</span></span>
       <div className="flex items-center justify-end font-mono z-10 mt-0.5 gap-0.5 sm:gap-1.5 shrink-0 text-[8px] sm:text-xs"><span className="w-2.5 sm:w-4 text-center text-slate-500 hidden sm:block">{team.w}</span><span className="w-2.5 sm:w-4 text-center text-slate-500 hidden sm:block">{team.d}</span><span className="w-2.5 sm:w-4 text-center text-slate-500 hidden sm:block">{team.l}</span><span className="w-3.5 sm:w-6 text-center text-slate-400" title="净胜球">{team.gd}</span><span className={`w-3.5 sm:w-6 text-center font-bold ${type === 'top2' ? 'text-emerald-400' : type === 'third' ? 'text-yellow-400' : 'text-slate-500'}`} title="积分">{team.pts}</span></div>
     </div>
   );
@@ -1260,9 +929,9 @@ function GroupScheduleByTime({ groups, onMatchClick, onTeamClick }) {
                   <div key={match.id} onClick={() => onMatchClick(match)} className="bg-slate-900 border border-slate-800 rounded-lg sm:rounded-xl p-2 sm:p-4 hover:border-cyan-500/50 transition-all cursor-pointer group shadow-sm">
                     <div className="flex justify-between items-center mb-2 border-b border-slate-800 pb-1 sm:pb-2"><span className="text-[8px] sm:text-xs text-slate-400 font-mono flex items-center bg-slate-950 px-1 sm:px-2 py-0.5 sm:py-1 rounded border border-slate-800"><Clock className="w-2.5 h-2.5 sm:w-3 sm:h-3 mr-0.5 sm:mr-1"/>{match.timeStr.split(' ')[1]}</span><span className="text-[8px] sm:text-[10px] text-cyan-400 font-bold bg-cyan-900/20 px-1 sm:px-2 py-0.5 sm:py-1 rounded border border-cyan-500/20">{match.groupName} 组对决</span></div>
                     <div className="flex items-center justify-between mt-1 sm:mt-2">
-                      <div className="flex items-center gap-1 sm:gap-1.5 w-[42%] justify-end"><span className="text-[9px] sm:text-sm font-bold text-slate-300 group-hover:text-cyan-100 truncate flex-1 text-right">{match.home?.name || '待定'}</span><TeamFlag flag={match.home?.flag} sizeClass="w-4 h-4 sm:w-6 sm:h-6 shrink-0" /></div>
+                      <div className="flex items-center gap-1 sm:gap-1.5 w-[42%] justify-end"><span className="text-[9px] sm:text-sm font-bold text-slate-300 group-hover:text-cyan-100 truncate leading-tight flex-1 text-right">{match.home?.name || '待定'}</span><TeamFlag flag={match.home?.flag} sizeClass="w-4 h-4 sm:w-6 sm:h-6 shrink-0" /></div>
                       <div className="flex flex-col items-center justify-center w-[16%]"><span className="text-[10px] sm:text-lg font-black text-slate-500 group-hover:text-cyan-400">VS</span></div>
-                      <div className="flex items-center gap-1 sm:gap-1.5 w-[42%] justify-start"><TeamFlag flag={match.away?.flag} sizeClass="w-4 h-4 sm:w-6 sm:h-6 shrink-0" /><span className="text-[9px] sm:text-sm font-bold text-slate-300 group-hover:text-cyan-100 truncate flex-1 text-left">{match.away?.name || '待定'}</span></div>
+                      <div className="flex items-center gap-1 sm:gap-1.5 w-[42%] justify-start"><TeamFlag flag={match.away?.flag} sizeClass="w-4 h-4 sm:w-6 sm:h-6 shrink-0" /><span className="text-[9px] sm:text-sm font-bold text-slate-300 group-hover:text-cyan-100 truncate leading-tight flex-1 text-left">{match.away?.name || '待定'}</span></div>
                     </div>
                   </div>
                 ))}
@@ -1290,7 +959,7 @@ function GroupScheduleByTime({ groups, onMatchClick, onTeamClick }) {
 }
 
 // ==========================================
-// 8. 微信全屏保存图片兜底组件 (仅微信环境强制接管)
+// 8. 微信全屏保存图片兜底组件 (仅微信生效)
 // ==========================================
 
 const ImagePreviewModal = ({ dataUrl, onClose }) => {
@@ -1299,7 +968,7 @@ const ImagePreviewModal = ({ dataUrl, onClose }) => {
     <div className="fixed inset-0 bg-black/90 backdrop-blur-md z-[300] flex flex-col items-center justify-center p-4 animate-fade-in">
        <div className="w-full max-w-md bg-slate-900 border border-slate-700 rounded-2xl overflow-hidden shadow-2xl relative flex flex-col max-h-[90vh]">
           <div className="p-4 bg-slate-800/80 flex justify-between items-center shrink-0 border-b border-slate-700">
-             <span className="font-bold text-emerald-400 flex items-center"><CheckCircle2 className="w-4 h-4 mr-2"/> 长图渲染成功</span>
+             <span className="font-bold text-emerald-400 flex items-center"><CheckCircle2 className="w-4 h-4 mr-2"/> 生成成功</span>
              <button onClick={onClose} className="text-slate-400 hover:text-white bg-slate-900 rounded-full p-1"><X className="w-5 h-5"/></button>
           </div>
           <div className="p-4 overflow-y-auto flex-1 custom-scrollbar text-center relative">
@@ -1307,7 +976,7 @@ const ImagePreviewModal = ({ dataUrl, onClose }) => {
           </div>
           <div className="p-4 bg-emerald-900/20 shrink-0 text-center border-t border-emerald-500/20">
              <p className="text-emerald-400 font-black mb-1 animate-pulse">↑ 请长按上方图片保存或发送给朋友 ↑</p>
-             <p className="text-[10px] text-slate-400 mt-1">由于微信官方严格限制了直接下载功能，请通过长按保存</p>
+             <p className="text-[10px] text-slate-400 mt-1">检测到内嵌环境拦截，保存后可随时分享</p>
           </div>
        </div>
     </div>
@@ -1315,8 +984,76 @@ const ImagePreviewModal = ({ dataUrl, onClose }) => {
 };
 
 // ==========================================
-// 9. 主应用组件 
+// 9. 抽屉及主应用 
 // ==========================================
+
+function MatchDetailDrawer({ match, onClose, onTeamClick, isTop }) {
+  if (!match) return null;
+  const zIndex = isTop ? 'z-[100]' : 'z-[90]';
+  const hTeam = match.homeTeam || match.home; const aTeam = match.awayTeam || match.away;
+  return (
+    <>
+      <div className={`fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity ${zIndex}`} onClick={onClose} />
+      <div className={`fixed bottom-0 left-0 right-0 bg-slate-900 border-t border-slate-700 rounded-t-3xl p-4 sm:p-6 shadow-2xl transform transition-transform duration-300 ease-in-out ${zIndex} max-h-[85vh] overflow-y-auto custom-scrollbar`}>
+        <div className="w-12 h-1.5 bg-slate-700 rounded-full mx-auto mb-6 opacity-50" />
+        <button onClick={onClose} className="absolute top-5 right-5 text-slate-400 hover:text-white bg-slate-800 rounded-full p-1"><X className="w-5 h-5"/></button>
+        <div className="text-center mb-6"><p className="text-emerald-400 font-bold text-sm bg-emerald-900/20 inline-block px-3 py-1 rounded-full border border-emerald-500/30">{match.round || '比赛数据中心'}</p><p className="text-slate-400 text-xs mt-3 flex items-center justify-center"><Clock className="w-3.5 h-3.5 mr-1" /> {match.timeStr} • {match.venue || '美加墨赛区'}</p></div>
+        <div className="flex items-center justify-between bg-slate-950 border border-slate-800 p-4 sm:p-6 rounded-2xl mb-6 shadow-inner">
+           <div className="flex flex-col items-center gap-2 w-1/3 cursor-pointer hover:scale-105 transition-transform" onClick={() => onTeamClick(hTeam)}><TeamFlag name={hTeam?.name} flag={hTeam?.flag} sizeClass="w-12 h-12 sm:w-16 sm:h-16" /><span className="font-bold text-sm sm:text-base text-center text-slate-200 mt-2">{hTeam?.isPlaceholder ? hTeam.placeholderName : hTeam?.name}</span><span className="text-[10px] text-blue-400">点击看数据</span></div>
+           <div className="w-1/3 text-center"><div className="text-3xl sm:text-4xl font-black bg-gradient-to-b from-white to-slate-400 bg-clip-text text-transparent mb-1">{match.homeScore !== undefined && match.homeScore !== null ? `${match.homeScore} - ${match.awayScore}` : 'VS'}</div><div className="text-[10px] text-slate-500">{match.status === 'FINISHED' ? '已结束' : match.status === 'LIVE' ? '进行中' : '未开赛'}</div></div>
+           <div className="flex flex-col items-center gap-2 w-1/3 cursor-pointer hover:scale-105 transition-transform" onClick={() => onTeamClick(aTeam)}><TeamFlag name={aTeam?.name} flag={aTeam?.flag} sizeClass="w-12 h-12 sm:w-16 sm:h-16" /><span className="font-bold text-sm sm:text-base text-center text-slate-200 mt-2">{aTeam?.isPlaceholder ? aTeam.placeholderName : aTeam?.name}</span><span className="text-[10px] text-blue-400">点击看数据</span></div>
+        </div>
+        <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4">
+           <h4 className="text-white font-bold mb-4 flex items-center border-b border-slate-700 pb-2"><Activity className="w-4 h-4 mr-2 text-red-400" /> 智能数据前瞻 (API加载区)</h4>
+           <div className="space-y-4">
+              <div className="flex justify-between items-center text-xs sm:text-sm"><span className="text-slate-400">历史交锋 (H2H)</span><span className="font-mono text-slate-300">胜 0 - 平 0 - 负 0 (模拟)</span></div>
+              <div className="flex justify-between items-center text-xs sm:text-sm"><span className="text-slate-400">主队近期战绩</span><span className="font-mono text-emerald-400">W W D W L</span></div>
+              <div className="flex justify-between items-center text-xs sm:text-sm"><span className="text-slate-400">客队近期战绩</span><span className="font-mono text-yellow-400">D W L W W</span></div>
+              <div className="text-center text-[10px] text-slate-500 pt-2 border-t border-slate-700/50 mt-2">详细比赛事件与阵容将在比赛开始前 1 小时经由 Football-API 动态抓取并在此处渲染。</div>
+           </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
+function TeamDetailDrawer({ team, onClose, isTop }) {
+  if (!team || team.isPlaceholder) return null;
+  const zIndex = isTop ? 'z-[100]' : 'z-[90]'; const [activeTab, setActiveTab] = useState('stats'); 
+  return (
+    <>
+      <div className={`fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity ${zIndex}`} onClick={onClose} />
+      <div className={`fixed bottom-0 left-0 right-0 bg-slate-900 border-t border-slate-700 rounded-t-3xl p-4 sm:p-6 shadow-2xl transform transition-transform duration-300 ease-in-out ${zIndex} h-[90vh] flex flex-col`}>
+        <div className="w-12 h-1.5 bg-slate-700 rounded-full mx-auto mb-4 shrink-0 opacity-50" />
+        <button onClick={onClose} className="absolute top-5 right-5 text-slate-400 hover:text-white bg-slate-800 rounded-full p-1 z-10"><X className="w-5 h-5"/></button>
+        <div className="flex flex-col items-center text-center shrink-0"><TeamFlag name={team.name} flag={team.flag} sizeClass="w-20 h-20 shadow-lg drop-shadow-xl" /><h2 className="text-2xl sm:text-3xl font-black mt-3 text-white">{team.name}</h2><span className="text-xs text-slate-400 font-mono mt-1 border border-slate-700 bg-slate-800 px-2 py-0.5 rounded">{team.group} 组</span></div>
+        <div className="flex mt-6 bg-slate-950 p-1 rounded-lg border border-slate-800 shrink-0 mx-4 sm:mx-10"><button onClick={() => setActiveTab('stats')} className={`flex-1 py-2 text-xs sm:text-sm font-bold rounded transition-colors ${activeTab === 'stats' ? 'bg-emerald-600/30 text-emerald-400' : 'text-slate-400'}`}>本届赛事数据</button><button onClick={() => setActiveTab('squad')} className={`flex-1 py-2 text-xs sm:text-sm font-bold rounded transition-colors ${activeTab === 'squad' ? 'bg-blue-600/30 text-blue-400' : 'text-slate-400'}`}>大名单与主帅 (API)</button></div>
+        <div className="flex-1 overflow-y-auto mt-4 px-2 sm:px-6 custom-scrollbar pb-6">
+           {activeTab === 'stats' && (
+             <div className="space-y-4 animate-fade-in">
+               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <div className="bg-slate-800/80 p-3 rounded-xl border border-slate-700 text-center"><div className="text-[10px] text-slate-400 mb-1">当前积分</div><div className="text-2xl font-black text-emerald-400">{team.pts || 0}</div></div>
+                  <div className="bg-slate-800/80 p-3 rounded-xl border border-slate-700 text-center"><div className="text-[10px] text-slate-400 mb-1">净胜球</div><div className="text-2xl font-black text-blue-400">{team.gd || 0}</div></div>
+                  <div className="bg-slate-800/80 p-3 rounded-xl border border-slate-700 text-center"><div className="text-[10px] text-slate-400 mb-1">进球数</div><div className="text-2xl font-black text-white">{team.gf || 0}</div></div>
+                  <div className="bg-slate-800/80 p-3 rounded-xl border border-slate-700 text-center"><div className="text-[10px] text-slate-400 mb-1">失球数</div><div className="text-2xl font-black text-red-400">{team.ga || 0}</div></div>
+               </div>
+               <div className="bg-slate-950 border border-slate-800 rounded-xl p-4">
+                  <h4 className="text-sm font-bold text-slate-300 mb-3 border-b border-slate-800 pb-2">战绩记录</h4>
+                  <div className="flex justify-around text-center"><div><div className="text-xl font-black text-emerald-500">{team.w || 0}</div><div className="text-[10px] text-slate-500 mt-1">胜 (WIN)</div></div><div><div className="text-xl font-black text-yellow-500">{team.d || 0}</div><div className="text-[10px] text-slate-500 mt-1">平 (DRAW)</div></div><div><div className="text-xl font-black text-red-500">{team.l || 0}</div><div className="text-[10px] text-slate-500 mt-1">负 (LOSE)</div></div></div>
+               </div>
+             </div>
+           )}
+           {activeTab === 'squad' && (
+             <div className="space-y-4 animate-fade-in">
+                <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4 flex items-center justify-between"><div><div className="text-[10px] text-slate-400">国家队主教练</div><div className="text-sm font-bold text-white mt-1">待 API 更新获取</div></div><UserCircle2 className="w-8 h-8 text-slate-600" /></div>
+                <div className="bg-slate-950 border border-slate-800 rounded-xl p-4"><div className="flex justify-between items-center border-b border-slate-800 pb-2 mb-3"><h4 className="text-sm font-bold text-slate-300">26 人首发与大名单</h4><span className="text-[9px] bg-blue-900/40 text-blue-400 px-2 py-0.5 rounded border border-blue-500/30">API Loading...</span></div><div className="space-y-2"><div className="text-xs text-slate-500 text-center py-8 bg-slate-900 rounded-lg border border-slate-800 border-dashed">大名单数据、场上站位阵型、以及球员伤病情况，<br/>将在世界杯开赛前通过 Football-API 接口精准同步。</div></div></div>
+             </div>
+           )}
+        </div>
+      </div>
+    </>
+  );
+}
 
 export default function App() {
   useEffect(() => { setupViewport(); }, []);
@@ -1329,14 +1066,8 @@ export default function App() {
   const [forceShowHeader, setForceShowHeader] = useState(false);
   const [generatedImage, setGeneratedImage] = useState(null); 
 
-  const [apiKey] = useState(
-    (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_API_KEY) || 
-    (typeof import.meta !== 'undefined' && import.meta.env.VITE_API_KEY) || 
-    '8c135d4da927727e57fbf81f6e011d02'
-  );
-  
-  const [apiStatus, setApiStatus] = useState('LOCAL'); 
-  const [apiErrorMsg, setApiErrorMsg] = useState('本地赛前模式 | 开赛后API自动同步');
+  const [apiKey] = useState((typeof process !== 'undefined' && process.env.NEXT_PUBLIC_API_KEY) || (typeof import.meta !== 'undefined' && import.meta.env.VITE_API_KEY) || '8c135d4da927727e57fbf81f6e011d02');
+  const [apiStatus, setApiStatus] = useState('LOCAL'); const [apiErrorMsg, setApiErrorMsg] = useState('本地赛前模式 | 开赛后API自动同步');
 
   useEffect(() => {
     const controller = new AbortController(); const signal = controller.signal;
@@ -1394,7 +1125,7 @@ export default function App() {
          </nav>
       </header>
 
-      <div className="flex-1 overflow-hidden relative w-full h-full">
+      <div className="flex-1 overflow-hidden relative w-full h-full bg-slate-950">
         {activeTab === 'meeting' && <TeamMeetingPredictor groups={groups} setGeneratedImage={setGeneratedImage} />}
         {activeTab === 'group_schedule' && <GroupScheduleView groups={groups} onMatchClick={handleOpenMatch} onTeamClick={handleOpenTeam} setGeneratedImage={setGeneratedImage} />}
         {activeTab === 'knockout_schedule' && <KnockoutScheduleView knockouts={officialKnockoutRoundsFlat} getTeamFromSlot={getTeamFromSlot} onMatchClick={handleOpenMatch} setGeneratedImage={setGeneratedImage} />}
@@ -1404,7 +1135,6 @@ export default function App() {
 
       <MatchDetailDrawer match={selectedMatch} onClose={handleCloseMatch} onTeamClick={handleOpenTeam} isTop={lastOpened === 'match'} />
       <TeamDetailDrawer team={selectedTeam} onClose={handleCloseTeam} isTop={lastOpened === 'team'} />
-      
       <ImagePreviewModal dataUrl={generatedImage} onClose={() => setGeneratedImage(null)} />
     </div>
   );
