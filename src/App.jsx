@@ -29,8 +29,11 @@ const takeScreenshot = async (elementId, setImg, setToast) => {
     const element = document.getElementById(elementId);
     const watermark = document.getElementById(`watermark-${elementId}`);
     
-    // 使用内联样式强制控制显隐，避免 Tailwind 类名优先级冲突
-    if(watermark) watermark.style.display = 'flex';
+    // 强制显示包含二维码的水印区域
+    if(watermark) {
+      watermark.classList.remove('hidden');
+      watermark.style.display = 'flex';
+    }
     
     const originalHeight = element.style.height;
     const originalOverflow = element.style.overflow;
@@ -51,7 +54,11 @@ const takeScreenshot = async (elementId, setImg, setToast) => {
     element.style.height = originalHeight;
     element.style.overflow = originalOverflow;
     
-    if(watermark) watermark.style.display = 'none';
+    // 恢复隐藏
+    if(watermark) {
+      watermark.style.display = 'none';
+      watermark.classList.add('hidden');
+    }
     
     setImg(canvas.toDataURL('image/png'));
     setToast(null);
@@ -821,7 +828,6 @@ function PredictionSandbox({ getTeamFromSlot, groups, setGeneratedImage, setToas
         <div className="flex-1 w-full h-full relative overflow-y-auto">
             {phase === 'intro' && (
                 <div className="flex flex-col items-center justify-center h-full text-center px-6 animate-fade-in pt-10 pb-20 relative">
-                    {/* 新增的返回菜单，放在推演模式第一页 */}
                     <button onClick={() => setActiveTab('group_schedule')} className="absolute top-4 left-4 sm:top-6 sm:left-6 text-slate-400 hover:text-white flex items-center bg-slate-900 px-4 py-2 rounded-full border border-slate-700 transition-all z-50 text-sm font-bold shadow-lg">
                         <ChevronLeft className="w-4 h-4 mr-1" /> 返回实况大厅
                     </button>
@@ -1062,7 +1068,7 @@ function TeamMeetingPredictor({ groups, setGeneratedImage, setToast }) {
             {results && !isCalculating && (
                 <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-[90%] max-w-sm">
                    <button onClick={handleGenerateImage} className="w-full bg-gradient-to-r from-yellow-600 to-orange-500 text-white font-black py-3.5 rounded-full shadow-[0_0_25px_rgba(234,179,8,0.5)] hover:scale-[1.01] transition-all flex items-center justify-center">
-                        <ImageIcon className="w-5 h-5 mr-2" /> 生成并保存带二维码的长图
+                        <ImageIcon className="w-5 h-5 mr-2" /> 生成并保存带二维码长图
                     </button>
                 </div>
             )}
@@ -1252,29 +1258,138 @@ function KnockoutScheduleView({ knockouts, getTeamFromSlot, onMatchClick, setGen
 }
 
 // ==========================================
-// 8. 微信全屏保存图片预览组件
+// 6. 抽屉详情组件 (修复核心缺失)
 // ==========================================
 
-const ImagePreviewModal = ({ dataUrl, onClose }) => {
-  if (!dataUrl) return null;
+function MatchDetailDrawer({ match, onClose, onTeamClick, isTop }) {
+  if (!match) return null;
+  const zIndex = isTop ? 'z-[100]' : 'z-[90]';
+  const hTeam = match.homeTeam || match.home;
+  const aTeam = match.awayTeam || match.away;
+  
   return (
-    <div className="fixed inset-0 bg-black/90 backdrop-blur-md z-[300] flex flex-col items-center justify-center p-4 animate-fade-in">
-       <div className="w-full max-w-md bg-slate-900 border border-slate-700 rounded-2xl overflow-hidden shadow-2xl relative flex flex-col max-h-[90vh]">
-          <div className="p-4 bg-slate-800/80 flex justify-between items-center shrink-0 border-b border-slate-700">
-             <span className="font-bold text-emerald-400 flex items-center"><CheckCircle2 className="w-4 h-4 mr-2"/> 生成成功</span>
-             <button onClick={onClose} className="text-slate-400 hover:text-white bg-slate-900 rounded-full p-1"><X className="w-5 h-5"/></button>
-          </div>
-          <div className="p-4 overflow-y-auto flex-1 custom-scrollbar text-center relative">
-             <img src={dataUrl} alt="Generate" className="w-full rounded shadow border border-slate-800" />
-          </div>
-          <div className="p-4 bg-emerald-900/20 shrink-0 text-center border-t border-emerald-500/20">
-             <p className="text-emerald-400 font-black mb-1 animate-pulse">↑ 请长按上方图片保存到相册 ↑</p>
-             <p className="text-xs text-slate-400">已完美兼容微信等各大平台，支持长图分享</p>
-          </div>
-       </div>
-    </div>
+    <>
+      <div className={`fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity ${zIndex}`} onClick={onClose} />
+      <div className={`fixed bottom-0 left-0 right-0 bg-slate-900 border-t border-slate-700 rounded-t-3xl p-4 sm:p-6 shadow-2xl transform transition-transform duration-300 ease-in-out ${zIndex} max-h-[85vh] overflow-y-auto custom-scrollbar`}>
+        <div className="w-12 h-1.5 bg-slate-700 rounded-full mx-auto mb-6 opacity-50" />
+        <button onClick={onClose} className="absolute top-5 right-5 text-slate-400 hover:text-white bg-slate-800 rounded-full p-1"><X className="w-5 h-5"/></button>
+        
+        <div className="text-center mb-6">
+          <p className="text-emerald-400 font-bold text-sm bg-emerald-900/20 inline-block px-3 py-1 rounded-full border border-emerald-500/30">{match.round || '比赛数据中心'}</p>
+          <p className="text-slate-400 text-xs mt-3 flex items-center justify-center"><Clock className="w-3.5 h-3.5 mr-1" /> {match.timeStr} • {match.venue || '美加墨赛区'}</p>
+        </div>
+
+        <div className="flex items-center justify-between bg-slate-950 border border-slate-800 p-4 sm:p-6 rounded-2xl mb-6 shadow-inner">
+           <div className="flex flex-col items-center gap-2 w-1/3 cursor-pointer hover:scale-105 transition-transform" onClick={() => onTeamClick(hTeam)}>
+              <TeamFlag name={hTeam?.name} flag={hTeam?.flag} sizeClass="w-12 h-12 sm:w-16 sm:h-16" />
+              <span className="font-bold text-sm sm:text-base text-center text-slate-200 mt-2">{hTeam?.isPlaceholder ? hTeam.placeholderName : hTeam?.name}</span>
+              <span className="text-[10px] text-blue-400">点击看数据</span>
+           </div>
+           <div className="w-1/3 text-center">
+              <div className="text-3xl sm:text-4xl font-black bg-gradient-to-b from-white to-slate-400 bg-clip-text text-transparent mb-1">
+                 {match.homeScore !== undefined && match.homeScore !== null ? `${match.homeScore} - ${match.awayScore}` : 'VS'}
+              </div>
+              <div className="text-[10px] text-slate-500">{match.status === 'FINISHED' ? '已结束' : match.status === 'LIVE' ? '进行中' : '未开赛'}</div>
+           </div>
+           <div className="flex flex-col items-center gap-2 w-1/3 cursor-pointer hover:scale-105 transition-transform" onClick={() => onTeamClick(aTeam)}>
+              <TeamFlag name={aTeam?.name} flag={aTeam?.flag} sizeClass="w-12 h-12 sm:w-16 sm:h-16" />
+              <span className="font-bold text-sm sm:text-base text-center text-slate-200 mt-2">{aTeam?.isPlaceholder ? aTeam.placeholderName : aTeam?.name}</span>
+              <span className="text-[10px] text-blue-400">点击看数据</span>
+           </div>
+        </div>
+
+        <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4">
+           <h4 className="text-white font-bold mb-4 flex items-center border-b border-slate-700 pb-2"><Activity className="w-4 h-4 mr-2 text-red-400" /> 智能数据前瞻 (API加载区)</h4>
+           <div className="space-y-4">
+              <div className="flex justify-between items-center text-xs sm:text-sm">
+                 <span className="text-slate-400">历史交锋 (H2H)</span>
+                 <span className="font-mono text-slate-300">胜 0 - 平 0 - 负 0 (模拟)</span>
+              </div>
+              <div className="flex justify-between items-center text-xs sm:text-sm">
+                 <span className="text-slate-400">主队近期战绩</span>
+                 <span className="font-mono text-emerald-400">W W D W L</span>
+              </div>
+              <div className="flex justify-between items-center text-xs sm:text-sm">
+                 <span className="text-slate-400">客队近期战绩</span>
+                 <span className="font-mono text-yellow-400">D W L W W</span>
+              </div>
+              <div className="text-center text-[10px] text-slate-500 pt-2 border-t border-slate-700/50 mt-2">详细比赛事件与阵容将在比赛开始前 1 小时经由 Football-API 动态抓取并在此处渲染。</div>
+           </div>
+        </div>
+      </div>
+    </>
   );
-};
+}
+
+function TeamDetailDrawer({ team, onClose, isTop }) {
+  if (!team || team.isPlaceholder) return null;
+  const zIndex = isTop ? 'z-[100]' : 'z-[90]';
+  const [activeTab, setActiveTab] = useState('stats');
+  
+  return (
+    <>
+      <div className={`fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity ${zIndex}`} onClick={onClose} />
+      <div className={`fixed bottom-0 left-0 right-0 bg-slate-900 border-t border-slate-700 rounded-t-3xl p-4 sm:p-6 shadow-2xl transform transition-transform duration-300 ease-in-out ${zIndex} h-[90vh] flex flex-col`}>
+        <div className="w-12 h-1.5 bg-slate-700 rounded-full mx-auto mb-4 shrink-0 opacity-50" />
+        <button onClick={onClose} className="absolute top-5 right-5 text-slate-400 hover:text-white bg-slate-800 rounded-full p-1 z-10"><X className="w-5 h-5"/></button>
+        
+        <div className="flex flex-col items-center text-center shrink-0">
+           <TeamFlag name={team.name} flag={team.flag} sizeClass="w-20 h-20 shadow-lg drop-shadow-xl" />
+           <h2 className="text-2xl sm:text-3xl font-black mt-3 text-white">{team.name}</h2>
+           <span className="text-xs text-slate-400 font-mono mt-1 border border-slate-700 bg-slate-800 px-2 py-0.5 rounded">{team.group} 组</span>
+        </div>
+
+        <div className="flex mt-6 bg-slate-950 p-1 rounded-lg border border-slate-800 shrink-0 mx-4 sm:mx-10">
+           <button onClick={() => setActiveTab('stats')} className={`flex-1 py-2 text-xs sm:text-sm font-bold rounded transition-colors ${activeTab === 'stats' ? 'bg-emerald-600/30 text-emerald-400' : 'text-slate-400'}`}>本届赛事数据</button>
+           <button onClick={() => setActiveTab('squad')} className={`flex-1 py-2 text-xs sm:text-sm font-bold rounded transition-colors ${activeTab === 'squad' ? 'bg-blue-600/30 text-blue-400' : 'text-slate-400'}`}>大名单与主帅 (API)</button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto mt-4 px-2 sm:px-6 custom-scrollbar pb-6">
+           {activeTab === 'stats' && (
+             <div className="space-y-4 animate-fade-in">
+               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <div className="bg-slate-800/80 p-3 rounded-xl border border-slate-700 text-center"><div className="text-[10px] text-slate-400 mb-1">当前积分</div><div className="text-2xl font-black text-emerald-400">{team.pts || 0}</div></div>
+                  <div className="bg-slate-800/80 p-3 rounded-xl border border-slate-700 text-center"><div className="text-[10px] text-slate-400 mb-1">净胜球</div><div className="text-2xl font-black text-blue-400">{team.gd || 0}</div></div>
+                  <div className="bg-slate-800/80 p-3 rounded-xl border border-slate-700 text-center"><div className="text-[10px] text-slate-400 mb-1">进球数</div><div className="text-2xl font-black text-white">{team.gf || 0}</div></div>
+                  <div className="bg-slate-800/80 p-3 rounded-xl border border-slate-700 text-center"><div className="text-[10px] text-slate-400 mb-1">失球数</div><div className="text-2xl font-black text-red-400">{team.ga || 0}</div></div>
+               </div>
+               <div className="bg-slate-950 border border-slate-800 rounded-xl p-4">
+                  <h4 className="text-sm font-bold text-slate-300 mb-3 border-b border-slate-800 pb-2">战绩记录</h4>
+                  <div className="flex justify-around text-center">
+                     <div><div className="text-xl font-black text-emerald-500">{team.w || 0}</div><div className="text-[10px] text-slate-500 mt-1">胜 (WIN)</div></div>
+                     <div><div className="text-xl font-black text-yellow-500">{team.d || 0}</div><div className="text-[10px] text-slate-500 mt-1">平 (DRAW)</div></div>
+                     <div><div className="text-xl font-black text-red-500">{team.l || 0}</div><div className="text-[10px] text-slate-500 mt-1">负 (LOSE)</div></div>
+                  </div>
+               </div>
+             </div>
+           )}
+           {activeTab === 'squad' && (
+             <div className="space-y-4 animate-fade-in">
+                <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4 flex items-center justify-between">
+                   <div>
+                      <div className="text-[10px] text-slate-400">国家队主教练</div>
+                      <div className="text-sm font-bold text-white mt-1">待 API 更新获取</div>
+                   </div>
+                   <UserCircle2 className="w-8 h-8 text-slate-600" />
+                </div>
+                <div className="bg-slate-950 border border-slate-800 rounded-xl p-4">
+                   <div className="flex justify-between items-center border-b border-slate-800 pb-2 mb-3">
+                      <h4 className="text-sm font-bold text-slate-300">26 人首发与大名单</h4>
+                      <span className="text-[9px] bg-blue-900/40 text-blue-400 px-2 py-0.5 rounded border border-blue-500/30">API Loading...</span>
+                   </div>
+                   <div className="space-y-2">
+                     <div className="text-xs text-slate-500 text-center py-8 bg-slate-900 rounded-lg border border-slate-800 border-dashed">
+                        大名单数据、场上站位阵型、以及球员伤病情况，<br/>将在世界杯开赛前通过 Football-API 接口精准同步。
+                     </div>
+                   </div>
+                </div>
+             </div>
+           )}
+        </div>
+      </div>
+    </>
+  );
+}
 
 // ==========================================
 // 9. 主应用组件 
@@ -1292,10 +1407,7 @@ export default function App() {
   const [generatedImage, setGeneratedImage] = useState(null); 
   const [toast, setToast] = useState(null);
 
-  const [apiKey] = useState(
-    (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_API_KEY) || 
-    '8c135d4da927727e57fbf81f6e011d02'
-  );
+  const [apiKey] = useState('8c135d4da927727e57fbf81f6e011d02');
   
   const [apiStatus, setApiStatus] = useState('LOCAL'); 
   const [apiErrorMsg, setApiErrorMsg] = useState('本地赛前模式 | 开赛后API自动同步');
