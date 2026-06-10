@@ -76,7 +76,6 @@ const generateImageWithFallback = async (elementId, setGeneratedImage, setIsGene
     element.style.setProperty('width', `${scrollW}px`, 'important');
     element.style.setProperty('background-color', '#020617', 'important');
 
-    // 核心修复 3：增加降级重试机制和忽略字体超时，解决手机端长图生成失败
     try {
         const dataUrl = await window.htmlToImage.toPng(element, { 
             pixelRatio: 1.5, 
@@ -84,13 +83,12 @@ const generateImageWithFallback = async (elementId, setGeneratedImage, setIsGene
             width: scrollW,
             height: scrollH,
             style: { margin: '0', padding: '0', transform: 'none' },
-            skipFonts: true // 忽略字体渲染超时，解决90%的生成白屏失败
+            skipFonts: true
         });
         setGeneratedImage(dataUrl);
     } catch (e) { 
         console.warn("高清截图生成失败，尝试降级渲染：", e);
         try {
-            // 降级重试：降低 pixelRatio 减少 Canvas 内存溢出风险
             const fallbackUrl = await window.htmlToImage.toPng(element, { 
                 pixelRatio: 1, 
                 backgroundColor: '#020617',
@@ -144,14 +142,15 @@ function TeamFlag({ flag, sizeClass = "w-6 h-6 sm:w-8 sm:h-8" }) {
   return <span className="drop-shadow-sm text-[1em] leading-none inline-block flex-shrink-0">{flag}</span>;
 }
 
+// 核心修改 1：重构二维码组件，调大图标与文本字号，提升微信识别率
 const CompactQRLogo = () => (
-  <div className="flex items-center bg-slate-900/90 backdrop-blur border border-slate-700 p-1.5 sm:p-2 rounded-lg shadow-2xl shrink-0 select-none">
-    <div className="w-8 h-8 sm:w-10 sm:h-10 bg-white p-0.5 rounded flex items-center justify-center shrink-0">
+  <div className="flex items-center bg-slate-900/95 backdrop-blur-md border-2 border-slate-700 p-2.5 sm:p-4 rounded-2xl shadow-2xl shrink-0 select-none mx-auto">
+    <div className="w-12 h-12 sm:w-16 sm:h-16 bg-white p-1 rounded-xl flex items-center justify-center shrink-0">
        <img src="/website-qr.png" crossOrigin="anonymous" alt="QR" className="w-full h-full object-contain" />
     </div>
-    <div className="ml-2 flex flex-col justify-center">
-      <span className="text-[9px] sm:text-[10px] font-black text-yellow-400 tracking-wider">扫码看全景大树与推演</span>
-      <span className="text-[7px] sm:text-[8px] text-slate-400 font-mono">xiaohuang365.com</span>
+    <div className="ml-3 sm:ml-4 flex flex-col justify-center">
+      <span className="text-[12px] sm:text-[15px] font-black text-yellow-400 tracking-wider">扫码看全景大树与推演</span>
+      <span className="text-[9px] sm:text-[11px] text-slate-400 font-mono mt-0.5 sm:mt-1">xiaohuang365.com</span>
     </div>
   </div>
 );
@@ -342,8 +341,10 @@ const FullScreenBracket = ({ mode, r32Selections = {}, thirdPlaceAssignments = {
     }, [mode, r32Selections, thirdPlaceAssignments, predictions, getTeamFromSlot]);
 
     const bracketMatrix = { top: [ ['ko_73', 'ko_75', 'ko_74', 'ko_77', 'ko_83', 'ko_84', 'ko_81', 'ko_82'], ['ko_89', 'ko_90', 'ko_93', 'ko_94'], ['ko_97', 'ko_98'], ['ko_101'] ], bottom: [ ['ko_76', 'ko_78', 'ko_79', 'ko_80', 'ko_86', 'ko_88', 'ko_85', 'ko_87'], ['ko_91', 'ko_92', 'ko_95', 'ko_96'], ['ko_99', 'ko_100'], ['ko_102'] ] };
+    
+    // 核心修改 2：优化纵深间距算法 mainAxes，大幅缩短 R32 到 SF 的晋级路线物理距离
     const getPos = (half, depth, index) => {
-        const mainAxes = isPortrait ? [6, 18, 30, 42] : [8, 22, 35, 45]; 
+        const mainAxes = isPortrait ? [6, 16, 26, 36] : [8, 20, 32, 44]; 
         let main = mainAxes[depth]; if (half === 'bottom') main = 100 - main;
         const crossAxes = [ [6.25, 18.75, 31.25, 43.75, 56.25, 68.75, 81.25, 93.75], [12.5, 37.5, 62.5, 87.5], [25, 75], [50] ];
         let cross = crossAxes[depth][index];
@@ -354,7 +355,7 @@ const FullScreenBracket = ({ mode, r32Selections = {}, thirdPlaceAssignments = {
     const championTeam = mode === 'sandbox' ? finalMatch?.predictedWinner : (finalMatch?.status === 'FINISHED' ? (finalMatch?.homeScore > finalMatch?.awayScore ? finalMatch?.home : finalMatch?.away) : null);
     
     const nodes = []; const lines = []; const sw = isPortrait ? 0.3 : 0.2; 
-    const baseColor = '#475569'; // 核心修复 2：原色为灰蓝色 slate-600，绝不变黄
+    const baseColor = '#475569'; 
 
     ['top', 'bottom'].forEach(half => {
         [0, 1, 2, 3].forEach(depth => {
@@ -372,12 +373,10 @@ const FullScreenBracket = ({ mode, r32Selections = {}, thirdPlaceAssignments = {
                 const winA = mode === 'sandbox' ? !!matchA?.predictedWinner : (matchA?.status === 'FINISHED' && matchA?.homeScore !== matchA?.awayScore);
                 const winB = mode === 'sandbox' ? !!matchB?.predictedWinner : (matchB?.status === 'FINISHED' && matchB?.homeScore !== matchB?.awayScore);
                 
-                // 核心修复 2：颜色不变，仅宽度加倍
                 const widthA = winA ? sw * 2.5 : sw; 
                 const widthB = winB ? sw * 2.5 : sw; 
                 const widthNext = (winA || winB) ? sw * 2.5 : sw;
 
-                // 判断是否是冠军球队的必经之路，触发金闪闪动画
                 const champId = championTeam?.id;
                 const isChampA = champId && matchA?.predictedWinner?.id === champId;
                 const isChampB = champId && matchB?.predictedWinner?.id === champId;
@@ -428,7 +427,6 @@ const FullScreenBracket = ({ mode, r32Selections = {}, thirdPlaceAssignments = {
     lines.push(<line key="L-final-top" x1={topSemi.x} y1={topSemi.y} x2={finalPos.x} y2={finalPos.y} stroke={baseColor} strokeWidth={winTopSF ? sw * 2.5 : sw} />);
     lines.push(<line key="L-final-bot" x1={bottomSemi.x} y1={bottomSemi.y} x2={finalPos.x} y2={finalPos.y} stroke={baseColor} strokeWidth={winBotSF ? sw * 2.5 : sw} />);
 
-    // 冠军最后两步金线
     if (championTeam && matchTopSemi?.predictedWinner?.id === championTeam.id) lines.push(<line key="C-F-T" className="gold-path" style={{animationDelay: `1.2s`}} x1={topSemi.x} y1={topSemi.y} x2={finalPos.x} y2={finalPos.y} strokeWidth={sw * 3} />);
     if (championTeam && matchBotSemi?.predictedWinner?.id === championTeam.id) lines.push(<line key="C-F-B" className="gold-path" style={{animationDelay: `1.2s`}} x1={bottomSemi.x} y1={bottomSemi.y} x2={finalPos.x} y2={finalPos.y} strokeWidth={sw * 3} />);
 
@@ -442,7 +440,8 @@ const FullScreenBracket = ({ mode, r32Selections = {}, thirdPlaceAssignments = {
     nodes.push(<BracketNode key="ko_103" match={thirdPlaceMatch} x={thirdPos.x} y={thirdPos.y} isPortrait={isPortrait} mode={mode} isThirdPlace setPrediction={setPrediction} onMatchClick={onMatchClick} />);
 
     nodes.push(
-        <div key="champion_node" className={`absolute flex flex-col items-center justify-center border-2 rounded-xl z-[60] transition-all duration-500 ${championTeam ? 'bg-yellow-500/20 border-yellow-400 shadow-[0_0_30px_rgba(234,179,8,0.7)] scale-125' : 'bg-slate-900 border-dashed border-slate-700'}`} style={{ left: `${championPos.x}%`, top: `${championPos.y}%`, transform: 'translate(-50%, -50%)', width: isPortrait ? '15%' : '11%', height: isPortrait ? '5%' : '8%', maxWidth: '100px', minWidth: '45px' }}>
+        // 核心修改 3：相应增加冠军节点高度限制，使其与节点框同等饱满
+        <div key="champion_node" className={`absolute flex flex-col items-center justify-center border-2 rounded-xl z-[60] transition-all duration-500 ${championTeam ? 'bg-yellow-500/20 border-yellow-400 shadow-[0_0_30px_rgba(234,179,8,0.7)] scale-125' : 'bg-slate-900 border-dashed border-slate-700'}`} style={{ left: `${championPos.x}%`, top: `${championPos.y}%`, transform: 'translate(-50%, -50%)', width: isPortrait ? '16%' : '12%', height: isPortrait ? '6.5%' : '11%', maxWidth: '100px', minWidth: '50px' }}>
             <div className="absolute -top-6 text-xl sm:text-2xl animate-bounce drop-shadow-[0_0_10px_rgba(234,179,8,0.8)]">👑</div>
             {championTeam ? ( <><TeamFlag flag={championTeam.flag} sizeClass="w-6 h-6 sm:w-8 sm:h-8 mb-1 drop-shadow-md" /><span className="text-[10px] sm:text-xs font-black text-yellow-400 truncate w-full text-center px-1 leading-none">{championTeam.name}</span></> ) : ( <span className="text-[9px] sm:text-[11px] text-slate-500 font-bold whitespace-nowrap">冠军之路</span> )}
         </div>
@@ -450,7 +449,6 @@ const FullScreenBracket = ({ mode, r32Selections = {}, thirdPlaceAssignments = {
 
     return (
         <div className="absolute inset-0 bg-slate-950 overflow-hidden select-none">
-            {/* 核心修复 2：注入金线动画 CSS */}
             <style>{`
                 @keyframes drawGoldLine {
                     from { stroke-dashoffset: 150; }
@@ -473,6 +471,7 @@ const FullScreenBracket = ({ mode, r32Selections = {}, thirdPlaceAssignments = {
     )
 }
 
+// 核心修改 4：明显增加队伍方框(Node)的高度与点击热区
 const BracketNode = ({ match, x, y, isPortrait, mode, isFinal, isThirdPlace, setPrediction, onMatchClick }) => {
     if (!match) return null;
     const isSandbox = mode === 'sandbox'; const isLive = mode === 'live';
@@ -483,24 +482,26 @@ const BracketNode = ({ match, x, y, isPortrait, mode, isFinal, isThirdPlace, set
     const handleAwayClick = () => { if (isLive && onMatchClick) onMatchClick(match); if (isSandbox && match.away && !match.away.isPlaceholder) setPrediction(match.id, match.away); }
 
     return (
-        <div className={`absolute flex flex-col justify-center bg-slate-900 border ${isSandbox && match.predictedWinner ? 'border-yellow-500 shadow-[0_0_8px_rgba(234,179,8,0.4)]' : isFinal ? 'border-yellow-600/80 shadow-[0_0_15px_rgba(234,179,8,0.3)] z-40' : 'border-slate-700'} rounded overflow-hidden z-10 hover:z-50 hover:scale-125 transition-all duration-300`} style={{ left: `${x}%`, top: `${y}%`, transform: 'translate(-50%, -50%)', width: isPortrait ? '15%' : '12%', height: isPortrait ? '4.5%' : '8%', maxWidth: '120px', minWidth: '46px', minHeight: '22px' }}>
+        // 修改宽高：height提升为 5.5% 和 10.5%，minHeight加大到 30px
+        <div className={`absolute flex flex-col justify-center bg-slate-900 border ${isSandbox && match.predictedWinner ? 'border-yellow-500 shadow-[0_0_8px_rgba(234,179,8,0.4)]' : isFinal ? 'border-yellow-600/80 shadow-[0_0_15px_rgba(234,179,8,0.3)] z-40' : 'border-slate-700'} rounded overflow-hidden z-10 hover:z-50 hover:scale-125 transition-all duration-300`} style={{ left: `${x}%`, top: `${y}%`, transform: 'translate(-50%, -50%)', width: isPortrait ? '16%' : '13%', height: isPortrait ? '5.5%' : '10.5%', maxWidth: '120px', minWidth: '50px', minHeight: '30px' }}>
             {isFinal && <div className="absolute -top-3 left-1/2 -translate-x-1/2 text-[6px] text-yellow-500 font-bold whitespace-nowrap bg-yellow-500/20 px-1 rounded flex items-center gap-0.5 hidden sm:flex">终极决战</div>}
             {isThirdPlace && <div className="absolute -top-3 left-1/2 -translate-x-1/2 text-[6px] text-slate-400 font-bold whitespace-nowrap bg-slate-800 px-1 rounded hidden sm:block">季军战</div>}
             
-            <div className={`w-full h-[50%] flex items-center justify-between px-1 border-b border-slate-800/80 cursor-pointer ${isSandbox && match.home && !match.home.isPlaceholder && !homeWinner ? 'hover:bg-yellow-500/20' : ''} ${homeWinner ? 'bg-emerald-900/60 border-l-2 border-emerald-500' : 'border-l-2 border-transparent'}`} onClick={handleHomeClick}>
+            <div className={`w-full h-[50%] flex items-center justify-between px-1.5 border-b border-slate-800/80 cursor-pointer ${isSandbox && match.home && !match.home.isPlaceholder && !homeWinner ? 'hover:bg-yellow-500/20' : ''} ${homeWinner ? 'bg-emerald-900/60 border-l-2 border-emerald-500' : 'border-l-2 border-transparent'}`} onClick={handleHomeClick}>
                 <div className="flex items-center w-[85%] overflow-hidden min-w-0 flex-1">
-                    <TeamFlag flag={match.home?.flag} sizeClass="w-3 h-3 lg:w-4 lg:h-4 shrink-0" />
-                    <span className={`text-[6px] sm:text-[9px] ml-0.5 sm:ml-1 leading-none truncate block ${homeWinner ? 'font-bold text-yellow-400' : match.home?.isPlaceholder ? 'text-slate-500' : 'text-slate-200'}`} title={match.home?.name}>{match.home?.name}</span>
+                    <TeamFlag flag={match.home?.flag} sizeClass="w-3.5 h-3.5 lg:w-4.5 lg:h-4.5 shrink-0" />
+                    {/* 字号相应稍微提升 */}
+                    <span className={`text-[7px] sm:text-[10px] ml-1 sm:ml-1.5 leading-none truncate block ${homeWinner ? 'font-bold text-yellow-400' : match.home?.isPlaceholder ? 'text-slate-500' : 'text-slate-200'}`} title={match.home?.name}>{match.home?.name}</span>
                 </div>
-                {isLive && <span className={`text-[6px] lg:text-[8px] leading-none shrink-0 text-right w-[15%] ${homeWinner ? 'text-yellow-400 font-bold' : 'text-slate-500'}`}>{match.status === 'FINISHED' || match.status === 'LIVE' ? match.homeScore : '-'}</span>}
+                {isLive && <span className={`text-[7px] lg:text-[9px] leading-none shrink-0 text-right w-[15%] ${homeWinner ? 'text-yellow-400 font-bold' : 'text-slate-500'}`}>{match.status === 'FINISHED' || match.status === 'LIVE' ? match.homeScore : '-'}</span>}
             </div>
 
-            <div className={`w-full h-[50%] flex items-center justify-between px-1 cursor-pointer ${isSandbox && match.away && !match.away.isPlaceholder && !awayWinner ? 'hover:bg-yellow-500/20' : ''} ${awayWinner ? 'bg-emerald-900/60 border-l-2 border-emerald-500' : 'border-l-2 border-transparent'}`} onClick={handleAwayClick}>
+            <div className={`w-full h-[50%] flex items-center justify-between px-1.5 cursor-pointer ${isSandbox && match.away && !match.away.isPlaceholder && !awayWinner ? 'hover:bg-yellow-500/20' : ''} ${awayWinner ? 'bg-emerald-900/60 border-l-2 border-emerald-500' : 'border-l-2 border-transparent'}`} onClick={handleAwayClick}>
                 <div className="flex items-center w-[85%] overflow-hidden min-w-0 flex-1">
-                    <TeamFlag flag={match.away?.flag} sizeClass="w-3 h-3 lg:w-4 lg:h-4 shrink-0" />
-                    <span className={`text-[6px] sm:text-[9px] ml-0.5 sm:ml-1 leading-none truncate block ${awayWinner ? 'font-bold text-yellow-400' : match.away?.isPlaceholder ? 'text-slate-500' : 'text-slate-200'}`} title={match.away?.name}>{match.away?.name}</span>
+                    <TeamFlag flag={match.away?.flag} sizeClass="w-3.5 h-3.5 lg:w-4.5 lg:h-4.5 shrink-0" />
+                    <span className={`text-[7px] sm:text-[10px] ml-1 sm:ml-1.5 leading-none truncate block ${awayWinner ? 'font-bold text-yellow-400' : match.away?.isPlaceholder ? 'text-slate-500' : 'text-slate-200'}`} title={match.away?.name}>{match.away?.name}</span>
                 </div>
-                {isLive && <span className={`text-[6px] lg:text-[8px] leading-none shrink-0 text-right w-[15%] ${awayWinner ? 'text-yellow-400 font-bold' : 'text-slate-500'}`}>{match.status === 'FINISHED' || match.status === 'LIVE' ? match.awayScore : '-'}</span>}
+                {isLive && <span className={`text-[7px] lg:text-[9px] leading-none shrink-0 text-right w-[15%] ${awayWinner ? 'text-yellow-400 font-bold' : 'text-slate-500'}`}>{match.status === 'FINISHED' || match.status === 'LIVE' ? match.awayScore : '-'}</span>}
             </div>
         </div>
     )
@@ -670,7 +671,8 @@ function PredictionSandbox({ getTeamFromSlot, groups, setGeneratedImage, isGener
             )}
         </div>
 
-        <div className="flex-1 w-full h-full relative overflow-y-auto custom-scrollbar pb-10">
+        {/* 修复滚动区域，增加底部内边距使得用户可以完全滑过悬浮的生成长图按钮 */}
+        <div className="flex-1 w-full h-full relative overflow-y-auto custom-scrollbar pb-32">
             {phase === 'intro' && (
                 <div className="flex flex-col items-center justify-center h-full text-center px-6 animate-fade-in pb-20">
                     <RealTrophy className="w-32 h-32 mb-6 drop-shadow-[0_0_30px_rgba(234,179,8,0.3)] animate-bounce" />
@@ -701,13 +703,21 @@ function PredictionSandbox({ getTeamFromSlot, groups, setGeneratedImage, isGener
             
             {phase === 'bracket' && (
                 <>
-                    <div id="capture-prediction" className="w-full flex-1 flex flex-col relative bg-slate-950 overflow-hidden min-h-screen">
+                    {/* 核心修改 5：彻底分离图表与二维码区，构建互不干扰的长图抓取层 */}
+                    <div id="capture-prediction" className="w-full flex flex-col relative bg-slate-950 overflow-hidden" style={{ height: '130vh', minHeight: '850px' }}>
                         <div className="absolute top-2 left-0 right-0 text-center z-20 pointer-events-none">
                             <h2 className="text-lg sm:text-xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-orange-500 tracking-wider inline-block bg-slate-950/80 backdrop-blur-md px-6 py-1.5 rounded-full border border-slate-800 shadow-xl">2026我的夺冠预测卷</h2>
                         </div>
-                        <div className="flex-1 w-full relative mx-auto"><FullScreenBracket mode="sandbox" r32Selections={sandboxRankings} thirdPlaceAssignments={thirdPlaceAssignments} predictions={predictions} setPrediction={(mId, team) => setPredictions(p => ({...p, [mId]: team}))} getTeamFromSlot={getTeamFromSlot} /></div>
-                        {/* 核心修复 1：将二维码悬浮在画面底部居中，彻底告别遮挡任何球队 */}
-                        <div className="absolute bottom-2 left-1/2 -translate-x-1/2 z-50 pointer-events-none opacity-90 scale-90 sm:scale-100"><CompactQRLogo /></div>
+                        
+                        {/* 大树专门占领画布上半部分（通过 bottom-32 截断）保证不会蔓延到底部 */}
+                        <div className="absolute top-10 left-0 right-0 bottom-32">
+                            <FullScreenBracket mode="sandbox" r32Selections={sandboxRankings} thirdPlaceAssignments={thirdPlaceAssignments} predictions={predictions} setPrediction={(mId, team) => setPredictions(p => ({...p, [mId]: team}))} getTeamFromSlot={getTeamFromSlot} />
+                        </div>
+                        
+                        {/* 二维码专门在底部安全区中央呈现，不会再被任何赛程遮挡 */}
+                        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-50 pointer-events-none opacity-100 flex justify-center w-full">
+                            <CompactQRLogo />
+                        </div>
                     </div>
                 </>
             )}
@@ -771,7 +781,7 @@ function TeamMeetingPredictor({ groups, setGeneratedImage, isGenerating, setIsGe
 
     return (
         <div className="flex flex-col h-full bg-slate-950 relative overflow-hidden">
-            <div className="flex-1 w-full h-full relative overflow-y-auto custom-scrollbar pb-40">
+            <div className="flex-1 w-full h-full relative overflow-y-auto custom-scrollbar pb-32">
                 <div className="text-center pt-6 pb-4 px-4 shrink-0">
                     <h2 className="text-2xl sm:text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-red-500 to-orange-400 tracking-wider flex items-center justify-center mb-2"><Swords className="w-6 h-6 mr-2 text-red-500"/>宿命对决：相遇推演</h2>
                     <p className="text-slate-400 text-xs sm:text-sm max-w-lg mx-auto">精准计算两支主队在104场鏖战中，最早可能发生遭遇战的轮次。严格依据国际足联 2026 最新上下半区分区法则计算。</p>
@@ -802,7 +812,7 @@ function TeamMeetingPredictor({ groups, setGeneratedImage, isGenerating, setIsGe
                                     <div className="flex flex-col items-center"><TeamFlag flag={teamB.flag} sizeClass="w-10 h-10 mb-1 shadow-lg" /><span className="text-sm font-bold text-slate-300">{teamB.name}</span></div>
                                 </div>
                             </div>
-                            <div className="p-2 sm:p-4 bg-slate-950 relative">
+                            <div className="p-2 sm:p-4 bg-slate-950 relative pb-28">
                                 <div className="grid grid-cols-1 gap-2">
                                     {results.map((res, idx) => {
                                         const isFinal = res.earliestRound === '决赛'; const isEarly = res.meetAt && (res.meetAt.includes('1/16') || res.meetAt.includes('1/8'));
@@ -819,7 +829,10 @@ function TeamMeetingPredictor({ groups, setGeneratedImage, isGenerating, setIsGe
                                         </div>
                                     )})}
                                 </div>
-                                <div className="absolute bottom-2 right-2 opacity-50 pointer-events-none scale-75 origin-bottom-right"><CompactQRLogo /></div>
+                                {/* 修改相遇界面的二维码展示 */}
+                                <div className="absolute bottom-6 left-1/2 -translate-x-1/2 opacity-100 pointer-events-none flex justify-center w-full">
+                                    <CompactQRLogo />
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -846,11 +859,18 @@ function LiveBracketView({ knockouts, getTeamFromSlot, onMatchClick, setGenerate
                 </div>
             </div>
             
-            <div id="capture-live-bracket" className="flex-1 w-full relative bg-slate-950 overflow-hidden">
-                <FullScreenBracket mode="live" getTeamFromSlot={getTeamFromSlot} onMatchClick={onMatchClick} />
-                {/* 核心修复 1：同样移到画面底部居中，彻底消除遮挡 */}
-                <div className="absolute bottom-2 left-1/2 -translate-x-1/2 z-50 pointer-events-none opacity-90 scale-90 sm:scale-100">
-                    <CompactQRLogo />
+            <div className="flex-1 w-full h-full relative overflow-y-auto custom-scrollbar pb-32">
+                <div id="capture-live-bracket" className="w-full relative bg-slate-950 overflow-hidden" style={{ height: '130vh', minHeight: '850px' }}>
+                    
+                    {/* 与上面推演板一致，大树划定安全渲染区 */}
+                    <div className="absolute top-4 left-0 right-0 bottom-32">
+                        <FullScreenBracket mode="live" getTeamFromSlot={getTeamFromSlot} onMatchClick={onMatchClick} />
+                    </div>
+                    
+                    {/* 二维码安全停放在底部区域，不与大树抢位置 */}
+                    <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-50 pointer-events-none opacity-100 flex justify-center w-full">
+                        <CompactQRLogo />
+                    </div>
                 </div>
             </div>
 
