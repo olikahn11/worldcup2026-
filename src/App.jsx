@@ -6,119 +6,6 @@ import {
   Gift, ArrowRight, Dices, Swords, Search, ChevronRight, Home, LayoutList
 } from 'lucide-react';
 
-// ==========================================
-// 全局脚本静默预加载 (html-to-image 引擎)
-// ==========================================
-if (typeof window !== 'undefined') {
-  const loadHtmlToImage = () => {
-    if (window.htmlToImage) return;
-    const script = document.createElement('script');
-    script.src = "https://cdn.jsdelivr.net/npm/html-to-image@1.11.11/dist/html-to-image.js";
-    document.head.appendChild(script);
-  };
-  loadHtmlToImage();
-}
-
-// ==========================================
-// 1. 全局基础组件与原生长图截取/分享引擎
-// ==========================================
-
-const generateImageWithFallback = async (elementId, setGeneratedImage, setIsGenerating) => {
-    if (setIsGenerating) setIsGenerating(true);
-    let attempts = 0;
-    while (!window.htmlToImage && attempts < 50) {
-        await new Promise(r => setTimeout(r, 100));
-        attempts++;
-    }
-    if (!window.htmlToImage) {
-        alert("长图渲染引擎加载失败，请刷新页面重试。");
-        if (setIsGenerating) setIsGenerating(false);
-        return;
-    }
-
-    const element = document.getElementById(elementId);
-    if (!element) {
-        if (setIsGenerating) setIsGenerating(false);
-        return;
-    }
-
-    const parentStyles = [];
-    let currentParent = element.parentElement;
-    
-    while (currentParent && currentParent !== document.body && currentParent !== document.documentElement) {
-        parentStyles.push({ el: currentParent, style: currentParent.getAttribute('style') });
-        currentParent.style.setProperty('overflow', 'visible', 'important');
-        currentParent.style.setProperty('max-height', 'none', 'important');
-        currentParent.style.setProperty('height', 'auto', 'important');
-        currentParent = currentParent.parentElement;
-    }
-
-    const originalStyle = element.getAttribute('style');
-    element.style.setProperty('overflow', 'visible', 'important');
-    element.style.setProperty('max-height', 'none', 'important');
-    element.style.setProperty('height', 'auto', 'important');
-
-    await new Promise(r => setTimeout(r, 400));
-    
-    const imgs = Array.from(element.querySelectorAll('img'));
-    await Promise.all(imgs.map(img => {
-        if (img.complete) return Promise.resolve();
-        return new Promise(resolve => {
-            img.onload = resolve;
-            img.onerror = resolve; 
-        });
-    }));
-
-    const scrollH = element.scrollHeight;
-    const scrollW = element.scrollWidth;
-
-    element.style.setProperty('height', `${scrollH}px`, 'important');
-    element.style.setProperty('width', `${scrollW}px`, 'important');
-    element.style.setProperty('background-color', '#020617', 'important');
-
-    try {
-        const dataUrl = await window.htmlToImage.toPng(element, { 
-            pixelRatio: 1.5, 
-            backgroundColor: '#020617',
-            width: scrollW,
-            height: scrollH,
-            style: { margin: '0', padding: '0', transform: 'none' },
-            skipFonts: true
-        });
-        setGeneratedImage(dataUrl);
-    } catch (e) { 
-        console.warn("高清截图生成失败，尝试降级渲染：", e);
-        try {
-            const fallbackUrl = await window.htmlToImage.toPng(element, { 
-                pixelRatio: 1, 
-                backgroundColor: '#020617',
-                width: scrollW,
-                height: scrollH,
-                style: { margin: '0', padding: '0', transform: 'none' },
-                skipFonts: true 
-            });
-            setGeneratedImage(fallbackUrl);
-        } catch (fallbackError) {
-            alert("生成长图失败，可能是由于设备内存不足或安全限制：" + fallbackError.message); 
-        }
-    } finally {
-        if (originalStyle !== null) {
-            element.setAttribute('style', originalStyle);
-        } else {
-            element.removeAttribute('style');
-        }
-        
-        parentStyles.forEach(({ el, style }) => {
-            if (style !== null) {
-                el.setAttribute('style', style);
-            } else {
-                el.removeAttribute('style');
-            }
-        });
-        if (setIsGenerating) setIsGenerating(false);
-    }
-};
-
 const RealTrophy = ({ className }) => {
   const [imgError, setImgError] = useState(false);
   if (imgError) return <span className={`inline-block drop-shadow-md text-yellow-500 ${className}`} style={{fontSize: '1.25em'}}>🏆</span>;
@@ -143,7 +30,7 @@ function TeamFlag({ flag, sizeClass = "w-6 h-6 sm:w-8 sm:h-8" }) {
 }
 
 const CompactQRLogo = () => (
-  <div className="flex items-center bg-slate-900/95 backdrop-blur-md border-2 border-slate-700 p-2.5 sm:p-4 rounded-2xl shadow-2xl shrink-0 select-none mx-auto">
+  <div className="flex items-center bg-slate-900/95 backdrop-blur-md border-2 border-slate-700 p-2 sm:p-4 rounded-2xl shadow-2xl shrink-0 select-none mx-auto scale-90 sm:scale-100 origin-bottom">
     <div className="w-12 h-12 sm:w-16 sm:h-16 bg-white p-1 rounded-xl flex items-center justify-center shrink-0">
        <img src="/website-qr.png" crossOrigin="anonymous" alt="QR" className="w-full h-full object-contain" />
     </div>
@@ -151,15 +38,6 @@ const CompactQRLogo = () => (
       <span className="text-[12px] sm:text-[15px] font-black text-yellow-400 tracking-wider">扫码看全景大树与推演</span>
       <span className="text-[9px] sm:text-[11px] text-slate-400 font-mono mt-0.5 sm:mt-1">xiaohuang365.com</span>
     </div>
-  </div>
-);
-
-const CaptureButton = ({ onClick, text="一键生成并保存当前界面长图", isGenerating = false }) => (
-  <div className="fixed bottom-0 left-0 right-0 flex justify-center pb-6 sm:pb-8 pt-12 bg-gradient-to-t from-slate-950 via-slate-950/90 to-transparent z-[80] pointer-events-none">
-      <button disabled={isGenerating} onClick={onClick} className={`pointer-events-auto bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 text-white shadow-[0_0_30px_rgba(37,99,235,0.6)] px-6 sm:px-8 py-3 sm:py-3.5 rounded-full font-black text-sm sm:text-base flex items-center transition-all active:scale-95 ${isGenerating ? 'opacity-70 cursor-wait' : ''}`}>
-          {isGenerating ? <RefreshCw className="w-5 h-5 mr-2 animate-spin" /> : <Share className="w-5 h-5 mr-2" />}
-          <span>{isGenerating ? '正在拼命生成高清图片...' : text}</span>
-      </button>
   </div>
 );
 
@@ -305,7 +183,7 @@ const SLOT_TO_MATCH = {
 };
 
 // ==========================================
-// 3. 全景大树引擎 (深度自适应全屏版)
+// 3. 全景大树引擎 (深度自适应全屏压缩版)
 // ==========================================
 
 const FullScreenBracket = ({ mode, r32Selections = {}, thirdPlaceAssignments = {}, predictions = {}, setPrediction, getTeamFromSlot, onMatchClick }) => {
@@ -341,8 +219,9 @@ const FullScreenBracket = ({ mode, r32Selections = {}, thirdPlaceAssignments = {
 
     const bracketMatrix = { top: [ ['ko_73', 'ko_75', 'ko_74', 'ko_77', 'ko_83', 'ko_84', 'ko_81', 'ko_82'], ['ko_89', 'ko_90', 'ko_93', 'ko_94'], ['ko_97', 'ko_98'], ['ko_101'] ], bottom: [ ['ko_76', 'ko_78', 'ko_79', 'ko_80', 'ko_86', 'ko_88', 'ko_85', 'ko_87'], ['ko_91', 'ko_92', 'ko_95', 'ko_96'], ['ko_99', 'ko_100'], ['ko_102'] ] };
     
+    // 核心修改：大幅度压缩主轴(纵向)的间距比例，使得连线缩短，适应100vh不超出
     const getPos = (half, depth, index) => {
-        const mainAxes = isPortrait ? [6, 16, 26, 36] : [8, 20, 32, 44]; 
+        const mainAxes = isPortrait ? [7, 18, 28, 38] : [9, 21, 33, 45]; 
         let main = mainAxes[depth]; if (half === 'bottom') main = 100 - main;
         const crossAxes = [ [6.25, 18.75, 31.25, 43.75, 56.25, 68.75, 81.25, 93.75], [12.5, 37.5, 62.5, 87.5], [25, 75], [50] ];
         let cross = crossAxes[depth][index];
@@ -438,7 +317,7 @@ const FullScreenBracket = ({ mode, r32Selections = {}, thirdPlaceAssignments = {
     nodes.push(<BracketNode key="ko_103" match={thirdPlaceMatch} x={thirdPos.x} y={thirdPos.y} isPortrait={isPortrait} mode={mode} isThirdPlace setPrediction={setPrediction} onMatchClick={onMatchClick} />);
 
     nodes.push(
-        <div key="champion_node" className={`absolute flex flex-col items-center justify-center border-2 rounded-xl z-[60] transition-all duration-500 ${championTeam ? 'bg-yellow-500/20 border-yellow-400 shadow-[0_0_30px_rgba(234,179,8,0.7)] scale-125' : 'bg-slate-900 border-dashed border-slate-700'}`} style={{ left: `${championPos.x}%`, top: `${championPos.y}%`, transform: 'translate(-50%, -50%)', width: isPortrait ? '16%' : '12%', height: isPortrait ? '6.5%' : '11%', maxWidth: '100px', minWidth: '50px' }}>
+        <div key="champion_node" className={`absolute flex flex-col items-center justify-center border-2 rounded-xl z-[60] transition-all duration-500 ${championTeam ? 'bg-yellow-500/20 border-yellow-400 shadow-[0_0_30px_rgba(234,179,8,0.7)] scale-125' : 'bg-slate-900 border-dashed border-slate-700'}`} style={{ left: `${championPos.x}%`, top: `${championPos.y}%`, transform: 'translate(-50%, -50%)', width: isPortrait ? '14%' : '12%', height: isPortrait ? '7.5%' : '11%', maxWidth: '100px', minWidth: '46px' }}>
             <div className="absolute -top-6 text-xl sm:text-2xl animate-bounce drop-shadow-[0_0_10px_rgba(234,179,8,0.8)]">👑</div>
             {championTeam ? ( <><TeamFlag flag={championTeam.flag} sizeClass="w-6 h-6 sm:w-8 sm:h-8 mb-1 drop-shadow-md" /><span className="text-[10px] sm:text-xs font-black text-yellow-400 truncate w-full text-center px-1 leading-none">{championTeam.name}</span></> ) : ( <span className="text-[9px] sm:text-[11px] text-slate-500 font-bold whitespace-nowrap">冠军之路</span> )}
         </div>
@@ -468,35 +347,36 @@ const FullScreenBracket = ({ mode, r32Selections = {}, thirdPlaceAssignments = {
     )
 }
 
+// 核心修改：宽度设置为 12.2% 严格防重叠，高度提升至 7.5%，完美适配压成一屏的排版
 const BracketNode = ({ match, x, y, isPortrait, mode, isFinal, isThirdPlace, setPrediction, onMatchClick }) => {
     if (!match) return null;
     const isSandbox = mode === 'sandbox'; const isLive = mode === 'live';
     const homeWinner = isSandbox ? match.predictedWinner?.id === match.home?.id : (isLive && match.status === 'FINISHED' && match.homeScore > match.awayScore);
     const awayWinner = isSandbox ? match.predictedWinner?.id === match.away?.id : (isLive && match.status === 'FINISHED' && match.awayScore > match.homeScore);
 
-    // 修复点击冒泡：加入 e.stopPropagation() 防止点击球队时意外触发全屏功能
+    // 核心修改：添加 e.stopPropagation() 避免点击球队框误触退出全屏功能
     const handleHomeClick = (e) => { e.stopPropagation(); if (isLive && onMatchClick) onMatchClick(match); if (isSandbox && match.home && !match.home.isPlaceholder) setPrediction(match.id, match.home); }
     const handleAwayClick = (e) => { e.stopPropagation(); if (isLive && onMatchClick) onMatchClick(match); if (isSandbox && match.away && !match.away.isPlaceholder) setPrediction(match.id, match.away); }
 
     return (
-        <div className={`absolute flex flex-col justify-center bg-slate-900 border ${isSandbox && match.predictedWinner ? 'border-yellow-500 shadow-[0_0_8px_rgba(234,179,8,0.4)]' : isFinal ? 'border-yellow-600/80 shadow-[0_0_15px_rgba(234,179,8,0.3)] z-40' : 'border-slate-700'} rounded overflow-hidden z-10 hover:z-50 hover:scale-125 transition-all duration-300`} style={{ left: `${x}%`, top: `${y}%`, transform: 'translate(-50%, -50%)', width: isPortrait ? '16%' : '13%', height: isPortrait ? '5.5%' : '10.5%', maxWidth: '120px', minWidth: '50px', minHeight: '30px' }}>
+        <div className={`absolute flex flex-col justify-center bg-slate-900 border ${isSandbox && match.predictedWinner ? 'border-yellow-500 shadow-[0_0_8px_rgba(234,179,8,0.4)]' : isFinal ? 'border-yellow-600/80 shadow-[0_0_15px_rgba(234,179,8,0.3)] z-40' : 'border-slate-700'} rounded overflow-hidden z-10 hover:z-50 hover:scale-125 transition-all duration-300`} style={{ left: `${x}%`, top: `${y}%`, transform: 'translate(-50%, -50%)', width: isPortrait ? '12.2%' : '13%', height: isPortrait ? '7.5%' : '10.5%', maxWidth: '120px', minWidth: '42px', minHeight: '38px' }}>
             {isFinal && <div className="absolute -top-3 left-1/2 -translate-x-1/2 text-[6px] text-yellow-500 font-bold whitespace-nowrap bg-yellow-500/20 px-1 rounded flex items-center gap-0.5 hidden sm:flex">终极决战</div>}
             {isThirdPlace && <div className="absolute -top-3 left-1/2 -translate-x-1/2 text-[6px] text-slate-400 font-bold whitespace-nowrap bg-slate-800 px-1 rounded hidden sm:block">季军战</div>}
             
-            <div className={`w-full h-[50%] flex items-center justify-between px-1.5 border-b border-slate-800/80 cursor-pointer ${isSandbox && match.home && !match.home.isPlaceholder && !homeWinner ? 'hover:bg-yellow-500/20' : ''} ${homeWinner ? 'bg-emerald-900/60 border-l-2 border-emerald-500' : 'border-l-2 border-transparent'}`} onClick={handleHomeClick}>
+            <div className={`w-full h-[50%] flex items-center justify-between px-1 border-b border-slate-800/80 cursor-pointer ${isSandbox && match.home && !match.home.isPlaceholder && !homeWinner ? 'hover:bg-yellow-500/20' : ''} ${homeWinner ? 'bg-emerald-900/60 border-l-2 border-emerald-500' : 'border-l-2 border-transparent'}`} onClick={handleHomeClick}>
                 <div className="flex items-center w-[85%] overflow-hidden min-w-0 flex-1">
-                    <TeamFlag flag={match.home?.flag} sizeClass="w-3.5 h-3.5 lg:w-4.5 lg:h-4.5 shrink-0" />
-                    <span className={`text-[7px] sm:text-[10px] ml-1 sm:ml-1.5 leading-none truncate block ${homeWinner ? 'font-bold text-yellow-400' : match.home?.isPlaceholder ? 'text-slate-500' : 'text-slate-200'}`} title={match.home?.name}>{match.home?.name}</span>
+                    <TeamFlag flag={match.home?.flag} sizeClass="w-3 h-3 lg:w-4 lg:h-4 shrink-0" />
+                    <span className={`text-[6px] sm:text-[9px] ml-0.5 sm:ml-1.5 leading-none truncate block ${homeWinner ? 'font-bold text-yellow-400' : match.home?.isPlaceholder ? 'text-slate-500' : 'text-slate-200'}`} title={match.home?.name}>{match.home?.name}</span>
                 </div>
-                {isLive && <span className={`text-[7px] lg:text-[9px] leading-none shrink-0 text-right w-[15%] ${homeWinner ? 'text-yellow-400 font-bold' : 'text-slate-500'}`}>{match.status === 'FINISHED' || match.status === 'LIVE' ? match.homeScore : '-'}</span>}
+                {isLive && <span className={`text-[6px] lg:text-[8px] leading-none shrink-0 text-right w-[15%] ${homeWinner ? 'text-yellow-400 font-bold' : 'text-slate-500'}`}>{match.status === 'FINISHED' || match.status === 'LIVE' ? match.homeScore : '-'}</span>}
             </div>
 
-            <div className={`w-full h-[50%] flex items-center justify-between px-1.5 cursor-pointer ${isSandbox && match.away && !match.away.isPlaceholder && !awayWinner ? 'hover:bg-yellow-500/20' : ''} ${awayWinner ? 'bg-emerald-900/60 border-l-2 border-emerald-500' : 'border-l-2 border-transparent'}`} onClick={handleAwayClick}>
+            <div className={`w-full h-[50%] flex items-center justify-between px-1 cursor-pointer ${isSandbox && match.away && !match.away.isPlaceholder && !awayWinner ? 'hover:bg-yellow-500/20' : ''} ${awayWinner ? 'bg-emerald-900/60 border-l-2 border-emerald-500' : 'border-l-2 border-transparent'}`} onClick={handleAwayClick}>
                 <div className="flex items-center w-[85%] overflow-hidden min-w-0 flex-1">
-                    <TeamFlag flag={match.away?.flag} sizeClass="w-3.5 h-3.5 lg:w-4.5 lg:h-4.5 shrink-0" />
-                    <span className={`text-[7px] sm:text-[10px] ml-1 sm:ml-1.5 leading-none truncate block ${awayWinner ? 'font-bold text-yellow-400' : match.away?.isPlaceholder ? 'text-slate-500' : 'text-slate-200'}`} title={match.away?.name}>{match.away?.name}</span>
+                    <TeamFlag flag={match.away?.flag} sizeClass="w-3 h-3 lg:w-4 lg:h-4 shrink-0" />
+                    <span className={`text-[6px] sm:text-[9px] ml-0.5 sm:ml-1.5 leading-none truncate block ${awayWinner ? 'font-bold text-yellow-400' : match.away?.isPlaceholder ? 'text-slate-500' : 'text-slate-200'}`} title={match.away?.name}>{match.away?.name}</span>
                 </div>
-                {isLive && <span className={`text-[7px] lg:text-[9px] leading-none shrink-0 text-right w-[15%] ${awayWinner ? 'text-yellow-400 font-bold' : 'text-slate-500'}`}>{match.status === 'FINISHED' || match.status === 'LIVE' ? match.awayScore : '-'}</span>}
+                {isLive && <span className={`text-[6px] lg:text-[8px] leading-none shrink-0 text-right w-[15%] ${awayWinner ? 'text-yellow-400 font-bold' : 'text-slate-500'}`}>{match.status === 'FINISHED' || match.status === 'LIVE' ? match.awayScore : '-'}</span>}
             </div>
         </div>
     )
@@ -623,13 +503,15 @@ function PredictionSandbox({ getTeamFromSlot, groups, onExitHome, isFullscreen, 
 
   const finalizeThirds = () => { setThirdPlaceAssignments(assignThirdPlaceTeams(selectedThirds)); setPhase('generating'); setTimeout(() => setPhase('bracket'), 1500); };
   
-  const handleReset = () => { 
+  const handleReset = (e) => { 
+      e.stopPropagation();
       if (window.confirm("确定要清空推演记录，重新排兵布阵吗？")) { 
           setPredictions({}); setSandboxRankings({}); setSelectedThirds([]); setThirdPlaceAssignments({}); setPhase('intro'); setShowCompletionModal(false); 
       } 
   };
   
-  const handleExit = () => { 
+  const handleExit = (e) => { 
+      e.stopPropagation();
       if (phase === 'intro') {
           if (onExitHome) onExitHome();
           return;
@@ -641,7 +523,7 @@ function PredictionSandbox({ getTeamFromSlot, groups, onExitHome, isFullscreen, 
   };
 
   const handleContainerClick = () => {
-      // 只有在最终大树生成阶段才允许点击切换全屏模式
+      // 只有在最终大树生成阶段才允许点击切换全屏模式以截屏
       if (phase === 'bracket') {
           setIsFullscreen(!isFullscreen);
       }
@@ -652,7 +534,6 @@ function PredictionSandbox({ getTeamFromSlot, groups, onExitHome, isFullscreen, 
 
   return (
     <div className="h-full flex flex-col bg-slate-950 relative overflow-hidden" onClick={handleContainerClick}>
-        {/* 在全屏状态下隐藏此局部工具栏 */}
         {!isFullscreen && (
             <div className="flex justify-between items-center bg-slate-900/80 px-4 py-2 border-b border-slate-800 z-50 shrink-0 shadow-lg" onClick={e => e.stopPropagation()}>
                 <div className="flex items-center space-x-2">
@@ -676,13 +557,14 @@ function PredictionSandbox({ getTeamFromSlot, groups, onExitHome, isFullscreen, 
             </div>
         )}
 
-        <div className={`flex-1 w-full h-full relative overflow-y-auto custom-scrollbar ${isFullscreen ? 'pb-10' : 'pb-32'}`}>
+        {/* 核心修改：在bracket阶段强制设置overflow-hidden并使用100%高度填充，彻底告别滚动条 */}
+        <div className={`flex-1 w-full h-full relative custom-scrollbar ${phase === 'bracket' ? 'overflow-hidden' : 'overflow-y-auto'}`}>
             {phase === 'intro' && (
                 <div className="flex flex-col items-center justify-center h-full text-center px-6 animate-fade-in pb-20">
                     <RealTrophy className="w-32 h-32 mb-6 drop-shadow-[0_0_30px_rgba(234,179,8,0.3)] animate-bounce" />
                     <h2 className="text-3xl sm:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-orange-500 tracking-widest mb-4">冠军推演沙盘</h2>
                     <p className="text-slate-400 text-sm sm:text-base mb-10 max-w-md leading-relaxed">首创沉浸式推演小游戏！先为 12 个小组排兵布阵并选拔最佳第三名，然后自由点击晋级，决出2026世界之王！</p>
-                    <button onClick={() => setPhase('ranking')} className="bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 text-white font-black text-lg px-10 py-4 rounded-full shadow-[0_0_25px_rgba(59,130,246,0.5)] transition-all hover:scale-105 active:scale-95 flex items-center">开始排兵布阵 <ArrowRight className="w-5 h-5 ml-2" /></button>
+                    <button onClick={(e) => { e.stopPropagation(); setPhase('ranking'); }} className="bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 text-white font-black text-lg px-10 py-4 rounded-full shadow-[0_0_25px_rgba(59,130,246,0.5)] transition-all hover:scale-105 active:scale-95 flex items-center">开始排兵布阵 <ArrowRight className="w-5 h-5 ml-2" /></button>
                 </div>
             )}
             {phase === 'ranking' && ( <div onClick={e => e.stopPropagation()}><GroupRankingGame groups={groups} onComplete={handleRankingComplete} /></div> )}
@@ -706,16 +588,17 @@ function PredictionSandbox({ getTeamFromSlot, groups, onExitHome, isFullscreen, 
             {phase === 'generating' && ( <div className="flex flex-col items-center justify-center h-full text-center px-6 animate-fade-in pb-20"><RefreshCw className="w-16 h-16 text-blue-500 animate-spin mb-6" /><h3 className="text-xl font-bold text-white mb-2">正在将 32 强名单导入国际足联落位图...</h3></div> )}
             
             {phase === 'bracket' && (
-                <div id="capture-prediction" className="w-full flex flex-col relative bg-slate-950 overflow-hidden" style={{ height: '130vh', minHeight: '850px' }}>
-                    <div className="absolute top-2 left-0 right-0 text-center z-20 pointer-events-none">
-                        <h2 className="text-lg sm:text-xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-orange-500 tracking-wider inline-block bg-slate-950/80 backdrop-blur-md px-6 py-1.5 rounded-full border border-slate-800 shadow-xl">2026我的夺冠预测卷</h2>
+                <div id="capture-prediction" className="w-full h-full flex flex-col relative bg-slate-950 overflow-hidden">
+                    <div className="absolute top-2 sm:top-4 left-0 right-0 text-center z-20 pointer-events-none">
+                        <h2 className="text-base sm:text-xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-orange-500 tracking-wider inline-block bg-slate-950/80 backdrop-blur-md px-5 py-1.5 rounded-full border border-slate-800 shadow-xl">2026我的夺冠预测卷</h2>
                     </div>
                     
-                    <div className="absolute top-10 left-0 right-0 bottom-32">
+                    {/* 预留好顶部标题和底部二维码的安全空间，大树就在中间这块自适应铺满 */}
+                    <div className="absolute top-12 left-0 right-0 bottom-24">
                         <FullScreenBracket mode="sandbox" r32Selections={sandboxRankings} thirdPlaceAssignments={thirdPlaceAssignments} predictions={predictions} setPrediction={(mId, team) => setPredictions(p => ({...p, [mId]: team}))} getTeamFromSlot={getTeamFromSlot} />
                     </div>
                     
-                    <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-50 pointer-events-none opacity-100 flex justify-center w-full">
+                    <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-50 pointer-events-none opacity-100 flex justify-center w-full">
                         <CompactQRLogo />
                     </div>
                 </div>
@@ -732,7 +615,7 @@ function PredictionSandbox({ getTeamFromSlot, groups, onExitHome, isFullscreen, 
                     <button onClick={() => setShowCompletionModal(false)} className="w-full bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-400 hover:to-orange-400 text-slate-950 font-black text-lg py-3 rounded-xl shadow-lg transition-all active:scale-95 flex items-center justify-center mb-3">
                         返回查看全景大树
                     </button>
-                    <p className="text-xs text-slate-500">提示：点击屏幕空白处可进入全屏自由截图</p>
+                    <p className="text-xs text-slate-500">提示：点击屏幕空白处可进入全屏，方便您手机截屏</p>
                 </div>
             </div>
         )}
@@ -747,7 +630,8 @@ function TeamMeetingPredictor({ groups, isFullscreen, setIsFullscreen }) {
 
     const allTeams = useMemo(() => { let teams = []; Object.keys(groups).forEach(g => { groups[g].teams.forEach(t => teams.push({...t, group: g})); }); return teams; }, [groups]);
 
-    const calculateMeetings = () => {
+    const calculateMeetings = (e) => {
+        e.stopPropagation();
         if (!teamA || !teamB) return;
         setIsCalculating(true);
         setTimeout(() => {
@@ -772,10 +656,9 @@ function TeamMeetingPredictor({ groups, isFullscreen, setIsFullscreen }) {
         }, 500); 
     };
 
-    const handleClear = () => { setTeamA(null); setTeamB(null); setSearchA(''); setSearchB(''); setResults(null); };
+    const handleClear = (e) => { e.stopPropagation(); setTeamA(null); setTeamB(null); setSearchA(''); setSearchB(''); setResults(null); };
 
     const handleContainerClick = () => {
-        // 只有在计算结果呈现完毕后才允许点击全屏
         if (results && !isCalculating) {
             setIsFullscreen(!isFullscreen);
         }
@@ -783,8 +666,7 @@ function TeamMeetingPredictor({ groups, isFullscreen, setIsFullscreen }) {
 
     return (
         <div className="flex flex-col h-full bg-slate-950 relative overflow-hidden" onClick={handleContainerClick}>
-            <div className={`flex-1 w-full h-full relative overflow-y-auto custom-scrollbar ${isFullscreen ? 'pb-10' : 'pb-32'}`}>
-                {/* 在全屏状态下隐藏表单和标题栏 */}
+            <div className={`flex-1 w-full h-full relative custom-scrollbar ${isFullscreen ? 'overflow-hidden' : 'overflow-y-auto pb-10'}`}>
                 {!isFullscreen && (
                     <div className="text-center pt-6 pb-4 px-4 shrink-0" onClick={e => e.stopPropagation()}>
                         <h2 className="text-2xl sm:text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-red-500 to-orange-400 tracking-wider flex items-center justify-center mb-2"><Swords className="w-6 h-6 mr-2 text-red-500"/>宿命对决：相遇推演</h2>
@@ -808,8 +690,9 @@ function TeamMeetingPredictor({ groups, isFullscreen, setIsFullscreen }) {
                     </div>
                 )}
 
+                {/* 核心修改：在全屏状态下，将面板设置弹性居中显示，填满单屏，并去掉底部Margin */}
                 {results && !isCalculating && (
-                    <div id="capture-meeting" className={`px-2 sm:px-4 max-w-2xl mx-auto w-full animate-fade-in relative z-10 pb-6 bg-slate-950 ${isFullscreen ? 'mt-4' : 'mt-8'}`}>
+                    <div id="capture-meeting" className={`px-2 sm:px-4 max-w-2xl mx-auto w-full animate-fade-in relative z-10 bg-slate-950 ${isFullscreen ? 'h-full flex flex-col justify-center pb-0' : 'mt-8 pb-6'}`}>
                         <div className="bg-slate-900 border border-slate-700 rounded-2xl overflow-hidden relative shadow-2xl pb-4">
                             <div className="bg-slate-800/80 p-6 text-center border-b border-slate-700">
                                 <h3 className="text-xl font-black text-white mb-4">宿命相遇可能性报告</h3>
@@ -836,11 +719,12 @@ function TeamMeetingPredictor({ groups, isFullscreen, setIsFullscreen }) {
                                         </div>
                                     )})}
                                 </div>
-                                <div className="absolute bottom-6 left-1/2 -translate-x-1/2 opacity-100 pointer-events-none flex justify-center w-full">
+                                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 opacity-100 pointer-events-none flex justify-center w-full">
                                     <CompactQRLogo />
                                 </div>
                             </div>
                         </div>
+                        {isFullscreen && <p className="text-center text-[10px] text-slate-500 mt-4">提示：再次点击屏幕空白处恢复导航</p>}
                     </div>
                 )}
             </div>
@@ -849,12 +733,13 @@ function TeamMeetingPredictor({ groups, isFullscreen, setIsFullscreen }) {
 }
 
 function LiveBracketView({ getTeamFromSlot, onMatchClick, onExitHome, isFullscreen, setIsFullscreen }) {
+    const handleExit = (e) => { e.stopPropagation(); onExitHome(); };
     return (
         <div className="h-full flex flex-col bg-slate-950 relative overflow-hidden" onClick={() => setIsFullscreen(!isFullscreen)}>
             {!isFullscreen && (
                 <div className="flex justify-between items-center bg-slate-900/80 px-4 py-2 border-b border-slate-800 z-50 shrink-0 shadow-lg" onClick={e => e.stopPropagation()}>
                     <div className="flex items-center space-x-2">
-                        <button type="button" onClick={onExitHome} className="text-slate-400 hover:text-white p-1 hover:bg-slate-800 rounded-full transition-all">
+                        <button type="button" onClick={handleExit} className="text-slate-400 hover:text-white p-1 hover:bg-slate-800 rounded-full transition-all">
                             <X className="w-5 h-5"/>
                         </button>
                         <GitBranch className="w-4 h-4 sm:w-5 sm:h-5 text-purple-400" />
@@ -863,13 +748,18 @@ function LiveBracketView({ getTeamFromSlot, onMatchClick, onExitHome, isFullscre
                 </div>
             )}
             
-            <div className={`flex-1 w-full h-full relative overflow-y-auto custom-scrollbar ${isFullscreen ? 'pb-10' : 'pb-32'}`}>
-                <div id="capture-live-bracket" className="w-full relative bg-slate-950 overflow-hidden" style={{ height: '130vh', minHeight: '850px' }}>
-                    <div className="absolute top-4 left-0 right-0 bottom-32">
+            {/* 核心修改：锁定容器高度完全撑满，关闭滚动功能 */}
+            <div className="flex-1 w-full h-full relative overflow-hidden">
+                <div id="capture-live-bracket" className="w-full h-full relative bg-slate-950 overflow-hidden">
+                    <div className="absolute top-2 sm:top-4 left-0 right-0 text-center z-20 pointer-events-none">
+                        <h2 className="text-base sm:text-xl font-black text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-400 tracking-wider inline-block bg-slate-950/80 backdrop-blur-md px-5 py-1.5 rounded-full border border-slate-800 shadow-xl">世界杯全景实况大树</h2>
+                    </div>
+
+                    <div className="absolute top-12 left-0 right-0 bottom-24">
                         <FullScreenBracket mode="live" getTeamFromSlot={getTeamFromSlot} onMatchClick={onMatchClick} />
                     </div>
                     
-                    <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-50 pointer-events-none opacity-100 flex justify-center w-full">
+                    <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-50 pointer-events-none opacity-100 flex justify-center w-full">
                         <CompactQRLogo />
                     </div>
                 </div>
