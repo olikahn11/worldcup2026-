@@ -1118,7 +1118,7 @@ export default function App() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   useEffect(() => { setIsFullscreen(false); }, [activeTab]);
 
-  const [apiKey] = useState((typeof process !== 'undefined' && process.env.NEXT_PUBLIC_API_KEY) || (typeof import.meta !== 'undefined' && import.meta.env.VITE_API_KEY) || '8c135d4da927727e57fbf81f6e011d02');
+  
   const [apiStatus, setApiStatus] = useState('LOCAL'); const [apiErrorMsg, setApiErrorMsg] = useState('本地赛前模式 | 开赛后API自动同步');
 
   useEffect(() => {
@@ -1127,14 +1127,32 @@ export default function App() {
       if (!apiKey) return;
       setApiStatus('LOADING'); setApiErrorMsg('');
       try {
-        const headers = { "x-apisports-key": apiKey };
-        let [standingsRes, fixturesRes] = await Promise.all([ fetch(`https://v3.football.api-sports.io/standings?league=1&season=2026`, { headers, signal }), fetch(`https://v3.football.api-sports.io/fixtures?league=1&season=2026`, { headers, signal }) ]);
+        // 删除了原本包含 apiKey 的 headers 定义
+        
+        // 将原本的官方长链接，替换为你自己的 /api/football 接口
+        // 这里依然保留了 { signal }，确保React组件销毁时不会报错
+        let [standingsRes, fixturesRes] = await Promise.all([ 
+          fetch(`/api/football?endpoint=standings&league=1&season=2026`, { signal }), 
+          fetch(`/api/football?endpoint=fixtures&league=1&season=2026`, { signal }) 
+        ]);
+        
         let fixturesData = await fixturesRes.json();
-        if (fixturesData.errors && Object.keys(fixturesData.errors).length > 0) { setGroups(initialGroups); setApiStatus('LOCAL'); setApiErrorMsg("本地模式运行中"); return; }
-        setGroups(initialGroups); setApiStatus('SUCCESS');
+        
+        // 下方的降级容错逻辑保持完全不动，依然稳如泰山
+        if (fixturesData.errors && Object.keys(fixturesData.errors).length > 0) { 
+          setGroups(initialGroups); 
+          setApiStatus('LOCAL'); 
+          setApiErrorMsg("本地模式运行中"); 
+          return; 
+        }
+        
+        setGroups(initialGroups); 
+        setApiStatus('SUCCESS');
       } catch (err) {
         if (err.name === 'AbortError') return;
-        setGroups(initialGroups); setApiErrorMsg("网络错误，本地运行"); setApiStatus('LOCAL');
+        setGroups(initialGroups); 
+        setApiErrorMsg("网络错误，本地运行"); 
+        setApiStatus('LOCAL');
       }
     };
     fetchRealData();
