@@ -1132,9 +1132,9 @@ export default function App() {
         // 将原本的官方长链接，替换为你自己的 /api/football 接口
         // 这里依然保留了 { signal }，确保React组件销毁时不会报错
         let [standingsRes, fixturesRes] = await Promise.all([ 
-          fetch(`/api/football?endpoint=standings&league=1&season=2026`, { signal }), 
-          fetch(`/api/football?endpoint=fixtures&league=1&season=2026`, { signal }) 
-        ]);
+        fetch('/api/football?endpoint=standings&league=1&season=2026', { signal }), 
+        fetch('/api/football?endpoint=fixtures&league=1&season=2026', { signal }) 
+      ]);
         
         let fixturesData = await fixturesRes.json();
         
