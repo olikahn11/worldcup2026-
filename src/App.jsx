@@ -1124,7 +1124,6 @@ export default function App() {
   useEffect(() => {
     const controller = new AbortController(); const signal = controller.signal;
     const fetchRealData = async () => {
-      if (!apiKey) return;
       setApiStatus('LOADING'); setApiErrorMsg('');
       try {
         // 删除了原本包含 apiKey 的 headers 定义
@@ -1157,7 +1156,7 @@ export default function App() {
     };
     fetchRealData();
     return () => controller.abort();
-  }, [apiKey]);
+  }, []);
 
   const handleOpenMatch = (match) => { setSelectedMatch(match); setLastOpened('match'); };
   const handleOpenTeam = (team) => { setSelectedTeam(team); setLastOpened('team'); };
