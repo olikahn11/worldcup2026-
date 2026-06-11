@@ -219,7 +219,6 @@ const FullScreenBracket = ({ mode, r32Selections = {}, thirdPlaceAssignments = {
 
     const bracketMatrix = { top: [ ['ko_73', 'ko_75', 'ko_74', 'ko_77', 'ko_83', 'ko_84', 'ko_81', 'ko_82'], ['ko_89', 'ko_90', 'ko_93', 'ko_94'], ['ko_97', 'ko_98'], ['ko_101'] ], bottom: [ ['ko_76', 'ko_78', 'ko_79', 'ko_80', 'ko_86', 'ko_88', 'ko_85', 'ko_87'], ['ko_91', 'ko_92', 'ko_95', 'ko_96'], ['ko_99', 'ko_100'], ['ko_102'] ] };
     
-    // 核心修改：大幅度压缩主轴(纵向)的间距比例，使得连线缩短，适应100vh不超出
     const getPos = (half, depth, index) => {
         const mainAxes = isPortrait ? [7, 18, 28, 38] : [9, 21, 33, 45]; 
         let main = mainAxes[depth]; if (half === 'bottom') main = 100 - main;
@@ -347,14 +346,12 @@ const FullScreenBracket = ({ mode, r32Selections = {}, thirdPlaceAssignments = {
     )
 }
 
-// 核心修改：宽度设置为 12.2% 严格防重叠，高度提升至 7.5%，完美适配压成一屏的排版
 const BracketNode = ({ match, x, y, isPortrait, mode, isFinal, isThirdPlace, setPrediction, onMatchClick }) => {
     if (!match) return null;
     const isSandbox = mode === 'sandbox'; const isLive = mode === 'live';
     const homeWinner = isSandbox ? match.predictedWinner?.id === match.home?.id : (isLive && match.status === 'FINISHED' && match.homeScore > match.awayScore);
     const awayWinner = isSandbox ? match.predictedWinner?.id === match.away?.id : (isLive && match.status === 'FINISHED' && match.awayScore > match.homeScore);
 
-    // 核心修改：添加 e.stopPropagation() 避免点击球队框误触退出全屏功能
     const handleHomeClick = (e) => { e.stopPropagation(); if (isLive && onMatchClick) onMatchClick(match); if (isSandbox && match.home && !match.home.isPlaceholder) setPrediction(match.id, match.home); }
     const handleAwayClick = (e) => { e.stopPropagation(); if (isLive && onMatchClick) onMatchClick(match); if (isSandbox && match.away && !match.away.isPlaceholder) setPrediction(match.id, match.away); }
 
@@ -381,10 +378,6 @@ const BracketNode = ({ match, x, y, isPortrait, mode, isFinal, isThirdPlace, set
         </div>
     )
 }
-
-// ==========================================
-// 4. 交互模块：推演与宿命 
-// ==========================================
 
 const TeamSearchInput = ({ value, onChange, onSelect, selectedTeam, placeholder, allTeams }) => {
     const filtered = value ? allTeams.filter(t => t.name.includes(value) || t.id.includes(value.toLowerCase())).slice(0, 5) : [];
@@ -523,7 +516,6 @@ function PredictionSandbox({ getTeamFromSlot, groups, onExitHome, isFullscreen, 
   };
 
   const handleContainerClick = () => {
-      // 只有在最终大树生成阶段才允许点击切换全屏模式以截屏
       if (phase === 'bracket') {
           setIsFullscreen(!isFullscreen);
       }
@@ -557,7 +549,6 @@ function PredictionSandbox({ getTeamFromSlot, groups, onExitHome, isFullscreen, 
             </div>
         )}
 
-        {/* 核心修改：在bracket阶段强制设置overflow-hidden并使用100%高度填充，彻底告别滚动条 */}
         <div className={`flex-1 w-full h-full relative custom-scrollbar ${phase === 'bracket' ? 'overflow-hidden' : 'overflow-y-auto'}`}>
             {phase === 'intro' && (
                 <div className="flex flex-col items-center justify-center h-full text-center px-6 animate-fade-in pb-20">
@@ -593,7 +584,6 @@ function PredictionSandbox({ getTeamFromSlot, groups, onExitHome, isFullscreen, 
                         <h2 className="text-base sm:text-xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-orange-500 tracking-wider inline-block bg-slate-950/80 backdrop-blur-md px-5 py-1.5 rounded-full border border-slate-800 shadow-xl">2026我的夺冠预测卷</h2>
                     </div>
                     
-                    {/* 预留好顶部标题和底部二维码的安全空间，大树就在中间这块自适应铺满 */}
                     <div className="absolute top-12 left-0 right-0 bottom-24">
                         <FullScreenBracket mode="sandbox" r32Selections={sandboxRankings} thirdPlaceAssignments={thirdPlaceAssignments} predictions={predictions} setPrediction={(mId, team) => setPredictions(p => ({...p, [mId]: team}))} getTeamFromSlot={getTeamFromSlot} />
                     </div>
@@ -690,7 +680,6 @@ function TeamMeetingPredictor({ groups, isFullscreen, setIsFullscreen }) {
                     </div>
                 )}
 
-                {/* 核心修改：在全屏状态下，将面板设置弹性居中显示，填满单屏，并去掉底部Margin */}
                 {results && !isCalculating && (
                     <div id="capture-meeting" className={`px-2 sm:px-4 max-w-2xl mx-auto w-full animate-fade-in relative z-10 bg-slate-950 ${isFullscreen ? 'h-full flex flex-col justify-center pb-0' : 'mt-8 pb-6'}`}>
                         <div className="bg-slate-900 border border-slate-700 rounded-2xl overflow-hidden relative shadow-2xl pb-4">
@@ -748,7 +737,6 @@ function LiveBracketView({ getTeamFromSlot, onMatchClick, onExitHome, isFullscre
                 </div>
             )}
             
-            {/* 核心修改：锁定容器高度完全撑满，关闭滚动功能 */}
             <div className="flex-1 w-full h-full relative overflow-hidden">
                 <div id="capture-live-bracket" className="w-full h-full relative bg-slate-950 overflow-hidden">
                     <div className="absolute top-2 sm:top-4 left-0 right-0 text-center z-20 pointer-events-none">
@@ -1114,49 +1102,77 @@ export default function App() {
   const [selectedTeam, setSelectedTeam] = useState(null); 
   const [lastOpened, setLastOpened] = useState(null); 
   
-  // 新增全屏状态以控制头部隐藏
   const [isFullscreen, setIsFullscreen] = useState(false);
   useEffect(() => { setIsFullscreen(false); }, [activeTab]);
 
-  
-  const [apiStatus, setApiStatus] = useState('LOCAL'); const [apiErrorMsg, setApiErrorMsg] = useState('本地赛前模式 | 开赛后API自动同步');
+  // =============== 核心修改：动态定时器与提示语 ===============
+  const [apiStatus, setApiStatus] = useState('LOCAL'); 
+  const [apiErrorMsg, setApiErrorMsg] = useState('数据初始化中...');
 
   useEffect(() => {
-    const controller = new AbortController(); const signal = controller.signal;
+    const controller = new AbortController(); 
+    const signal = controller.signal;
+
+    // 1. 判断是否处于比赛活跃期 (北京时间 23:30 - 14:00)
+    const checkIsMatchTime = () => {
+      const now = new Date();
+      const beijingHour = (now.getUTCHours() + 8) % 24;
+      const beijingMinute = now.getUTCMinutes();
+      const timeDecimal = beijingHour + (beijingMinute / 60);
+      return timeDecimal >= 23.5 || timeDecimal <= 14.0;
+    };
+
     const fetchRealData = async () => {
-      setApiStatus('LOADING'); setApiErrorMsg('');
+      const isMatchTime = checkIsMatchTime();
+      setApiStatus('LOADING');
       try {
-        // 删除了原本包含 apiKey 的 headers 定义
-        
-        // 将原本的官方长链接，替换为你自己的 /api/football 接口
-        // 这里依然保留了 { signal }，确保React组件销毁时不会报错
         let [standingsRes, fixturesRes] = await Promise.all([ 
-        fetch('/api/football?endpoint=standings&league=1&season=2026', { signal }), 
-        fetch('/api/football?endpoint=fixtures&league=1&season=2026', { signal }) 
-      ]);
+          fetch('/api/football?endpoint=standings&league=1&season=2026', { signal }), 
+          fetch('/api/football?endpoint=fixtures&league=1&season=2026', { signal }) 
+        ]);
         
         let fixturesData = await fixturesRes.json();
         
-        // 下方的降级容错逻辑保持完全不动，依然稳如泰山
         if (fixturesData.errors && Object.keys(fixturesData.errors).length > 0) { 
           setGroups(initialGroups); 
           setApiStatus('LOCAL'); 
-          setApiErrorMsg("本地模式运行中"); 
+          setApiErrorMsg("接口限流保护中，暂显静态数据"); 
           return; 
         }
         
         setGroups(initialGroups); 
         setApiStatus('SUCCESS');
+
+        // 2. 根据时段动态显示高级文案
+        if (isMatchTime) {
+            setApiErrorMsg("比赛进行中 | 00:00 - 14:00 每 9 分钟更新");
+        } else {
+            setApiErrorMsg("非比赛时段 | 每日 00:00 - 14:00 自动更新");
+        }
+
       } catch (err) {
         if (err.name === 'AbortError') return;
         setGroups(initialGroups); 
-        setApiErrorMsg("网络错误，本地运行"); 
         setApiStatus('LOCAL');
+        setApiErrorMsg("网络拥堵，暂显静态数据"); 
       }
     };
+
+    // 网页加载时立即执行一次抓取
     fetchRealData();
-    return () => controller.abort();
+
+    // 3. 智能定时器：仅在比赛期间，开启 9 分钟 (540,000 毫秒) 自动轮询
+    let intervalId;
+    if (checkIsMatchTime()) {
+        intervalId = setInterval(fetchRealData, 540000);
+    }
+
+    return () => {
+        if (intervalId) clearInterval(intervalId);
+        controller.abort();
+    };
   }, []);
+  // ==========================================================
 
   const handleOpenMatch = (match) => { setSelectedMatch(match); setLastOpened('match'); };
   const handleOpenTeam = (team) => { setSelectedTeam(team); setLastOpened('team'); };
@@ -1174,7 +1190,6 @@ export default function App() {
 
   const isCanvasTab = activeTab === 'prediction' || activeTab === 'live_bracket';
   
-  // 在全屏模式下动态隐藏主导航栏
   const headerClass = `bg-slate-900 border-b border-slate-800 flex flex-col z-20 shadow-xl relative transition-all duration-300 ${isCanvasTab ? 'landscape:hidden' : ''} ${isFullscreen ? 'hidden' : ''}`;
 
   return (
