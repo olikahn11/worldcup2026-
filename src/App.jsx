@@ -90,8 +90,6 @@ const groupStageSchedule = {
   "巴拿马 vs 英格兰": "6月28日 05:00", "克罗地亚 vs 加纳": "6月28日 05:00", "哥伦比亚 vs 葡萄牙": "6月28日 07:30", "刚果(金) vs 乌兹别克斯坦": "6月28日 07:30", "约旦 vs 阿根廷": "6月28日 10:00", "阿尔及利亚 vs 奥地利": "6月28日 10:00"
 };
 
-const matches = [];
-
 const manualMatchAnalysis = {
   '瑞士 vs 波黑': {
     conclusion: '倾向瑞士不败，参考比分 2-1。',
@@ -188,6 +186,45 @@ const getDailyWindowLabel = (now = new Date()) => {
   return `${formatter.format(new Date(startMs))} - ${formatter.format(new Date(endMs))}`;
 };
 
+const getTeamByName = (name) => (
+  Object.values(teamsData).flat().find(team => team.name === name) || { name, flag: '❔' }
+);
+
+const parseScheduleTimeToMs = (timeStr) => {
+  const match = String(timeStr || '').match(/(\d+)月(\d+)日\s+(\d{1,2}):(\d{2})/);
+  if (!match) return Number.NaN;
+  const [, month, day, hour, minute] = match.map(Number);
+  return beijingLocalTimeToUtcMs(2026, month, day, hour, minute);
+};
+
+const toLocalPredictionMatch = ([matchName, timeStr], index) => {
+  const [homeName, awayName] = matchName.split(' vs ');
+  const home = getTeamByName(homeName);
+  const away = getTeamByName(awayName);
+  const analysis = manualMatchAnalysis[getMatchAnalysisKeyFromTeams(home.name, away.name)];
+  return {
+    id: `schedule_match_${index}_${homeName}_${awayName}`,
+    time: timeStr,
+    timestamp: parseScheduleTimeToMs(timeStr),
+    homeTeam: { name: home.name || homeName || '未知球队', flag: home.flag || '❔' },
+    awayTeam: { name: away.name || awayName || '未知球队', flag: away.flag || '❔' },
+    predictedScore: analysis?.final?.score || null,
+    probabilities: analysis?.probabilities || null
+  };
+};
+
+const getSchedulePredictionMatches = (startMs, endMs) => (
+  Object.entries(groupStageSchedule)
+    .map(toLocalPredictionMatch)
+    .filter(match => Number.isFinite(match.timestamp) && match.timestamp >= startMs && match.timestamp <= endMs)
+    .sort((a, b) => a.timestamp - b.timestamp)
+);
+
+const getFallbackPredictionMatches = () => {
+  const { startMs, endMs } = getDailyPredictionWindow();
+  return getSchedulePredictionMatches(startMs, endMs);
+};
+
 const toPredictionMatch = (fixture, index) => {
   const home = normalizeTeam(fixture?.teams?.home);
   const away = normalizeTeam(fixture?.teams?.away);
@@ -195,6 +232,7 @@ const toPredictionMatch = (fixture, index) => {
   return {
     id: fixture?.fixture?.id ? `api_match_${fixture.fixture.id}` : `api_match_${index}`,
     time: formatBeijingTime(fixture?.fixture?.date),
+    timestamp: new Date(fixture?.fixture?.date).getTime(),
     homeTeam: { name: home.name || '未知球队', flag: home.flag || '❔' },
     awayTeam: { name: away.name || '未知球队', flag: away.flag || '❔' },
     predictedScore: analysis?.final?.score || null,
@@ -203,9 +241,10 @@ const toPredictionMatch = (fixture, index) => {
 };
 
 const getTodayPredictionMatches = (fixturesPayload) => {
-  const rows = fixturesPayload?.response || [];
-  if (!Array.isArray(rows) || rows.length === 0) return matches;
   const { startMs, endMs } = getDailyPredictionWindow();
+  const localRows = getSchedulePredictionMatches(startMs, endMs);
+  const rows = fixturesPayload?.response || [];
+  if (!Array.isArray(rows) || rows.length === 0) return localRows;
   const endedStatuses = new Set(['FT', 'AET', 'PEN', 'CANC', 'ABD', 'AWD', 'WO']);
   const normalizedRows = rows
     .filter(row => row?.fixture?.date && row?.teams?.home && row?.teams?.away)
@@ -215,7 +254,13 @@ const getTodayPredictionMatches = (fixturesPayload) => {
     const status = row.fixture?.status?.short;
     return matchMs >= startMs && matchMs <= endMs && !endedStatuses.has(status);
   });
-  return windowRows.map(toPredictionMatch);
+  const apiRows = windowRows.map(toPredictionMatch);
+  const mergedByMatch = new Map();
+  [...apiRows, ...localRows].forEach(match => {
+    const key = getMatchAnalysisKey(match);
+    if (!mergedByMatch.has(key)) mergedByMatch.set(key, match);
+  });
+  return Array.from(mergedByMatch.values()).sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
 };
 
 const getMatchAnalysisKey = (match) => getMatchAnalysisKeyFromTeams(match?.homeTeam?.name, match?.awayTeam?.name);
@@ -1157,7 +1202,7 @@ function TeamMeetingPredictor({ groups, isFullscreen, setIsFullscreen }) {
 }
 
 function DailyPredictionsView() {
-  const [visibleMatches, setVisibleMatches] = useState(matches);
+  const [visibleMatches, setVisibleMatches] = useState(() => getFallbackPredictionMatches());
   const [listStatus, setListStatus] = useState('LOCAL');
   const [selectedIds, setSelectedIds] = useState([]);
   const [analysisIds, setAnalysisIds] = useState([]);
@@ -1185,7 +1230,7 @@ function DailyPredictionsView() {
       } catch (error) {
         console.warn('每日预测赛程加载失败:', error);
         if (!cancelled) {
-          setVisibleMatches(matches);
+          setVisibleMatches(getFallbackPredictionMatches());
           setListStatus('LOCAL');
         }
       }
@@ -1273,7 +1318,7 @@ function DailyPredictionsView() {
               <CalendarDays className="w-4 h-4 text-cyan-300" />
               比赛选择区
             </h3>
-            <span className="text-[10px] sm:text-xs text-[#94a3b8]">{listStatus === 'SUCCESS' ? 'API周期赛程' : listStatus === 'LOADING' ? '加载赛程中' : '暂无赛程'}</span>
+            <span className="text-[10px] sm:text-xs text-[#94a3b8]">{listStatus === 'SUCCESS' ? 'API+本地赛程' : listStatus === 'LOADING' ? '加载赛程中' : listStatus === 'STALE' ? '最近赛程' : '本地赛程'}</span>
           </div>
 
           <div className="rounded-[18px] border border-[#1f2a44] bg-[#111827] overflow-hidden shadow-[0_0_18px_rgba(15,23,42,0.45)]">
