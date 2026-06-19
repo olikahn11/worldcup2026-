@@ -442,6 +442,88 @@ const normalizeFixture = (item, matchNumber, groupByTeamId = {}) => {
   };
 };
 
+const cloneInitialGroups = () => Object.fromEntries(
+  Object.entries(initialGroups).map(([groupName, group]) => [
+    groupName,
+    {
+      teams: group.teams.map(team => ({ ...team })),
+      matches: group.matches.map(match => ({
+        ...match,
+        home: { ...match.home },
+        away: { ...match.away }
+      }))
+    }
+  ])
+);
+
+const getMatchupKey = (homeName, awayName) => [homeName || '待定', awayName || '待定'].sort().join('__');
+
+const buildInitialMatchLookup = (groups) => {
+  const lookup = new Map();
+  Object.entries(groups).forEach(([groupName, group]) => {
+    group.matches.forEach((match, index) => {
+      lookup.set(getMatchupKey(match.home?.name, match.away?.name), { groupName, match, index });
+    });
+  });
+  return lookup;
+};
+
+const mergeGroupMatchesWithLive = (baseGroups, liveMatches) => {
+  const lookup = buildInitialMatchLookup(baseGroups);
+  liveMatches.forEach(liveMatch => {
+    const record = lookup.get(getMatchupKey(liveMatch.home?.name, liveMatch.away?.name));
+    if (!record || !baseGroups[record.groupName]) return;
+    const original = record.match;
+    const originalHomeName = original.home?.name;
+    const liveHomeMatchesOriginalHome = liveMatch.home?.name === originalHomeName;
+    const homeScore = liveHomeMatchesOriginalHome ? liveMatch.homeScore : liveMatch.awayScore;
+    const awayScore = liveHomeMatchesOriginalHome ? liveMatch.awayScore : liveMatch.homeScore;
+    const homeTeam = liveHomeMatchesOriginalHome ? liveMatch.home : liveMatch.away;
+    const awayTeam = liveHomeMatchesOriginalHome ? liveMatch.away : liveMatch.home;
+    baseGroups[record.groupName].matches[record.index] = {
+      ...original,
+      ...liveMatch,
+      id: original.id,
+      apiFixtureId: liveMatch.apiFixtureId,
+      matchNumber: original.matchNumber,
+      home: { ...original.home, ...homeTeam, name: original.home?.name || homeTeam?.name },
+      away: { ...original.away, ...awayTeam, name: original.away?.name || awayTeam?.name },
+      homeScore,
+      awayScore,
+      groupName: record.groupName,
+      timeStr: original.timeStr || liveMatch.timeStr
+    };
+  });
+  return baseGroups;
+};
+
+const recalculateGroupTable = (group) => {
+  const stats = new Map(group.teams.map(team => [team.name, {
+    ...team, pts: 0, gd: 0, gf: 0, ga: 0, w: 0, d: 0, l: 0, played: 0
+  }]));
+  group.matches.filter(match => match.status === 'FINISHED').forEach(match => {
+    const home = stats.get(match.home?.name);
+    const away = stats.get(match.away?.name);
+    if (!home || !away || match.homeScore == null || match.awayScore == null) return;
+    home.played += 1; away.played += 1;
+    home.gf += match.homeScore; home.ga += match.awayScore;
+    away.gf += match.awayScore; away.ga += match.homeScore;
+    if (match.homeScore > match.awayScore) {
+      home.w += 1; home.pts += 3; away.l += 1;
+    } else if (match.homeScore < match.awayScore) {
+      away.w += 1; away.pts += 3; home.l += 1;
+    } else {
+      home.d += 1; away.d += 1; home.pts += 1; away.pts += 1;
+    }
+    home.gd = home.gf - home.ga;
+    away.gd = away.gf - away.ga;
+  });
+  group.teams = [...stats.values()].sort(
+    (a, b) => b.pts - a.pts || b.gd - a.gd || b.gf - a.gf || String(a.id).localeCompare(String(b.id))
+  );
+  return group;
+};
+
 const buildLiveTournament = (fixturesPayload, standingsPayload) => {
   const standingGroups = standingsPayload?.response?.[0]?.league?.standings || [];
   const groupByTeamId = {};
@@ -474,6 +556,10 @@ const buildLiveTournament = (fixturesPayload, standingsPayload) => {
     (a, b) => (a.fixture?.timestamp || 0) - (b.fixture?.timestamp || 0)
   );
   const normalized = sortedFixtures.map((item, index) => normalizeFixture(item, index + 1, groupByTeamId));
+  const liveGroupMatches = normalized.filter(match => {
+    const record = buildInitialMatchLookup(initialGroups).get(getMatchupKey(match.home?.name, match.away?.name));
+    return !!record;
+  });
 
   normalized.filter(m => m.matchNumber <= 72).forEach(match => {
     const group = match.groupName;
@@ -507,9 +593,14 @@ const buildLiveTournament = (fixturesPayload, standingsPayload) => {
   });
 
   Object.keys(initialGroups).forEach(group => {
-    if (!groups[group]) groups[group] = initialGroups[group];
-    else if (groups[group].matches.length === 0) groups[group].matches = initialGroups[group].matches;
+    if (!groups[group]) groups[group] = cloneInitialGroups()[group];
+    else if (groups[group].matches.length === 0) groups[group].matches = cloneInitialGroups()[group].matches;
   });
+
+  if (liveGroupMatches.length > 0) {
+    mergeGroupMatchesWithLive(groups, liveGroupMatches);
+    Object.values(groups).forEach(group => recalculateGroupTable(group));
+  }
 
   const liveById = new Map(normalized.filter(m => m.matchNumber > 72).map(m => [m.id, m]));
   const knockoutFlat = officialKnockoutRoundsFlat.map(base => {
