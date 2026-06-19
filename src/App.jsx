@@ -1669,21 +1669,97 @@ function HeroBoardCard({ title, rows = [], unit = '', emptyText = '暂无数据'
   );
 }
 
+function FormationPitch({ recentLineup }) {
+  const lineup = recentLineup?.lineup;
+  const formation = lineup?.formation;
+  const fixture = recentLineup?.fixture;
+  const players = (lineup?.startXI || [])
+    .map((item) => {
+      const player = item?.player || {};
+      const [row, col] = String(player.grid || '').split(':').map(Number);
+      return { ...player, row, col };
+    })
+    .filter(player => Number.isFinite(player.row) && Number.isFinite(player.col));
+  const maxRow = Math.max(1, ...players.map(player => player.row));
+  const maxColByRow = players.reduce((map, player) => {
+    map[player.row] = Math.max(map[player.row] || 0, player.col);
+    return map;
+  }, {});
+  const opponentName = fixture?.teams?.home?.id === lineup?.team?.id
+    ? fixture?.teams?.away?.name
+    : fixture?.teams?.home?.name;
+
+  return (
+    <div className="sm:col-span-2 bg-slate-950 border border-slate-800 rounded-xl p-4">
+      <div className="flex items-start justify-between gap-3 border-b border-slate-800 pb-2 mb-3">
+        <div>
+          <h4 className="text-sm font-bold text-slate-300">首发阵型图</h4>
+          <p className="mt-1 text-[10px] text-slate-500">按最近一次公开首发阵容生成</p>
+        </div>
+        <div className="text-right">
+          <div className="text-lg font-black text-cyan-300">{formation || '待公布'}</div>
+          {opponentName && <div className="text-[10px] text-slate-500">vs {TEAM_NAME_ZH[opponentName] || opponentName}</div>}
+        </div>
+      </div>
+      {players.length > 0 ? (
+        <div className="relative h-[360px] overflow-hidden rounded-2xl border border-emerald-500/20 bg-[radial-gradient(circle_at_center,rgba(34,197,94,0.18),rgba(15,23,42,0.95)),linear-gradient(180deg,#064e3b,#022c22)] shadow-inner">
+          <div className="absolute left-1/2 top-0 h-full w-px -translate-x-1/2 bg-white/10" />
+          <div className="absolute left-1/2 top-1/2 h-24 w-24 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/10" />
+          <div className="absolute left-1/2 top-3 h-12 w-32 -translate-x-1/2 rounded-b-xl border-x border-b border-white/10" />
+          <div className="absolute left-1/2 bottom-3 h-12 w-32 -translate-x-1/2 rounded-t-xl border-x border-t border-white/10" />
+          {players.map((player) => {
+            const colCount = maxColByRow[player.row] || 1;
+            const x = (player.col / (colCount + 1)) * 100;
+            const y = ((player.row - 0.15) / (maxRow + 0.7)) * 100;
+            return (
+              <div
+                key={`${player.id || player.name}-${player.grid}`}
+                className="absolute flex w-[74px] -translate-x-1/2 -translate-y-1/2 flex-col items-center"
+                style={{ left: `${x}%`, top: `${y}%` }}
+                title={`${player.number || '-'} ${player.name || '球员'}`}
+              >
+                <div className="flex h-8 w-8 items-center justify-center rounded-full border border-cyan-300/70 bg-slate-950/90 text-[10px] font-black text-cyan-200 shadow-[0_0_14px_rgba(34,211,238,0.35)]">
+                  {player.number || '-'}
+                </div>
+                <div className="mt-1 max-w-[74px] truncate rounded-md bg-slate-950/80 px-1.5 py-0.5 text-[9px] font-bold text-slate-100">
+                  {player.name || '球员'}
+                </div>
+                <div className="text-[8px] font-mono text-slate-300">{player.pos || ''}</div>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="rounded-xl border border-dashed border-slate-800 bg-slate-900 px-4 py-8 text-center text-xs text-slate-500">
+          首发阵型待公布。赛前名单发布后，这里会自动显示球场站位图。
+        </div>
+      )}
+    </div>
+  );
+}
+
 function RulesView({ groups, knockouts, getTeamFromSlot }) {
   const [subTab, setSubTab] = useState('rules');
   const [heroState, setHeroState] = useState({ status: 'IDLE', data: null, error: '' });
   useEffect(() => {
     if (subTab !== 'heroes' || heroState.status === 'SUCCESS' || heroState.status === 'LOADING') return;
     let cancelled = false;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 9000);
     setHeroState({ status: 'LOADING', data: null, error: '' });
-    fetch('/api/worldcup-leaders')
+    fetch('/api/worldcup-leaders', { signal: controller.signal })
       .then(response => response.json().then(data => {
         if (!response.ok || data.error) throw new Error('英雄榜暂时无法加载');
         return data;
       }))
       .then(data => { if (!cancelled) setHeroState({ status: 'SUCCESS', data, error: '' }); })
-      .catch(() => { if (!cancelled) setHeroState({ status: 'ERROR', data: null, error: '英雄榜暂时无法加载' }); });
-    return () => { cancelled = true; };
+      .catch(() => { if (!cancelled) setHeroState({ status: 'ERROR', data: null, error: '英雄榜暂时无法加载' }); })
+      .finally(() => clearTimeout(timeoutId));
+    return () => {
+      cancelled = true;
+      clearTimeout(timeoutId);
+      controller.abort();
+    };
   }, [heroState.status, subTab]);
 
   const grouped104 = useMemo(() => {
@@ -2056,14 +2132,21 @@ function TeamDetailDrawer({ team, teamMatches = [], onClose, isTop }) {
     const params = new URLSearchParams();
     if (teamId) params.set('team', teamId);
     if (teamName) params.set('name', teamName);
-    fetch(`/api/team-detail?${params.toString()}`)
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 12000);
+    fetch(`/api/team-detail?${params.toString()}`, { signal: controller.signal })
       .then(response => response.json().then(data => {
         if (!response.ok || data.error) throw new Error('球队详情暂时无法加载');
         return data;
       }))
       .then(data => { if (!cancelled) setTeamDetailState({ status: 'SUCCESS', data, error: '' }); })
-      .catch(() => { if (!cancelled) setTeamDetailState({ status: 'ERROR', data: null, error: '球队详情暂时无法加载' }); });
-    return () => { cancelled = true; };
+      .catch(() => { if (!cancelled) setTeamDetailState({ status: 'ERROR', data: null, error: '球队详情暂时无法加载' }); })
+      .finally(() => clearTimeout(timeoutId));
+    return () => {
+      cancelled = true;
+      clearTimeout(timeoutId);
+      controller.abort();
+    };
   }, [team?.apiId, team?.apiName, team?.isPlaceholder, team?.name]);
 
   if (!team || team.isPlaceholder) return null;
@@ -2077,6 +2160,7 @@ function TeamDetailDrawer({ team, teamMatches = [], onClose, isTop }) {
   const remoteFixtures = teamDetailState.data?.fixtures?.response || [];
   const injuryRows = teamDetailState.data?.injuries?.response || [];
   const playerStatsRows = teamDetailState.data?.players?.response || [];
+  const recentLineup = teamDetailState.data?.recentLineup;
   const commonLineups = remoteStats?.lineups || [];
   const statCards = [
     ['场次', remoteStats?.fixtures?.played?.total],
@@ -2118,6 +2202,7 @@ function TeamDetailDrawer({ team, teamMatches = [], onClose, isTop }) {
                  {teamDetailState.status === 'LOADING' && <div className="text-center text-xs text-slate-400 py-4"><RefreshCw className="w-4 h-4 animate-spin mx-auto mb-2 text-cyan-400" />正在加载球队资料...</div>}
                  {teamDetailState.status === 'SUCCESS' && (
                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                     <FormationPitch recentLineup={recentLineup} />
                      <div className="bg-slate-950 border border-slate-800 rounded-xl p-4">
                        <h4 className="text-sm font-bold text-slate-300 mb-3 border-b border-slate-800 pb-2">球队资料</h4>
                        <div className="space-y-2 text-xs text-slate-400">

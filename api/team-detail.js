@@ -56,9 +56,21 @@ const TEAM_NAME_EN = {
   '乌兹别克斯坦': 'Uzbekistan',
 };
 
-async function fetchJson(url, headers = {}) {
-  const response = await fetch(url, { headers });
-  const data = await response.json();
+const withTimeout = async (promise, ms = 7000) => {
+  let timerId;
+  const timeout = new Promise((_, reject) => {
+    timerId = setTimeout(() => reject(new Error('request timeout')), ms);
+  });
+  try {
+    return await Promise.race([promise, timeout]);
+  } finally {
+    clearTimeout(timerId);
+  }
+};
+
+async function fetchJson(url, headers = {}, timeoutMs = 5500) {
+  const response = await withTimeout(fetch(url, { headers }), timeoutMs);
+  const data = await withTimeout(response.json(), 2500);
   if (!response.ok || (data.errors && Object.keys(data.errors).length > 0)) {
     throw new Error(JSON.stringify(data.errors || data));
   }
@@ -74,7 +86,7 @@ async function fetchTeamEndpoint(endpoint, teamId, apiKey) {
   });
 }
 
-async function fetchEndpoint(endpoint, params, apiKey) {
+async function fetchEndpoint(endpoint, params, apiKey, timeoutMs) {
   const url = new URL(`${API_BASE}/${endpoint}`);
   Object.entries(params).forEach(([key, value]) => {
     if (value !== undefined && value !== null && value !== '') url.searchParams.set(key, value);
@@ -82,7 +94,7 @@ async function fetchEndpoint(endpoint, params, apiKey) {
   return fetchJson(url, {
     'x-apisports-key': apiKey,
     Accept: 'application/json',
-  });
+  }, timeoutMs);
 }
 
 async function resolveTeamId({ teamId, teamName, apiKey }) {
@@ -105,6 +117,35 @@ async function resolveTeamId({ teamId, teamName, apiKey }) {
 const safeData = (result, fallback = { response: [] }) => (
   result.status === 'fulfilled' ? result.value : fallback
 );
+
+const hasPublishedLineup = (lineup) => (
+  Array.isArray(lineup?.startXI) && lineup.startXI.some(item => item?.player?.grid)
+);
+
+async function fetchRecentLineup({ fixtures = [], teamId, apiKey }) {
+  const finishedOrStarted = new Set(['FT', 'AET', 'PEN', 'LIVE', '1H', '2H', 'HT', 'ET', 'BT', 'P', 'INT']);
+  const candidates = fixtures
+    .filter(item => item?.fixture?.id)
+    .filter(item => finishedOrStarted.has(item.fixture?.status?.short) || new Date(item.fixture?.date || 0).getTime() <= Date.now() + 3 * 60 * 60 * 1000)
+    .sort((a, b) => new Date(b.fixture?.date || 0).getTime() - new Date(a.fixture?.date || 0).getTime())
+    .slice(0, 4);
+
+  const results = await Promise.allSettled(candidates.map(async (fixture) => {
+    const lineups = await fetchEndpoint('fixtures/lineups', { fixture: fixture.fixture.id }, apiKey, 3000);
+    const lineup = (lineups?.response || []).find(item => String(item?.team?.id || '') === String(teamId));
+    return { fixture, lineup };
+  }));
+
+  for (const result of results) {
+    if (result.status === 'fulfilled' && hasPublishedLineup(result.value.lineup)) {
+      return result.value;
+    }
+    if (result.status === 'rejected') {
+      console.warn('球队阵型图加载跳过:', result.reason?.message || result.reason);
+    }
+  }
+  return null;
+}
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
@@ -142,14 +183,17 @@ export default async function handler(req, res) {
       fetchEndpoint('injuries', { league: LEAGUE_ID, season: SEASON, team: resolved.teamId }, apiKey),
       fetchEndpoint('players', { league: LEAGUE_ID, season: SEASON, team: resolved.teamId }, apiKey),
     ]);
+    const fixtureRows = safeData(fixtures).response || [];
+    const recentLineup = await fetchRecentLineup({ fixtures: fixtureRows, teamId: resolved.teamId, apiKey });
     const data = {
       teamInfo: safeData(teamInfo),
       squad: safeData(squad),
       coaches: safeData(coaches),
       statistics: safeData(statistics, { response: null }),
-      fixtures: safeData(fixtures),
+      fixtures: { response: fixtureRows },
       injuries: safeData(injuries),
       players: safeData(players),
+      recentLineup,
       resolvedTeamId: resolved.teamId,
       updatedAt: new Date().toISOString()
     };

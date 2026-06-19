@@ -5,18 +5,30 @@ const leadersCache = globalThis.__worldCupLeadersCache || { data: null, expiresA
 
 globalThis.__worldCupLeadersCache = leadersCache;
 
+const withTimeout = async (promise, ms = 6500) => {
+  let timerId;
+  const timeout = new Promise((_, reject) => {
+    timerId = setTimeout(() => reject(new Error('request timeout')), ms);
+  });
+  try {
+    return await Promise.race([promise, timeout]);
+  } finally {
+    clearTimeout(timerId);
+  }
+};
+
 const fetchApi = async (endpoint, params, apiKey) => {
   const url = new URL(`${API_BASE}/${endpoint}`);
   Object.entries(params).forEach(([key, value]) => {
     if (value !== undefined && value !== null && value !== '') url.searchParams.set(key, value);
   });
-  const response = await fetch(url, {
+  const response = await withTimeout(fetch(url, {
     headers: {
       'x-apisports-key': apiKey,
       Accept: 'application/json'
     }
-  });
-  const data = await response.json();
+  }));
+  const data = await withTimeout(response.json(), 2500);
   if (!response.ok) throw new Error(data?.message || `API request failed: ${endpoint}`);
   return data;
 };
