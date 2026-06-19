@@ -102,6 +102,10 @@ async function resolveTeamId({ teamId, teamName, apiKey }) {
   };
 }
 
+const safeData = (result, fallback = { response: [] }) => (
+  result.status === 'fulfilled' ? result.value : fallback
+);
+
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
     res.setHeader('Allow', 'GET');
@@ -129,14 +133,26 @@ export default async function handler(req, res) {
   try {
     const resolved = await resolveTeamId({ teamId, teamName, apiKey });
     if (!resolved.teamId) return res.status(404).json({ error: '球队详情暂时无法加载' });
-    const [teamInfo, squad, coaches, statistics, fixtures] = await Promise.all([
+    const [teamInfo, squad, coaches, statistics, fixtures, injuries, players] = await Promise.allSettled([
       resolved.teamInfo ? Promise.resolve({ response: [resolved.teamInfo] }) : fetchEndpoint('teams', { id: resolved.teamId }, apiKey),
       fetchTeamEndpoint('players/squads', resolved.teamId, apiKey),
       fetchTeamEndpoint('coachs', resolved.teamId, apiKey),
       fetchEndpoint('teams/statistics', { league: LEAGUE_ID, season: SEASON, team: resolved.teamId }, apiKey),
       fetchEndpoint('fixtures', { league: LEAGUE_ID, season: SEASON, team: resolved.teamId }, apiKey),
+      fetchEndpoint('injuries', { league: LEAGUE_ID, season: SEASON, team: resolved.teamId }, apiKey),
+      fetchEndpoint('players', { league: LEAGUE_ID, season: SEASON, team: resolved.teamId }, apiKey),
     ]);
-    const data = { teamInfo, squad, coaches, statistics, fixtures, resolvedTeamId: resolved.teamId, updatedAt: new Date().toISOString() };
+    const data = {
+      teamInfo: safeData(teamInfo),
+      squad: safeData(squad),
+      coaches: safeData(coaches),
+      statistics: safeData(statistics, { response: null }),
+      fixtures: safeData(fixtures),
+      injuries: safeData(injuries),
+      players: safeData(players),
+      resolvedTeamId: resolved.teamId,
+      updatedAt: new Date().toISOString()
+    };
     teamDetailCache.set(cacheKey, { data, expiresAt: Date.now() + 6 * 60 * 60 * 1000 });
 
     res.setHeader('X-WorldCup-Cache', 'MISS');

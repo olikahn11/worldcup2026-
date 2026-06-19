@@ -1648,8 +1648,44 @@ function KnockoutScheduleView({ knockouts, getTeamFromSlot, onMatchClick, onTeam
   );
 }
 
+function HeroBoardCard({ title, rows = [], unit = '', emptyText = '暂无数据' }) {
+  return (
+    <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-3 sm:p-4 shadow-xl">
+      <h3 className="mb-3 border-b border-slate-800 pb-2 text-sm font-black text-cyan-300">{title}</h3>
+      <div className="space-y-2">
+        {rows.slice(0, 10).map((row, index) => (
+          <div key={`${title}-${row.player}-${index}`} className="grid grid-cols-[28px_1fr_auto] items-center gap-2 rounded-xl border border-slate-800 bg-slate-950 px-3 py-2">
+            <span className={`text-center text-xs font-black ${index < 3 ? 'text-yellow-400' : 'text-slate-500'}`}>{row.rank || index + 1}</span>
+            <span className="min-w-0">
+              <span className="block truncate text-xs font-bold text-slate-100">{row.player}</span>
+              <span className="mt-0.5 flex items-center gap-1 text-[10px] text-slate-500"><TeamFlag flag={row.teamLogo} sizeClass="w-3.5 h-3.5" />{TEAM_NAME_ZH[row.team] || row.team || '球队'}</span>
+            </span>
+            <span className="rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-2 py-1 text-xs font-black text-cyan-300">{row.value ?? '-'}{unit}</span>
+          </div>
+        ))}
+        {rows.length === 0 && <div className="rounded-xl border border-dashed border-slate-800 bg-slate-950 px-3 py-6 text-center text-xs text-slate-500">{emptyText}</div>}
+      </div>
+    </div>
+  );
+}
+
 function RulesView({ groups, knockouts, getTeamFromSlot }) {
   const [subTab, setSubTab] = useState('rules');
+  const [heroState, setHeroState] = useState({ status: 'IDLE', data: null, error: '' });
+  useEffect(() => {
+    if (subTab !== 'heroes' || heroState.status === 'SUCCESS' || heroState.status === 'LOADING') return;
+    let cancelled = false;
+    setHeroState({ status: 'LOADING', data: null, error: '' });
+    fetch('/api/worldcup-leaders')
+      .then(response => response.json().then(data => {
+        if (!response.ok || data.error) throw new Error('英雄榜暂时无法加载');
+        return data;
+      }))
+      .then(data => { if (!cancelled) setHeroState({ status: 'SUCCESS', data, error: '' }); })
+      .catch(() => { if (!cancelled) setHeroState({ status: 'ERROR', data: null, error: '英雄榜暂时无法加载' }); });
+    return () => { cancelled = true; };
+  }, [heroState.status, subTab]);
+
   const grouped104 = useMemo(() => {
     const allGroupMatches = []; Object.keys(groups).forEach(g => { groups[g].matches.forEach(m => { allGroupMatches.push({ ...m, groupName: g }); }); });
     const allKnockoutMatches = ['r32', 'r16', 'qf', 'sf', 'third', 'final'].flatMap(round => (knockouts[round] || []).map(m => ({ ...m, home: getTeamFromSlot(m.homeStr), away: getTeamFromSlot(m.awayStr) })));
@@ -1671,19 +1707,20 @@ function RulesView({ groups, knockouts, getTeamFromSlot }) {
   }, [groups, knockouts, getTeamFromSlot]);
 
   return (
-    <div className="h-full flex flex-col bg-slate-950 relative overflow-hidden">
-      <div className="bg-slate-900 border-b border-slate-800 px-2 py-2 flex justify-center z-10 shrink-0">
-        <div className="flex bg-slate-950/80 p-1 rounded-lg border border-slate-800 w-full sm:w-auto">
-          <button onClick={() => setSubTab('rules')} className={`flex-1 sm:flex-none justify-center px-4 sm:px-6 py-1.5 rounded font-bold text-xs sm:text-sm transition-all whitespace-nowrap flex items-center ${subTab === 'rules' ? 'bg-emerald-600/20 text-emerald-400 border border-emerald-500/30' : 'text-slate-500 hover:text-slate-300'}`}><BookOpen className="w-4 h-4 mr-1.5" /> 2026最新扩军新规说明</button>
-          <button onClick={() => setSubTab('schedule')} className={`flex-1 sm:flex-none justify-center px-4 sm:px-6 py-1.5 rounded font-bold text-xs sm:text-sm transition-all whitespace-nowrap flex items-center ml-2 ${subTab === 'schedule' ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30' : 'text-slate-500 hover:text-slate-300'}`}><CalendarDays className="w-4 h-4 mr-1.5" /> 104场全赛程</button>
-        </div>
-      </div>
+	    <div className="h-full flex flex-col bg-slate-950 relative overflow-hidden">
+	      <div className="bg-slate-900 border-b border-slate-800 px-2 py-2 flex justify-center z-10 shrink-0">
+	        <div className="flex bg-slate-950/80 p-1 rounded-lg border border-slate-800 w-full sm:w-auto">
+	          <button onClick={() => setSubTab('rules')} className={`flex-1 sm:flex-none justify-center px-4 sm:px-6 py-1.5 rounded font-bold text-xs sm:text-sm transition-all whitespace-nowrap flex items-center ${subTab === 'rules' ? 'bg-emerald-600/20 text-emerald-400 border border-emerald-500/30' : 'text-slate-500 hover:text-slate-300'}`}><BookOpen className="w-4 h-4 mr-1.5" /> 2026最新扩军新规说明</button>
+	          <button onClick={() => setSubTab('schedule')} className={`flex-1 sm:flex-none justify-center px-4 sm:px-6 py-1.5 rounded font-bold text-xs sm:text-sm transition-all whitespace-nowrap flex items-center ml-2 ${subTab === 'schedule' ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30' : 'text-slate-500 hover:text-slate-300'}`}><CalendarDays className="w-4 h-4 mr-1.5" /> 104场全赛程</button>
+	          <button onClick={() => setSubTab('heroes')} className={`flex-1 sm:flex-none justify-center px-4 sm:px-6 py-1.5 rounded font-bold text-xs sm:text-sm transition-all whitespace-nowrap flex items-center ml-2 ${subTab === 'heroes' ? 'bg-cyan-600/20 text-cyan-400 border border-cyan-500/30' : 'text-slate-500 hover:text-slate-300'}`}><Crown className="w-4 h-4 mr-1.5" /> 英雄榜</button>
+	        </div>
+	      </div>
       <div className="flex-1 overflow-y-auto custom-scrollbar relative pb-10">
         <div className="max-w-4xl lg:max-w-6xl mx-auto p-2 sm:p-6 space-y-6 sm:space-y-8 animate-fade-in bg-slate-950 pb-6 w-full">
-          {subTab === 'rules' ? (
-            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 sm:p-10 shadow-2xl relative overflow-hidden">
-              <h2 className="text-2xl sm:text-3xl font-black text-white mb-8 flex items-center"><Shield className="w-8 h-8 mr-3 text-emerald-500" /> 2026 美加墨世界杯官方新规大纲</h2>
-              <div className="space-y-6 relative z-10">
+	          {subTab === 'rules' ? (
+	            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 sm:p-10 shadow-2xl relative overflow-hidden">
+	              <h2 className="text-2xl sm:text-3xl font-black text-white mb-8 flex items-center"><Shield className="w-8 h-8 mr-3 text-emerald-500" /> 2026 美加墨世界杯规则与观赛要点</h2>
+	              <div className="space-y-6 relative z-10">
                 <div className="bg-slate-950/50 p-5 rounded-xl border border-slate-800/80">
                     <h3 className="text-xl font-bold text-emerald-400 mb-3 flex items-center"><Users className="w-5 h-5 mr-2" /> 48强历史级扩军与12大分组</h3>
                     <p className="text-slate-300 leading-relaxed">国际足联史诗级改制：参赛队伍由原先的32支激增至 <span className="font-bold text-white">48支</span>。全赛程总计鏖战 <span className="font-bold text-white">104场</span>（原64场）。共划分为 12 个小组（A组至L组），每组固定包含 4 支球队。</p>
@@ -1701,14 +1738,34 @@ function RulesView({ groups, knockouts, getTeamFromSlot }) {
                      </div>
                   </div>
                 </div>
-                <div className="bg-slate-950/50 p-5 rounded-xl border border-slate-800/80">
-                    <h3 className="text-xl font-bold text-blue-400 mb-3 flex items-center"><GitBranch className="w-5 h-5 mr-2" /> 淘汰赛加长路线与常规规定</h3>
-                    <p className="text-slate-300 leading-relaxed">由于增设了 1/16 决赛（32强战），夺冠战线被拉长，进入决赛的球队最终总计需完成 <span className="font-bold text-blue-400">8场</span> 决战。淘汰赛阶段若常规 90 分钟战平，必须进行 30 分钟常规加时赛。若加时依然不分伯仲，则立即引入残酷的点球大决战。</p>
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div className="bg-slate-900/50 border border-slate-800 rounded-2xl p-3 sm:p-8 shadow-2xl relative">
+	                <div className="bg-slate-950/50 p-5 rounded-xl border border-slate-800/80">
+	                    <h3 className="text-xl font-bold text-blue-400 mb-3 flex items-center"><GitBranch className="w-5 h-5 mr-2" /> 淘汰赛加长路线与常规规定</h3>
+	                    <p className="text-slate-300 leading-relaxed">由于增设了 1/16 决赛（32强战），夺冠战线被拉长，进入决赛的球队最终总计需完成 <span className="font-bold text-blue-400">8场</span> 决战。淘汰赛阶段若常规 90 分钟战平，必须进行 30 分钟常规加时赛。若加时依然不分伯仲，则立即引入残酷的点球大决战。</p>
+	                </div>
+	                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+	                  <div className="bg-slate-950/50 p-5 rounded-xl border border-cyan-500/20">
+	                    <h3 className="text-xl font-bold text-cyan-300 mb-3 flex items-center"><Shield className="w-5 h-5 mr-2" /> 裁判与判罚执行重点</h3>
+	                    <ul className="space-y-2 text-sm text-slate-300 leading-relaxed">
+	                      <li>VAR 继续覆盖进球、点球、红牌、错认身份等关键判罚。</li>
+	                      <li>越位、手球、禁区身体接触会是重点复核区域，关键比赛节奏会更依赖补时管理。</li>
+	                      <li>替补席、拖延时间、围堵裁判等行为预计会被更严格管理。</li>
+	                      <li>比赛实际净时间更受关注，伤停、庆祝、VAR 复核后的补时会更精确。</li>
+	                    </ul>
+	                  </div>
+	                  <div className="bg-slate-950/50 p-5 rounded-xl border border-purple-500/20">
+	                    <h3 className="text-xl font-bold text-purple-300 mb-3 flex items-center"><MapPin className="w-5 h-5 mr-2" /> 球场与赛程环境要点</h3>
+	                    <ul className="space-y-2 text-sm text-slate-300 leading-relaxed">
+	                      <li>美加墨三国联合承办，球队将面对跨城市、跨气候区作战。</li>
+	                      <li>部分球场为大型综合体育场，草皮、顶棚、温度与旅行距离会影响临场节奏。</li>
+	                      <li>小组赛密集，轮换深度、恢复质量和替补席强度会比以往更重要。</li>
+	                      <li>高温、长途转场与不同时区适应，是强队稳定性的重要变量。</li>
+	                    </ul>
+	                  </div>
+	                </div>
+	              </div>
+	            </div>
+	          ) : subTab === 'schedule' ? (
+	            <div className="bg-slate-900/50 border border-slate-800 rounded-2xl p-3 sm:p-8 shadow-2xl relative">
               <h2 className="text-xl sm:text-3xl font-black text-blue-400 mb-8 text-center tracking-wider">2026 世界杯 104场 赛程时间轴一览</h2>
               <div className="space-y-6">
                 {Object.keys(grouped104).map((date, idx) => (
@@ -1728,9 +1785,30 @@ function RulesView({ groups, knockouts, getTeamFromSlot }) {
                       </div>
                    </div>
                 ))}
-              </div>
-            </div>
-          )}
+	              </div>
+	            </div>
+	          ) : (
+	            <div className="bg-slate-900/50 border border-slate-800 rounded-2xl p-3 sm:p-8 shadow-2xl relative">
+	              <h2 className="text-xl sm:text-3xl font-black text-cyan-300 mb-2 text-center tracking-wider">世界杯英雄榜</h2>
+	              <p className="mb-6 text-center text-xs text-slate-500">榜单随赛事数据更新；跑动距离等未公开项目暂不展示。</p>
+	              {heroState.status === 'LOADING' && <div className="py-10 text-center text-sm text-slate-400"><RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2 text-cyan-400" />正在加载英雄榜...</div>}
+	              {heroState.status === 'ERROR' && <div className="py-10 text-center text-sm text-yellow-400">{heroState.error}</div>}
+	              {heroState.status === 'SUCCESS' && (
+	                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+	                  <HeroBoardCard title="射手榜" rows={heroState.data?.boards?.scorers} unit=" 球" />
+	                  <HeroBoardCard title="助攻榜" rows={heroState.data?.boards?.assists} unit=" 次" />
+	                  <HeroBoardCard title="抢断榜" rows={heroState.data?.boards?.tackles} unit=" 次" />
+	                  <HeroBoardCard title="拦截榜" rows={heroState.data?.boards?.interceptions} unit=" 次" />
+	                  <HeroBoardCard title="关键传球榜" rows={heroState.data?.boards?.keyPasses} unit=" 次" />
+	                  <HeroBoardCard title="射正榜" rows={heroState.data?.boards?.shotsOn} unit=" 次" />
+	                  <HeroBoardCard title="对抗成功榜" rows={heroState.data?.boards?.duelsWon} unit=" 次" />
+	                  <HeroBoardCard title="黄牌榜" rows={heroState.data?.boards?.yellowCards} unit=" 张" />
+	                  <HeroBoardCard title="红牌榜" rows={heroState.data?.boards?.redCards} unit=" 张" />
+	                  <HeroBoardCard title="评分榜" rows={heroState.data?.boards?.ratings} />
+	                </div>
+	              )}
+	            </div>
+	          )}
         </div>
       </div>
     </div>
@@ -1997,6 +2075,9 @@ function TeamDetailDrawer({ team, teamMatches = [], onClose, isTop }) {
   const remoteVenue = teamDetailState.data?.teamInfo?.response?.[0]?.venue;
   const remoteStats = teamDetailState.data?.statistics?.response;
   const remoteFixtures = teamDetailState.data?.fixtures?.response || [];
+  const injuryRows = teamDetailState.data?.injuries?.response || [];
+  const playerStatsRows = teamDetailState.data?.players?.response || [];
+  const commonLineups = remoteStats?.lineups || [];
   const statCards = [
     ['场次', remoteStats?.fixtures?.played?.total],
     ['胜', remoteStats?.fixtures?.wins?.total],
@@ -2046,8 +2127,8 @@ function TeamDetailDrawer({ team, teamMatches = [], onClose, isTop }) {
                          <div className="flex justify-between gap-3"><span>容量</span><span className="text-slate-200 font-mono">{remoteVenue?.capacity || '-'}</span></div>
                        </div>
                      </div>
-                     <div className="bg-slate-950 border border-slate-800 rounded-xl p-4">
-                       <h4 className="text-sm font-bold text-slate-300 mb-3 border-b border-slate-800 pb-2">赛事统计</h4>
+	                     <div className="bg-slate-950 border border-slate-800 rounded-xl p-4">
+	                       <h4 className="text-sm font-bold text-slate-300 mb-3 border-b border-slate-800 pb-2">赛事统计</h4>
                        <div className="grid grid-cols-3 gap-2">
                          {statCards.map(([label, value]) => (
                            <div key={label} className="rounded-lg bg-slate-900 border border-slate-800 px-2 py-2 text-center">
@@ -2055,10 +2136,34 @@ function TeamDetailDrawer({ team, teamMatches = [], onClose, isTop }) {
                              <div className="text-sm font-black text-cyan-300 mt-1">{value ?? '-'}</div>
                            </div>
                          ))}
-                       </div>
-                     </div>
-                   </div>
-                 )}
+	                       </div>
+	                     </div>
+	                     <div className="bg-slate-950 border border-slate-800 rounded-xl p-4">
+	                       <h4 className="text-sm font-bold text-slate-300 mb-3 border-b border-slate-800 pb-2">常用阵型</h4>
+	                       <div className="space-y-2">
+	                         {commonLineups.slice(0, 4).map((lineup) => (
+	                           <div key={lineup.formation} className="flex items-center justify-between rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 text-xs">
+	                             <span className="font-black text-cyan-300">{lineup.formation}</span>
+	                             <span className="text-slate-400">使用 {lineup.played} 场</span>
+	                           </div>
+	                         ))}
+	                         {commonLineups.length === 0 && <div className="rounded-lg border border-dashed border-slate-800 bg-slate-900 px-3 py-5 text-center text-xs text-slate-500">阵型数据待更新</div>}
+	                       </div>
+	                     </div>
+	                     <div className="bg-slate-950 border border-slate-800 rounded-xl p-4">
+	                       <h4 className="text-sm font-bold text-slate-300 mb-3 border-b border-slate-800 pb-2">伤病情况</h4>
+	                       <div className="space-y-2">
+	                         {injuryRows.slice(0, 6).map((item, index) => (
+	                           <div key={`${item.player?.id || item.player?.name}-${index}`} className="rounded-lg border border-red-500/20 bg-red-950/20 px-3 py-2 text-xs">
+	                             <div className="font-bold text-red-200">{item.player?.name || '球员待定'}</div>
+	                             <div className="mt-1 text-[10px] text-red-200/70">{item.player?.reason || item.type || '伤病信息待确认'}</div>
+	                           </div>
+	                         ))}
+	                         {injuryRows.length === 0 && <div className="rounded-lg border border-dashed border-slate-800 bg-slate-900 px-3 py-5 text-center text-xs text-slate-500">暂无公开伤病信息</div>}
+	                       </div>
+	                     </div>
+	                   </div>
+	                 )}
 	               <div className="bg-slate-950 border border-slate-800 rounded-xl p-4">
 	                  <h4 className="text-sm font-bold text-slate-300 mb-3 border-b border-slate-800 pb-2">本届小组赛赛程</h4>
 	                  <div className="space-y-2">
@@ -2099,19 +2204,48 @@ function TeamDetailDrawer({ team, teamMatches = [], onClose, isTop }) {
                 {teamDetailState.status === 'LOADING' && <div className="text-center text-xs text-slate-400 py-8"><RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2 text-cyan-400" />正在加载球队大名单...</div>}
                 {teamDetailState.status === 'ERROR' && <div className="text-center text-xs text-yellow-400 py-8">{teamDetailState.error}</div>}
                 {teamDetailState.status === 'IDLE' && <div className="text-center text-xs text-slate-500 py-8">该球队详情待更新。</div>}
-                {teamDetailState.status === 'SUCCESS' && (
-                  <>
-                    <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4 flex items-center justify-between">
+	                {teamDetailState.status === 'SUCCESS' && (
+	                  <>
+	                    <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4 flex items-center justify-between">
                       <div>
                         <div className="text-[10px] text-slate-400">国家队主教练</div>
                         <div className="text-sm font-bold text-white mt-1">{coach?.name || '主帅信息待更新'}</div>
                         {coach?.nationality && <div className="text-[10px] text-slate-500 mt-1">{coach.nationality}</div>}
                       </div>
-                      {coach?.photo ? <img src={coach.photo} alt={coach.name} className="w-12 h-12 rounded-full object-cover border border-slate-700" /> : <UserCircle2 className="w-8 h-8 text-slate-600" />}
-                    </div>
-                    <div className="bg-slate-950 border border-slate-800 rounded-xl p-4">
-                      <div className="flex justify-between items-center border-b border-slate-800 pb-2 mb-3">
-                        <h4 className="text-sm font-bold text-slate-300">大名单</h4>
+	                      {coach?.photo ? <img src={coach.photo} alt={coach.name} className="w-12 h-12 rounded-full object-cover border border-slate-700" /> : <UserCircle2 className="w-8 h-8 text-slate-600" />}
+	                    </div>
+	                    <div className="bg-slate-950 border border-slate-800 rounded-xl p-4">
+	                      <div className="flex justify-between items-center border-b border-slate-800 pb-2 mb-3">
+	                        <h4 className="text-sm font-bold text-slate-300">球员数据</h4>
+	                        <span className="text-[9px] bg-cyan-900/40 text-cyan-300 px-2 py-0.5 rounded border border-cyan-500/30">{playerStatsRows.length ? `${playerStatsRows.length} 人` : '待更新'}</span>
+	                      </div>
+	                      <div className="space-y-2">
+	                        {playerStatsRows.slice(0, 12).map((row) => {
+	                          const stats = row.statistics?.[0] || {};
+	                          return (
+	                            <div key={row.player?.id || row.player?.name} className="grid grid-cols-[1fr_auto] gap-2 rounded-lg border border-slate-800 bg-slate-900 px-3 py-2">
+	                              <div className="min-w-0 flex items-center gap-2">
+	                                {row.player?.photo ? <img src={row.player.photo} alt={row.player.name} className="w-7 h-7 rounded-full object-cover shrink-0" /> : <UserCircle2 className="w-7 h-7 text-slate-600 shrink-0" />}
+	                                <div className="min-w-0">
+	                                  <div className="truncate text-xs font-bold text-slate-100">{row.player?.name || '球员'}</div>
+	                                  <div className="text-[10px] text-slate-500">{stats.games?.position || row.player?.position || '位置待定'}{row.player?.age ? ` · ${row.player.age}岁` : ''}</div>
+	                                </div>
+	                              </div>
+	                              <div className="grid grid-cols-4 gap-1 text-center text-[10px]">
+	                                <span className="rounded bg-slate-950 px-1 py-1 text-slate-400">场 {stats.games?.appearences ?? '-'}</span>
+	                                <span className="rounded bg-slate-950 px-1 py-1 text-emerald-300">球 {stats.goals?.total ?? 0}</span>
+	                                <span className="rounded bg-slate-950 px-1 py-1 text-cyan-300">助 {stats.goals?.assists ?? 0}</span>
+	                                <span className="rounded bg-slate-950 px-1 py-1 text-yellow-300">{stats.games?.rating ? Number(stats.games.rating).toFixed(1) : '-'}</span>
+	                              </div>
+	                            </div>
+	                          );
+	                        })}
+	                        {playerStatsRows.length === 0 && <div className="text-xs text-slate-500 text-center py-6 bg-slate-900 rounded-lg border border-slate-800 border-dashed">球员数据待更新。</div>}
+	                      </div>
+	                    </div>
+	                    <div className="bg-slate-950 border border-slate-800 rounded-xl p-4">
+	                      <div className="flex justify-between items-center border-b border-slate-800 pb-2 mb-3">
+	                        <h4 className="text-sm font-bold text-slate-300">大名单</h4>
                         <span className="text-[9px] bg-blue-900/40 text-blue-400 px-2 py-0.5 rounded border border-blue-500/30">{squadPlayers.length ? `${squadPlayers.length} 人` : '暂无数据'}</span>
                       </div>
                       {squadPlayers.length > 0 ? (
@@ -2129,8 +2263,8 @@ function TeamDetailDrawer({ team, teamMatches = [], onClose, isTop }) {
                         </div>
                       ) : (
                         <div className="text-xs text-slate-500 text-center py-8 bg-slate-900 rounded-lg border border-slate-800 border-dashed">该队大名单待更新。</div>
-                      )}
-                    </div>
+	                      )}
+	                    </div>
                   </>
                 )}
              </div>
