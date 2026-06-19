@@ -90,32 +90,7 @@ const groupStageSchedule = {
   "巴拿马 vs 英格兰": "6月28日 05:00", "克罗地亚 vs 加纳": "6月28日 05:00", "哥伦比亚 vs 葡萄牙": "6月28日 07:30", "刚果(金) vs 乌兹别克斯坦": "6月28日 07:30", "约旦 vs 阿根廷": "6月28日 10:00", "阿尔及利亚 vs 奥地利": "6月28日 10:00"
 };
 
-const matches = [
-  {
-    id: 'match_20260619_sui_bih',
-    time: '6月19日 03:00',
-    homeTeam: { name: '瑞士', flag: '🇨🇭' },
-    awayTeam: { name: '波黑', flag: '🇧🇦' },
-    predictedScore: '2 - 1',
-    probabilities: { home: 48, draw: 29, away: 23 }
-  },
-  {
-    id: 'match_20260619_can_qat',
-    time: '6月19日 06:00',
-    homeTeam: { name: '加拿大', flag: '🇨🇦' },
-    awayTeam: { name: '卡塔尔', flag: '🇶🇦' },
-    predictedScore: '1 - 1',
-    probabilities: { home: 36, draw: 34, away: 30 }
-  },
-  {
-    id: 'match_20260619_mex_kor',
-    time: '6月19日 09:00',
-    homeTeam: { name: '墨西哥', flag: '🇲🇽' },
-    awayTeam: { name: '韩国', flag: '🇰🇷' },
-    predictedScore: '1 - 1',
-    probabilities: { home: 35, draw: 33, away: 32 }
-  }
-];
+const matches = [];
 
 const manualMatchAnalysis = {
   '瑞士 vs 波黑': {
@@ -128,6 +103,7 @@ const manualMatchAnalysis = {
     },
     evidence: ['瑞士中后场出球稳定', '波黑防线横移速度一般', '瑞士边路传中质量更可靠', '波黑定位球仍有威胁'],
     news: ['瑞士主力框架相对完整', '波黑锋线状态需赛前确认', '市场倾向瑞士小胜但平局保护存在'],
+    probabilities: { home: 48, draw: 29, away: 23 },
     risk: '存在爆冷点。若波黑率先进球，比赛会进入低节奏防守区，瑞士反超难度上升。',
     final: { tendency: '主胜倾向', score: '2-1', recommendation: '瑞士不败' }
   },
@@ -141,6 +117,7 @@ const manualMatchAnalysis = {
     },
     evidence: ['加拿大边路速度优势明显', '卡塔尔大赛经验较足', '双方都不适合过早冒险', '平局赔率具备防范价值'],
     news: ['双方关键球员状态需赛前更新', '加拿大热度略高', '卡塔尔低位防守是主要变量'],
+    probabilities: { home: 36, draw: 34, away: 30 },
     risk: '中高风险。若加拿大久攻不下，卡塔尔一次反击就可能改变比赛方向。',
     final: { tendency: '平局倾向', score: '1-1', recommendation: '防平 / 小球' }
   },
@@ -154,61 +131,94 @@ const manualMatchAnalysis = {
     },
     evidence: ['墨西哥主场情绪加成明显', '韩国前场压迫强度高', '双方攻防转换速度都不慢', '均势局更容易出现小比分'],
     news: ['赛前阵容需手动更新', '伤病信息暂无重大确认', '市场分歧预计较大'],
+    probabilities: { home: 35, draw: 33, away: 32 },
     risk: '有爆冷空间。若韩国抢到领先，墨西哥压上后身后空间会被放大。',
     final: { tendency: '平局倾向', score: '1-1', recommendation: '不败分散 / 小球' }
   }
 };
 
-const hashText = (text = '') => Array.from(text).reduce((sum, char) => sum + char.charCodeAt(0), 0);
+const getMatchAnalysisKeyFromTeams = (homeName, awayName) => `${homeName || ''} vs ${awayName || ''}`;
 
-const buildLocalPrediction = (homeName = '', awayName = '') => {
-  const seed = hashText(`${homeName}-${awayName}`);
-  const homeGoals = seed % 3;
-  const awayGoals = (Math.floor(seed / 3) + 1) % 3;
-  const home = 34 + (seed % 17);
-  const draw = 24 + (seed % 12);
-  const away = Math.max(12, 100 - home - draw);
+const getBeijingParts = (date = new Date()) => {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Shanghai',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hourCycle: 'h23'
+  }).formatToParts(date);
+  const get = (type) => Number(parts.find(part => part.type === type)?.value || 0);
   return {
-    predictedScore: `${homeGoals} - ${awayGoals}`,
-    probabilities: { home, draw, away }
+    year: get('year'),
+    month: get('month'),
+    day: get('day'),
+    hour: get('hour'),
+    minute: get('minute'),
+    second: get('second')
   };
+};
+
+const beijingLocalTimeToUtcMs = (year, month, day, hour, minute = 0, second = 0, ms = 0) => (
+  Date.UTC(year, month - 1, day, hour - 8, minute, second, ms)
+);
+
+const getDailyPredictionWindow = (now = new Date()) => {
+  const parts = getBeijingParts(now);
+  const startDayOffset = parts.hour >= 14 ? 0 : -1;
+  const endDayOffset = parts.hour >= 14 ? 1 : 0;
+  return {
+    startMs: beijingLocalTimeToUtcMs(parts.year, parts.month, parts.day + startDayOffset, 14),
+    endMs: beijingLocalTimeToUtcMs(parts.year, parts.month, parts.day + endDayOffset, 13, 59, 59, 999)
+  };
+};
+
+const getDailyWindowLabel = (now = new Date()) => {
+  const { startMs, endMs } = getDailyPredictionWindow(now);
+  const formatter = new Intl.DateTimeFormat('zh-CN', {
+    timeZone: 'Asia/Shanghai',
+    month: 'numeric',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23'
+  });
+  return `${formatter.format(new Date(startMs))} - ${formatter.format(new Date(endMs))}`;
 };
 
 const toPredictionMatch = (fixture, index) => {
   const home = normalizeTeam(fixture?.teams?.home);
   const away = normalizeTeam(fixture?.teams?.away);
-  const localPrediction = buildLocalPrediction(home.name, away.name);
+  const analysis = manualMatchAnalysis[getMatchAnalysisKeyFromTeams(home.name, away.name)];
   return {
     id: fixture?.fixture?.id ? `api_match_${fixture.fixture.id}` : `api_match_${index}`,
     time: formatBeijingTime(fixture?.fixture?.date),
     homeTeam: { name: home.name || '未知球队', flag: home.flag || '❔' },
     awayTeam: { name: away.name || '未知球队', flag: away.flag || '❔' },
-    ...localPrediction
+    predictedScore: analysis?.final?.score || null,
+    probabilities: analysis?.probabilities || null
   };
 };
 
 const getTodayPredictionMatches = (fixturesPayload) => {
   const rows = fixturesPayload?.response || [];
   if (!Array.isArray(rows) || rows.length === 0) return matches;
-  const todayKey = new Intl.DateTimeFormat('zh-CN', {
-    timeZone: 'Asia/Shanghai', month: 'numeric', day: 'numeric'
-  }).format(new Date());
-  const activeStatuses = new Set(['NS', 'TBD', '1H', 'HT', '2H', 'ET', 'BT', 'P', 'INT', 'LIVE']);
+  const { startMs, endMs } = getDailyPredictionWindow();
+  const endedStatuses = new Set(['FT', 'AET', 'PEN', 'CANC', 'ABD', 'AWD', 'WO']);
   const normalizedRows = rows
     .filter(row => row?.fixture?.date && row?.teams?.home && row?.teams?.away)
     .sort((a, b) => (a.fixture?.timestamp || 0) - (b.fixture?.timestamp || 0));
-  const todayRows = normalizedRows.filter(row => {
-    const dateKey = new Intl.DateTimeFormat('zh-CN', {
-      timeZone: 'Asia/Shanghai', month: 'numeric', day: 'numeric'
-    }).format(new Date(row.fixture.date));
-    return dateKey === todayKey;
+  const windowRows = normalizedRows.filter(row => {
+    const matchMs = new Date(row.fixture.date).getTime();
+    const status = row.fixture?.status?.short;
+    return matchMs >= startMs && matchMs <= endMs && !endedStatuses.has(status);
   });
-  const upcomingRows = normalizedRows.filter(row => activeStatuses.has(row.fixture?.status?.short));
-  const sourceRows = (todayRows.length ? todayRows : upcomingRows.slice(0, 6)).slice(0, 8);
-  return sourceRows.length ? sourceRows.map(toPredictionMatch) : matches;
+  return windowRows.map(toPredictionMatch);
 };
 
-const getMatchAnalysisKey = (match) => `${match?.homeTeam?.name || ''} vs ${match?.awayTeam?.name || ''}`;
+const getMatchAnalysisKey = (match) => getMatchAnalysisKeyFromTeams(match?.homeTeam?.name, match?.awayTeam?.name);
 
 const getAnalysisForMatch = (match) => {
   const configured = manualMatchAnalysis[getMatchAnalysisKey(match)];
@@ -920,8 +930,7 @@ function PredictionSandbox({ getTeamFromSlot, groups, onExitHome, isFullscreen, 
           if (onExitHome) onExitHome();
           return;
       }
-      if(window.confirm("退出推演进度将丢失，确认返回首页吗？")) { 
-          setPredictions({}); setSandboxRankings({}); setSelectedThirds([]); setThirdPlaceAssignments({}); setPhase('intro'); setShowCompletionModal(false);
+      if(window.confirm("返回上一页，当前推演进度会保留。确认返回吗？")) { 
           if (onExitHome) onExitHome();
       } 
   };
@@ -1155,6 +1164,7 @@ function DailyPredictionsView() {
   const [expandedIds, setExpandedIds] = useState({});
   const [message, setMessage] = useState('请选择比赛');
   const resultsRef = useRef(null);
+  const windowLabel = useMemo(() => getDailyWindowLabel(), []);
 
   const analysisMatches = useMemo(
     () => visibleMatches.filter(match => analysisIds.includes(match.id)),
@@ -1173,7 +1183,7 @@ function DailyPredictionsView() {
         setVisibleMatches(getTodayPredictionMatches(data.fixtures));
         setListStatus(data.stale ? 'STALE' : 'SUCCESS');
       } catch (error) {
-        console.warn('每日预测赛程加载失败，使用本地兜底:', error);
+        console.warn('每日预测赛程加载失败:', error);
         if (!cancelled) {
           setVisibleMatches(matches);
           setListStatus('LOCAL');
@@ -1208,6 +1218,12 @@ function DailyPredictionsView() {
 
   const analyzeAll = useCallback(() => {
     const allIds = visibleMatches.map(match => match.id);
+    if (allIds.length === 0) {
+      setMessage('当前更新周期暂无可分析比赛');
+      setAnalysisIds([]);
+      scrollToResults();
+      return;
+    }
     setSelectedIds(allIds);
     setMessage('');
     setAnalysisIds(allIds);
@@ -1249,7 +1265,7 @@ function DailyPredictionsView() {
               <Sparkles className="w-3.5 h-3.5" /> PROFESSIONAL MODE
             </div>
             <h2 className="mt-3 text-2xl sm:text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 to-emerald-300 tracking-wider">世界杯比赛预测分析系统（专业版）</h2>
-            <p className="mt-2 text-xs sm:text-sm text-[#94a3b8]">赛程和时间跟随现有比赛 API；分析文案由你每天上传到本地配置，每天下午2点更新分析。</p>
+            <p className="mt-2 text-xs sm:text-sm text-[#94a3b8]">每天下午2点更新分析；当前可选比赛范围：北京时间 {windowLabel}。</p>
           </div>
 
           <div className="mb-3 flex items-center justify-between">
@@ -1257,7 +1273,7 @@ function DailyPredictionsView() {
               <CalendarDays className="w-4 h-4 text-cyan-300" />
               比赛选择区
             </h3>
-            <span className="text-[10px] sm:text-xs text-[#94a3b8]">{listStatus === 'SUCCESS' ? 'API赛程' : listStatus === 'LOADING' ? '加载赛程中' : '本地兜底'}</span>
+            <span className="text-[10px] sm:text-xs text-[#94a3b8]">{listStatus === 'SUCCESS' ? 'API周期赛程' : listStatus === 'LOADING' ? '加载赛程中' : '暂无赛程'}</span>
           </div>
 
           <div className="rounded-[18px] border border-[#1f2a44] bg-[#111827] overflow-hidden shadow-[0_0_18px_rgba(15,23,42,0.45)]">
@@ -1275,18 +1291,18 @@ function DailyPredictionsView() {
                     <span className="truncate">{match.awayTeam.name || '未知球队'}</span>
                     <TeamFlag flag={match.awayTeam.flag} sizeClass="w-4 h-4 sm:w-5 sm:h-5 shrink-0" />
                   </span>
-                  <span className={`justify-self-end rounded-lg border px-2 py-1 text-[10px] sm:text-xs font-black shadow-[0_0_12px_rgba(34,211,238,0.12)] ${hasAnalysis ? 'border-[#22d3ee]/40 bg-[#22d3ee]/10 text-[#22d3ee]' : 'border-[#1f2a44] bg-[#0b1020] text-[#94a3b8]'}`}>{hasAnalysis ? match.predictedScore : '待更新'}</span>
+                  <span className={`justify-self-end rounded-lg border px-2 py-1 text-[10px] sm:text-xs font-black shadow-[0_0_12px_rgba(34,211,238,0.12)] ${hasAnalysis ? 'border-[#22d3ee]/40 bg-[#22d3ee]/10 text-[#22d3ee]' : 'border-[#1f2a44] bg-[#0b1020] text-[#94a3b8]'}`}>{hasAnalysis ? getAnalysisForMatch(match).final.score : '待更新'}</span>
                 </label>
               );
             })}
-            {visibleMatches.length === 0 && <div className="p-6 text-center text-sm text-[#94a3b8]">今日暂无比赛</div>}
+            {visibleMatches.length === 0 && <div className="p-6 text-center text-sm text-[#94a3b8]">当前更新周期暂无可选比赛</div>}
           </div>
 
           <div className="mt-4 rounded-[18px] border border-[#1f2a44] bg-[#0b1020] p-3">
             <h3 className="mb-3 text-sm sm:text-base font-black text-[#e5e7eb]">操作区</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               <button type="button" onClick={analyzeSelected} className="wc-cyan-button w-full py-2.5 text-sm font-black">分析选中比赛</button>
-              <button type="button" onClick={analyzeAll} className="wc-cyan-button w-full py-2.5 text-sm font-black">一键分析今日全部比赛</button>
+              <button type="button" onClick={analyzeAll} className="wc-cyan-button w-full py-2.5 text-sm font-black">一键分析本周期全部比赛</button>
             </div>
           </div>
 
@@ -1304,7 +1320,7 @@ function DailyPredictionsView() {
                     <button type="button" onClick={() => toggleResult(match.id)} className="w-full flex items-center justify-between gap-3 px-4 py-3 text-left">
                       <span className="min-w-0">
                         <span className="block text-sm sm:text-base font-black text-[#e5e7eb] truncate">{match.homeTeam.name} vs {match.awayTeam.name}</span>
-                        <span className="block text-[10px] text-[#94a3b8] mt-0.5">{match.time} · 预测 {match.predictedScore}</span>
+                        <span className="block text-[10px] text-[#94a3b8] mt-0.5">{match.time} · {analysis ? `预测 ${analysis.final.score}` : '分析待更新'}</span>
                       </span>
                       <ChevronDown className={`w-4 h-4 text-[#22d3ee] shrink-0 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
                     </button>
@@ -1341,7 +1357,7 @@ function DailyPredictionsView() {
                           <div className="space-y-3">
                             <div className="rounded-xl border border-[#1f2a44] bg-[#050816] p-3">
                               <div className="text-xs font-black text-[#22d3ee] mb-2">胜平负概率</div>
-                              {renderProbabilityBars(match.probabilities)}
+                              {analysis.probabilities ? renderProbabilityBars(analysis.probabilities) : <div className="text-xs text-[#94a3b8]">概率待更新</div>}
                             </div>
                             <div className="rounded-xl border border-[#1f2a44] bg-[#050816] p-3">
                               <div className="text-xs font-black text-[#22d3ee] mb-2">赔率/新闻/伤病总结</div>
@@ -1890,6 +1906,8 @@ export default function App() {
   useEffect(() => { setupViewport(); }, []);
 
   const [activeTab, setActiveTab] = useState('meeting'); 
+  const activeTabRef = useRef('meeting');
+  const [, setTabHistory] = useState([]);
   const [groups, setGroups] = useState(initialGroups);
   const [knockoutFlat, setKnockoutFlat] = useState(officialKnockoutRoundsFlat);
   const [knockoutRounds, setKnockoutRounds] = useState(officialKnockoutRounds);
@@ -1898,7 +1916,10 @@ export default function App() {
   const [lastOpened, setLastOpened] = useState(null); 
   
   const [isFullscreen, setIsFullscreen] = useState(false);
-  useEffect(() => { setIsFullscreen(false); }, [activeTab]);
+  useEffect(() => {
+    activeTabRef.current = activeTab;
+    setIsFullscreen(false);
+  }, [activeTab]);
 
   const [apiStatus, setApiStatus] = useState('LOCAL'); 
   const [apiErrorMsg, setApiErrorMsg] = useState('数据初始化中...');
@@ -1995,6 +2016,20 @@ export default function App() {
     );
   }, [groups, selectedTeam]);
 
+  const navigateToTab = useCallback((tab) => {
+    if (activeTabRef.current === tab) return;
+    setTabHistory(history => [...history, activeTabRef.current].slice(-20));
+    setActiveTab(tab);
+  }, []);
+
+  const navigateBack = useCallback(() => {
+    setTabHistory(history => {
+      const previousTab = history[history.length - 1] || 'meeting';
+      setActiveTab(previousTab);
+      return history.slice(0, -1);
+    });
+  }, []);
+
   const isCanvasTab = activeTab === 'prediction' || activeTab === 'live_bracket';
   
   const headerClass = `bg-slate-900 border-b border-slate-800 flex flex-col z-20 shadow-xl relative transition-all duration-300 ${isCanvasTab ? 'landscape:hidden' : ''} ${isFullscreen ? 'hidden' : ''}`;
@@ -2006,32 +2041,32 @@ export default function App() {
             <h1 className="text-lg sm:text-xl font-black text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-400 flex items-center"><RealTrophy className="w-5 h-5 sm:w-6 sm:h-6 mr-2" />2026 世界杯实况引擎</h1>
             <div className="flex items-center">
                 <div className="text-[10px] sm:text-xs text-slate-500 flex items-center mr-2"><span className={`w-2 h-2 rounded-full mr-1.5 ${apiStatus === 'SUCCESS' ? 'bg-emerald-500 animate-pulse' : 'bg-yellow-500'}`}></span>{apiStatus === 'SUCCESS' ? 'Football-API 同步' : apiErrorMsg}</div>
-                <button onClick={() => setActiveTab('meeting')} className="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white rounded-full transition-all" title="返回首页"><Home className="w-4 h-4 sm:w-5 sm:h-5" /></button>
+	                <button onClick={navigateBack} className="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white rounded-full transition-all" title="返回上一页"><Home className="w-4 h-4 sm:w-5 sm:h-5" /></button>
             </div>
          </div>
          <nav className="flex space-x-1.5 overflow-x-auto hide-scrollbar pb-1 pt-1">
-            <button onClick={() => setActiveTab('meeting')} className={`whitespace-nowrap px-3 sm:px-4 py-1.5 rounded-full text-[10px] sm:text-xs font-bold transition-all flex items-center ${activeTab === 'meeting' ? 'bg-red-600 text-white shadow-lg' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}><Swords className="w-3 h-3 mr-1" />宿命对决</button>
-            <button onClick={() => setActiveTab('prediction')} className={`whitespace-nowrap px-3 sm:px-4 py-1.5 rounded-full text-[10px] sm:text-xs font-bold transition-all flex items-center ${activeTab === 'prediction' ? 'bg-yellow-600 text-white shadow-lg' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}><Wand2 className="w-3 h-3 mr-1" />夺冠推演</button>
-            <button onClick={() => setActiveTab('daily_predictions')} className={`whitespace-nowrap px-3 sm:px-4 py-1.5 rounded-full text-[10px] sm:text-xs font-bold transition-all flex items-center ${activeTab === 'daily_predictions' ? 'bg-cyan-600 text-white shadow-lg shadow-cyan-500/20' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}><Sparkles className="w-3 h-3 mr-1" />每日预测</button>
-            <button onClick={() => setActiveTab('live_bracket')} className={`whitespace-nowrap px-3 sm:px-4 py-1.5 rounded-full text-[10px] sm:text-xs font-bold transition-all flex items-center ${activeTab === 'live_bracket' ? 'bg-purple-600 text-white shadow-lg' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}><GitBranch className="w-3 h-3 mr-1" />实况大树</button>
-            <button onClick={() => setActiveTab('group_schedule')} className={`whitespace-nowrap px-3 sm:px-4 py-1.5 rounded-full text-[10px] sm:text-xs font-bold transition-all flex items-center ${activeTab === 'group_schedule' ? 'bg-emerald-600 text-white shadow-lg' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}><Activity className="w-3 h-3 mr-1" />小组全景</button>
-            <button onClick={() => setActiveTab('knockout_schedule')} className={`whitespace-nowrap px-3 sm:px-4 py-1.5 rounded-full text-[10px] sm:text-xs font-bold transition-all flex items-center ${activeTab === 'knockout_schedule' ? 'bg-blue-600 text-white shadow-lg' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}><LayoutList className="w-3 h-3 mr-1" />淘汰列表</button>
-            <button onClick={() => setActiveTab('rules')} className={`whitespace-nowrap px-3 sm:px-4 py-1.5 rounded-full text-[10px] sm:text-xs font-bold transition-all flex items-center ${activeTab === 'rules' ? 'bg-slate-600 text-white shadow-lg' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}><Shield className="w-3 h-3 mr-1" />104场规程</button>
+            <button onClick={() => navigateToTab('meeting')} className={`whitespace-nowrap px-3 sm:px-4 py-1.5 rounded-full text-[10px] sm:text-xs font-bold transition-all flex items-center ${activeTab === 'meeting' ? 'bg-red-600 text-white shadow-lg' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}><Swords className="w-3 h-3 mr-1" />宿命对决</button>
+            <button onClick={() => navigateToTab('prediction')} className={`whitespace-nowrap px-3 sm:px-4 py-1.5 rounded-full text-[10px] sm:text-xs font-bold transition-all flex items-center ${activeTab === 'prediction' ? 'bg-yellow-600 text-white shadow-lg' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}><Wand2 className="w-3 h-3 mr-1" />夺冠推演</button>
+            <button onClick={() => navigateToTab('daily_predictions')} className={`whitespace-nowrap px-3 sm:px-4 py-1.5 rounded-full text-[10px] sm:text-xs font-bold transition-all flex items-center ${activeTab === 'daily_predictions' ? 'bg-cyan-600 text-white shadow-lg shadow-cyan-500/20' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}><Sparkles className="w-3 h-3 mr-1" />每日预测</button>
+            <button onClick={() => navigateToTab('live_bracket')} className={`whitespace-nowrap px-3 sm:px-4 py-1.5 rounded-full text-[10px] sm:text-xs font-bold transition-all flex items-center ${activeTab === 'live_bracket' ? 'bg-purple-600 text-white shadow-lg' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}><GitBranch className="w-3 h-3 mr-1" />实况大树</button>
+            <button onClick={() => navigateToTab('group_schedule')} className={`whitespace-nowrap px-3 sm:px-4 py-1.5 rounded-full text-[10px] sm:text-xs font-bold transition-all flex items-center ${activeTab === 'group_schedule' ? 'bg-emerald-600 text-white shadow-lg' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}><Activity className="w-3 h-3 mr-1" />小组全景</button>
+            <button onClick={() => navigateToTab('knockout_schedule')} className={`whitespace-nowrap px-3 sm:px-4 py-1.5 rounded-full text-[10px] sm:text-xs font-bold transition-all flex items-center ${activeTab === 'knockout_schedule' ? 'bg-blue-600 text-white shadow-lg' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}><LayoutList className="w-3 h-3 mr-1" />淘汰列表</button>
+            <button onClick={() => navigateToTab('rules')} className={`whitespace-nowrap px-3 sm:px-4 py-1.5 rounded-full text-[10px] sm:text-xs font-bold transition-all flex items-center ${activeTab === 'rules' ? 'bg-slate-600 text-white shadow-lg' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}><Shield className="w-3 h-3 mr-1" />104场规程</button>
          </nav>
       </header>
 
       <div className="flex-1 overflow-hidden relative w-full h-full bg-slate-950">
-        {activeTab === 'prediction' && <PredictionSandbox getTeamFromSlot={getTeamFromSlot} groups={groups} onExitHome={() => setActiveTab('meeting')} isFullscreen={isFullscreen} setIsFullscreen={setIsFullscreen} />}
-        {activeTab === 'daily_predictions' && (
+        <div className={activeTab === 'prediction' ? 'h-full' : 'hidden'}><PredictionSandbox getTeamFromSlot={getTeamFromSlot} groups={groups} onExitHome={navigateBack} isFullscreen={isFullscreen} setIsFullscreen={setIsFullscreen} /></div>
+        <div className={activeTab === 'daily_predictions' ? 'h-full' : 'hidden'}>
           <SafeSectionBoundary>
             <DailyPredictionsView />
           </SafeSectionBoundary>
-        )}
-        {activeTab === 'meeting' && <TeamMeetingPredictor groups={groups} isFullscreen={isFullscreen} setIsFullscreen={setIsFullscreen} />}
-        {activeTab === 'live_bracket' && <LiveBracketView knockouts={projectedKnockoutFlat} getTeamFromSlot={getTeamFromSlot} onMatchClick={handleOpenMatch} onTeamClick={handleOpenTeam} onExitHome={() => setActiveTab('meeting')} isFullscreen={isFullscreen} setIsFullscreen={setIsFullscreen} />}
-        {activeTab === 'group_schedule' && <GroupScheduleView groups={groups} onMatchClick={handleOpenMatch} onTeamClick={handleOpenTeam} />}
-        {activeTab === 'knockout_schedule' && <KnockoutScheduleView knockouts={projectedKnockoutFlat} getTeamFromSlot={getTeamFromSlot} onMatchClick={handleOpenMatch} onTeamClick={handleOpenTeam} />}
-        {activeTab === 'rules' && <RulesView groups={groups} knockouts={projectedKnockoutRounds} getTeamFromSlot={getTeamFromSlot} />}
+        </div>
+        <div className={activeTab === 'meeting' ? 'h-full' : 'hidden'}><TeamMeetingPredictor groups={groups} isFullscreen={isFullscreen} setIsFullscreen={setIsFullscreen} /></div>
+        <div className={activeTab === 'live_bracket' ? 'h-full' : 'hidden'}><LiveBracketView knockouts={projectedKnockoutFlat} getTeamFromSlot={getTeamFromSlot} onMatchClick={handleOpenMatch} onTeamClick={handleOpenTeam} onExitHome={navigateBack} isFullscreen={isFullscreen} setIsFullscreen={setIsFullscreen} /></div>
+        <div className={activeTab === 'group_schedule' ? 'h-full' : 'hidden'}><GroupScheduleView groups={groups} onMatchClick={handleOpenMatch} onTeamClick={handleOpenTeam} /></div>
+        <div className={activeTab === 'knockout_schedule' ? 'h-full' : 'hidden'}><KnockoutScheduleView knockouts={projectedKnockoutFlat} getTeamFromSlot={getTeamFromSlot} onMatchClick={handleOpenMatch} onTeamClick={handleOpenTeam} /></div>
+        <div className={activeTab === 'rules' ? 'h-full' : 'hidden'}><RulesView groups={groups} knockouts={projectedKnockoutRounds} getTeamFromSlot={getTeamFromSlot} /></div>
       </div>
 
       <MatchDetailDrawer match={selectedMatch} onClose={handleCloseMatch} onTeamClick={handleOpenTeam} isTop={lastOpened === 'match'} />
