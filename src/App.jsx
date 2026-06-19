@@ -31,23 +31,9 @@ function TeamFlag({ flag, sizeClass = "w-6 h-6 sm:w-8 sm:h-8" }) {
   return <span className="drop-shadow-sm text-[1em] leading-none inline-block flex-shrink-0">{flag}</span>;
 }
 
-const CompactQRLogo = () => (
-  <div className="flex items-center gap-2 sm:gap-3 bg-slate-900/95 backdrop-blur-md border-2 border-slate-700 p-2.5 sm:p-3 rounded-2xl shadow-2xl shrink-0 select-none mx-auto max-w-[96vw]">
-    <div className="flex items-center gap-2">
-      <div className="bg-white p-1.5 rounded-xl flex flex-col items-center justify-center shrink-0">
-        <img src="/website-qr.png" crossOrigin="anonymous" alt="网站二维码" className="w-[68px] h-[68px] sm:w-20 sm:h-20 object-contain" />
-        <span className="mt-1 text-[9px] font-black text-slate-900 leading-none">网站</span>
-      </div>
-      <div className="bg-white p-1.5 rounded-xl flex flex-col items-center justify-center shrink-0">
-        <img src="/wechat-qr.jpg" crossOrigin="anonymous" alt="微信二维码" className="w-[68px] h-[68px] sm:w-20 sm:h-20 object-contain" />
-        <span className="mt-1 text-[9px] font-black text-slate-900 leading-none">微信</span>
-      </div>
-    </div>
-    <div className="flex flex-col justify-center min-w-0">
-      <span className="text-[10px] sm:text-[13px] font-black text-yellow-400 tracking-wider leading-tight">扫码看全景大树与推演</span>
-      <span className="text-[8px] sm:text-[10px] text-cyan-300 font-mono mt-1 truncate">wc2026.xiaohuang365.com</span>
-      <span className="text-[8px] sm:text-[10px] text-slate-400 mt-0.5">网站码 + 微信联系方式</span>
-    </div>
+const SiteWatermark = ({ className = '' }) => (
+  <div className={`pointer-events-none select-none text-center font-black tracking-[0.28em] text-[10px] sm:text-xs text-cyan-300/90 drop-shadow-[0_0_10px_rgba(34,211,238,0.55)] ${className}`}>
+    xiaohuang365.com
   </div>
 );
 
@@ -989,7 +975,7 @@ class SafeSectionBoundary extends Component {
         <div className="h-full bg-[#050816] p-4 flex items-center justify-center">
           <div className="rounded-[18px] border border-[#1f2a44] bg-[#111827] p-5 text-center text-[#94a3b8]">
             <div className="text-[#ef4444] font-black mb-2">模块加载失败</div>
-            <div className="text-sm">数据暂不可用，请刷新或稍后再试。</div>
+            <div className="text-sm">页面暂时没有加载成功，请刷新或稍后再试。</div>
           </div>
         </div>
       );
@@ -1056,10 +1042,10 @@ function PredictionSandbox({ getTeamFromSlot, groups, onExitHome, isFullscreen, 
                     <Wand2 className="w-4 h-4 sm:w-5 sm:h-5 text-yellow-500" />
                     <span className="font-bold text-white text-xs sm:text-base">
                         {phase === 'intro' && '冠军推演沙盘'}
-                        {phase === 'ranking' && '神杯之路：排兵布阵'}
-                        {phase === 'select_thirds' && '神杯之路：复活三强'}
+                        {phase === 'ranking' && '冠军之路：小组排序'}
+                        {phase === 'select_thirds' && '冠军之路：第三名选择'}
                         {phase === 'generating' && '对阵树落位中'}
-                        {phase === 'bracket' && '我的神杯推演板'}
+                        {phase === 'bracket' && '我的冠军推演板'}
                     </span>
                 </div>
                 {phase === 'bracket' && (
@@ -1075,7 +1061,7 @@ function PredictionSandbox({ getTeamFromSlot, groups, onExitHome, isFullscreen, 
                 <div className="flex flex-col items-center justify-center h-full text-center px-6 animate-fade-in pb-20">
                     <RealTrophy className="w-32 h-32 mb-6 drop-shadow-[0_0_30px_rgba(234,179,8,0.3)] animate-bounce" />
                     <h2 className="text-3xl sm:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-orange-500 tracking-widest mb-4">冠军推演沙盘</h2>
-                    <p className="text-slate-400 text-sm sm:text-base mb-10 max-w-md leading-relaxed">首创沉浸式推演小游戏！先为 12 个小组排兵布阵并选拔最佳第三名，然后自由点击晋级，决出2026世界之王！</p>
+                    <p className="text-slate-400 text-sm sm:text-base mb-10 max-w-md leading-relaxed">先为 12 个小组排列名次，再选出最佳第三名，最后逐轮点击晋级球队，完成你的冠军路线。</p>
                     <button onClick={(e) => { e.stopPropagation(); setPhase('ranking'); }} className="bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 text-white font-black text-lg px-10 py-4 rounded-full shadow-[0_0_25px_rgba(59,130,246,0.5)] transition-all hover:scale-105 active:scale-95 flex items-center">开始排兵布阵 <ArrowRight className="w-5 h-5 ml-2" /></button>
                 </div>
             )}
@@ -1110,7 +1096,6 @@ function PredictionSandbox({ getTeamFromSlot, groups, onExitHome, isFullscreen, 
                     </div>
                     
                     <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-50 pointer-events-none opacity-100 flex justify-center w-full">
-                        <CompactQRLogo />
                     </div>
                 </div>
             )}
@@ -1121,7 +1106,7 @@ function PredictionSandbox({ getTeamFromSlot, groups, onExitHome, isFullscreen, 
                 <div className="bg-slate-900 border border-yellow-500/50 rounded-2xl p-6 sm:p-8 max-w-sm w-full relative shadow-[0_0_50px_rgba(234,179,8,0.3)] flex flex-col items-center text-center" onClick={e => e.stopPropagation()}>
                     <button onClick={() => setShowCompletionModal(false)} className="absolute top-3 right-3 text-slate-400 hover:text-white bg-slate-800 rounded-full p-1"><X className="w-5 h-5"/></button>
                     <RealTrophy className="w-24 h-24 mb-4 drop-shadow-2xl animate-bounce" />
-                    <h3 className="text-2xl font-black text-white mb-2">神杯易主，推演完成！</h3>
+                    <h3 className="text-2xl font-black text-white mb-2">推演完成</h3>
                     <p className="text-sm text-slate-400 mb-6">你预测 <span className="font-bold text-yellow-400">{finalMatchWinner.name}</span> 将捧起2026年大力神杯。</p>
                     <button onClick={() => setShowCompletionModal(false)} className="w-full bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-400 hover:to-orange-400 text-slate-950 font-black text-lg py-3 rounded-xl shadow-lg transition-all active:scale-95 flex items-center justify-center mb-3">
                         返回查看全景大树
@@ -1173,7 +1158,7 @@ function TeamMeetingPredictor({ groups, isFullscreen, setIsFullscreen }) {
                 setResults(scenarios.length > 0 ? scenarios : [{ rankA: '-', rankB: '-', meetAt: '暂无可推演路径，请更换球队或等待数据更新', earliestRound: '待定' }]);
             } catch (error) {
                 console.error('宿命对决推演失败:', error);
-                setResults([{ rankA: '-', rankB: '-', meetAt: '推演数据暂不可用，请稍后重试', earliestRound: '待定' }]);
+                setResults([{ rankA: '-', rankB: '-', meetAt: '暂时无法计算，请稍后重试', earliestRound: '待定' }]);
             } finally {
                 setIsCalculating(false);
             }
@@ -1209,7 +1194,7 @@ function TeamMeetingPredictor({ groups, isFullscreen, setIsFullscreen }) {
                         </form>
                         <div className="flex gap-3">
                             <button onClick={calculateMeetings} disabled={!teamA || !teamB || isCalculating} className={`flex-1 py-4 rounded-xl font-black text-lg flex items-center justify-center transition-all shadow-lg ${teamA && teamB ? 'bg-gradient-to-r from-blue-600 to-cyan-500 text-white hover:scale-[1.02] active:scale-95 shadow-blue-500/30' : 'bg-slate-800 text-slate-500 cursor-not-allowed'}`}>
-                                {isCalculating ? <RefreshCw className="w-5 h-5 animate-spin mr-2" /> : <Swords className="w-5 h-5 mr-2" />}{isCalculating ? '正在穷举二叉树...' : '开始推演宿命相遇点'}
+                                {isCalculating ? <RefreshCw className="w-5 h-5 animate-spin mr-2" /> : <Swords className="w-5 h-5 mr-2" />}{isCalculating ? '正在计算路径...' : '开始推演宿命相遇点'}
                             </button>
                             {results && <button onClick={handleClear} className="px-6 bg-slate-800 text-slate-400 hover:text-white rounded-xl hover:bg-slate-700 transition-all font-bold">重置</button>}
                         </div>
@@ -1245,7 +1230,6 @@ function TeamMeetingPredictor({ groups, isFullscreen, setIsFullscreen }) {
                                     )})}
                                 </div>
                                 <div className="absolute bottom-4 left-1/2 -translate-x-1/2 opacity-100 pointer-events-none flex justify-center w-full">
-                                    <CompactQRLogo />
                                 </div>
                             </div>
                         </div>
@@ -1363,9 +1347,9 @@ function DailyPredictionsView() {
         <div className="max-w-4xl mx-auto w-full px-3 sm:px-5 py-5 sm:py-8">
           <div className="mb-5 text-center">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-400/30 text-cyan-300 text-[10px] font-black tracking-[0.18em] shadow-[0_0_18px_rgba(34,211,238,0.14)]">
-              <Sparkles className="w-3.5 h-3.5" /> PROFESSIONAL MODE
+              <Sparkles className="w-3.5 h-3.5" /> 每日更新
             </div>
-            <h2 className="mt-3 text-2xl sm:text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 to-emerald-300 tracking-wider">世界杯比赛预测分析系统（专业版）</h2>
+            <h2 className="mt-3 text-2xl sm:text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 to-emerald-300 tracking-wider">世界杯每日预测</h2>
             <p className="mt-2 text-xs sm:text-sm text-[#94a3b8]">每天下午2点更新分析；当前可选比赛范围：北京时间 {windowLabel}。</p>
           </div>
 
@@ -1374,7 +1358,7 @@ function DailyPredictionsView() {
               <CalendarDays className="w-4 h-4 text-cyan-300" />
               比赛选择区
             </h3>
-            <span className="text-[10px] sm:text-xs text-[#94a3b8]">{listStatus === 'SUCCESS' ? 'API+本地赛程' : listStatus === 'LOADING' ? '加载赛程中' : listStatus === 'STALE' ? '最近赛程' : '本地赛程'}</span>
+            <span className="text-[10px] sm:text-xs text-[#94a3b8]">{listStatus === 'SUCCESS' ? '赛程已更新' : listStatus === 'LOADING' ? '加载赛程中' : listStatus === 'STALE' ? '显示最近赛程' : '赛程已载入'}</span>
           </div>
 
           <div className="rounded-[18px] border border-[#1f2a44] bg-[#111827] overflow-hidden shadow-[0_0_18px_rgba(15,23,42,0.45)]">
@@ -1429,7 +1413,7 @@ function DailyPredictionsView() {
                       <div className="border-t border-[#1f2a44] bg-[#0b1020] p-4 animate-fade-in">
                         {!analysis ? (
                           <div className="rounded-xl border border-dashed border-[#1f2a44] bg-[#050816] p-5 text-center text-sm text-[#94a3b8]">
-                            这场比赛的分析待更新。你每天把对应的分析写入 <span className="text-[#22d3ee] font-black">manualMatchAnalysis</span> 即可显示。
+                            这场比赛的分析待更新。
                           </div>
                         ) : (
                         <>
@@ -1519,7 +1503,6 @@ function LiveBracketView({ knockouts, getTeamFromSlot, onMatchClick, onTeamClick
                     </div>
                     
                     <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-50 pointer-events-none opacity-100 flex justify-center w-full">
-                        <CompactQRLogo />
                     </div>
                 </div>
             </div>
@@ -1714,7 +1697,7 @@ function GroupScheduleByGroup({ groups, onMatchClick, onTeamClick }) {
             </div>
             {isExpanded && (
               <div className="space-y-2 mt-4 animate-fade-in border-t border-slate-800/80 pt-4">
-                {groups[g].matches.length === 0 && <div className="text-center text-slate-600 text-xs py-2">等待数据同步中...</div>}
+                {groups[g].matches.length === 0 && <div className="text-center text-slate-600 text-xs py-2">赛程整理中...</div>}
                 {groups[g].matches.map((match, idx) => (
                   <div key={`group-match-${g}-${match.id || 'no-id'}-${idx}`} onClick={() => onMatchClick({ ...match, groupName: g })} className="relative flex flex-col p-2.5 rounded-md border text-sm transition-all border-slate-800/80 bg-slate-950/80 cursor-pointer hover:border-emerald-500/50 hover:bg-slate-900 group/match">
                     <div className="flex justify-between items-center mb-2 border-b border-slate-800/50 pb-1.5"><span className="text-[10px] sm:text-xs font-bold text-slate-300 flex items-center bg-slate-800/60 px-1.5 py-0.5 rounded border border-slate-700/50"><Clock className="w-3 h-3 mr-1 opacity-70" /> {match.timeStr}</span><span className="text-[9px] text-slate-500 flex items-center"><MapPin className="w-2.5 h-2.5 mr-0.5 opacity-50" /> {match.venue}</span></div>
@@ -1817,11 +1800,11 @@ function MatchDetailDrawer({ match, onClose, onTeamClick, isTop }) {
     setDetailState({ status: 'LOADING', data: null, error: '' });
     fetch(`/api/worldcup-detail?fixture=${fixtureId}`)
       .then(response => response.json().then(data => {
-        if (!response.ok || data.error) throw new Error(data.error || '详情接口响应异常');
+        if (!response.ok || data.error) throw new Error('详情暂时无法加载');
         return data;
       }))
       .then(data => { if (!cancelled) setDetailState({ status: 'SUCCESS', data, error: '' }); })
-      .catch(error => { if (!cancelled) setDetailState({ status: 'ERROR', data: null, error: error.message || '详情同步失败' }); });
+      .catch(() => { if (!cancelled) setDetailState({ status: 'ERROR', data: null, error: '详情暂时无法加载' }); });
     return () => { cancelled = true; };
   }, [match?.apiFixtureId]);
 
@@ -1845,9 +1828,9 @@ function MatchDetailDrawer({ match, onClose, onTeamClick, isTop }) {
         </div>
         <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4">
            <h4 className="text-white font-bold mb-4 flex items-center border-b border-slate-700 pb-2"><Activity className="w-4 h-4 mr-2 text-red-400" /> 比赛详情数据</h4>
-           {detailState.status === 'LOADING' && <div className="text-center text-xs text-slate-400 py-6"><RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2 text-cyan-400" />正在同步阵容、事件与技术统计...</div>}
+           {detailState.status === 'LOADING' && <div className="text-center text-xs text-slate-400 py-6"><RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2 text-cyan-400" />正在加载阵容、事件与技术统计...</div>}
            {detailState.status === 'ERROR' && <div className="text-center text-xs text-yellow-400 py-6">{detailState.error}</div>}
-           {detailState.status === 'IDLE' && <div className="text-center text-xs text-slate-500 py-6">该场比赛暂未获得 API Fixture ID，详情待同步。</div>}
+           {detailState.status === 'IDLE' && <div className="text-center text-xs text-slate-500 py-6">该场比赛详情待更新。</div>}
            {detailState.status === 'SUCCESS' && (
              <div className="space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -1873,7 +1856,7 @@ function MatchDetailDrawer({ match, onClose, onTeamClick, isTop }) {
                         </div>
                       ))}
                     </div>
-                  ) : <div className="text-center text-xs text-slate-500 py-4 border border-dashed border-slate-800 rounded-lg">赛前阵容尚未公布，API 暂无可显示数据。</div>}
+                  ) : <div className="text-center text-xs text-slate-500 py-4 border border-dashed border-slate-800 rounded-lg">赛前阵容尚未公布。</div>}
                 </div>
                 <div className="bg-slate-950 border border-slate-800 rounded-xl p-3">
                   <div className="text-sm font-bold text-slate-300 mb-2">关键事件</div>
@@ -1902,11 +1885,11 @@ function TeamDetailDrawer({ team, teamMatches = [], onClose, isTop }) {
     setTeamDetailState({ status: 'LOADING', data: null, error: '' });
     fetch(`/api/team-detail?team=${teamId}`)
       .then(response => response.json().then(data => {
-        if (!response.ok || data.error) throw new Error(data.error || '球队详情接口响应异常');
+        if (!response.ok || data.error) throw new Error('球队详情暂时无法加载');
         return data;
       }))
       .then(data => { if (!cancelled) setTeamDetailState({ status: 'SUCCESS', data, error: '' }); })
-      .catch(error => { if (!cancelled) setTeamDetailState({ status: 'ERROR', data: null, error: error.message || '球队详情同步失败' }); });
+      .catch(() => { if (!cancelled) setTeamDetailState({ status: 'ERROR', data: null, error: '球队详情暂时无法加载' }); });
     return () => { cancelled = true; };
   }, [team?.apiId, team?.isPlaceholder]);
 
@@ -1922,7 +1905,7 @@ function TeamDetailDrawer({ team, teamMatches = [], onClose, isTop }) {
         <div className="w-12 h-1.5 bg-slate-700 rounded-full mx-auto mb-4 shrink-0 opacity-50" />
         <button onClick={onClose} className="absolute top-5 right-5 text-slate-400 hover:text-white bg-slate-800 rounded-full p-1 z-10"><X className="w-5 h-5"/></button>
         <div className="flex flex-col items-center text-center shrink-0"><TeamFlag name={team.name} flag={team.flag} sizeClass="w-20 h-20 shadow-lg drop-shadow-xl" /><h2 className="text-2xl sm:text-3xl font-black mt-3 text-white">{team.name}</h2><span className="text-xs text-slate-400 font-mono mt-1 border border-slate-700 bg-slate-800 px-2 py-0.5 rounded">{team.group} 组</span></div>
-        <div className="flex mt-6 bg-slate-950 p-1 rounded-lg border border-slate-800 shrink-0 mx-4 sm:mx-10"><button onClick={() => setActiveTab('stats')} className={`flex-1 py-2 text-xs sm:text-sm font-bold rounded transition-colors ${activeTab === 'stats' ? 'bg-emerald-600/30 text-emerald-400' : 'text-slate-400'}`}>本届赛事数据</button><button onClick={() => setActiveTab('squad')} className={`flex-1 py-2 text-xs sm:text-sm font-bold rounded transition-colors ${activeTab === 'squad' ? 'bg-blue-600/30 text-blue-400' : 'text-slate-400'}`}>大名单与主帅 (API)</button></div>
+        <div className="flex mt-6 bg-slate-950 p-1 rounded-lg border border-slate-800 shrink-0 mx-4 sm:mx-10"><button onClick={() => setActiveTab('stats')} className={`flex-1 py-2 text-xs sm:text-sm font-bold rounded transition-colors ${activeTab === 'stats' ? 'bg-emerald-600/30 text-emerald-400' : 'text-slate-400'}`}>本届赛事数据</button><button onClick={() => setActiveTab('squad')} className={`flex-1 py-2 text-xs sm:text-sm font-bold rounded transition-colors ${activeTab === 'squad' ? 'bg-blue-600/30 text-blue-400' : 'text-slate-400'}`}>大名单与主帅</button></div>
         <div className="flex-1 overflow-y-auto mt-4 px-2 sm:px-6 custom-scrollbar pb-6">
            {activeTab === 'stats' && (
              <div className="space-y-4 animate-fade-in">
@@ -1951,22 +1934,22 @@ function TeamDetailDrawer({ team, teamMatches = [], onClose, isTop }) {
                         </div>
                       );
                     })}
-                    {teamMatches.length === 0 && <div className="text-center text-xs text-slate-500 py-4">赛程数据同步中...</div>}
+                    {teamMatches.length === 0 && <div className="text-center text-xs text-slate-500 py-4">赛程整理中...</div>}
                   </div>
                </div>
              </div>
            )}
            {activeTab === 'squad' && (
              <div className="space-y-4 animate-fade-in">
-                {teamDetailState.status === 'LOADING' && <div className="text-center text-xs text-slate-400 py-8"><RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2 text-cyan-400" />正在同步球队大名单...</div>}
+                {teamDetailState.status === 'LOADING' && <div className="text-center text-xs text-slate-400 py-8"><RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2 text-cyan-400" />正在加载球队大名单...</div>}
                 {teamDetailState.status === 'ERROR' && <div className="text-center text-xs text-yellow-400 py-8">{teamDetailState.error}</div>}
-                {teamDetailState.status === 'IDLE' && <div className="text-center text-xs text-slate-500 py-8">该球队暂未获得 API 球队 ID，详情待同步。</div>}
+                {teamDetailState.status === 'IDLE' && <div className="text-center text-xs text-slate-500 py-8">该球队详情待更新。</div>}
                 {teamDetailState.status === 'SUCCESS' && (
                   <>
                     <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4 flex items-center justify-between">
                       <div>
                         <div className="text-[10px] text-slate-400">国家队主教练</div>
-                        <div className="text-sm font-bold text-white mt-1">{coach?.name || 'API 暂无主帅数据'}</div>
+                        <div className="text-sm font-bold text-white mt-1">{coach?.name || '主帅信息待更新'}</div>
                         {coach?.nationality && <div className="text-[10px] text-slate-500 mt-1">{coach.nationality}</div>}
                       </div>
                       {coach?.photo ? <img src={coach.photo} alt={coach.name} className="w-12 h-12 rounded-full object-cover border border-slate-700" /> : <UserCircle2 className="w-8 h-8 text-slate-600" />}
@@ -1990,7 +1973,7 @@ function TeamDetailDrawer({ team, teamMatches = [], onClose, isTop }) {
                           ))}
                         </div>
                       ) : (
-                        <div className="text-xs text-slate-500 text-center py-8 bg-slate-900 rounded-lg border border-slate-800 border-dashed">API 当前没有返回该队大名单。开赛前或官方名单更新后会自动显示。</div>
+                        <div className="text-xs text-slate-500 text-center py-8 bg-slate-900 rounded-lg border border-slate-800 border-dashed">该队大名单待更新。</div>
                       )}
                     </div>
                   </>
@@ -2023,7 +2006,7 @@ export default function App() {
   }, [activeTab]);
 
   const [apiStatus, setApiStatus] = useState('LOCAL'); 
-  const [apiErrorMsg, setApiErrorMsg] = useState('数据初始化中...');
+  const [apiErrorMsg, setApiErrorMsg] = useState('赛程加载中...');
 
   useEffect(() => {
     let cancelled = false;
@@ -2034,7 +2017,7 @@ export default function App() {
       try {
         const response = await fetch('/api/worldcup');
         const data = await response.json();
-        if (!response.ok || data.error) throw new Error(data.error || '接口响应异常');
+        if (!response.ok || data.error) throw new Error('赛程暂时无法加载');
         if (cancelled) return;
 
         const tournament = buildLiveTournament(data.fixtures, data.standings);
@@ -2042,11 +2025,11 @@ export default function App() {
         setKnockoutFlat(tournament.knockoutFlat);
         setKnockoutRounds(tournament.knockoutRounds);
         setApiStatus('SUCCESS');
-        setApiErrorMsg(data.stale ? '正在显示最近一次有效数据' : '约每分钟自动同步');
+        setApiErrorMsg(data.stale ? '显示最近赛程' : '赛程已更新');
       } catch {
         if (cancelled) return;
         setApiStatus('LOCAL');
-        setApiErrorMsg('网络拥堵，暂显最近数据');
+        setApiErrorMsg('显示最近赛程');
       }
     };
 
@@ -2141,7 +2124,7 @@ export default function App() {
          <div className="flex items-center justify-between">
             <h1 className="text-lg sm:text-xl font-black text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-400 flex items-center"><RealTrophy className="w-5 h-5 sm:w-6 sm:h-6 mr-2" />2026 世界杯实况引擎</h1>
             <div className="flex items-center">
-                <div className="text-[10px] sm:text-xs text-slate-500 flex items-center mr-2"><span className={`w-2 h-2 rounded-full mr-1.5 ${apiStatus === 'SUCCESS' ? 'bg-emerald-500 animate-pulse' : 'bg-yellow-500'}`}></span>{apiStatus === 'SUCCESS' ? 'Football-API 同步' : apiErrorMsg}</div>
+                <div className="text-[10px] sm:text-xs text-slate-500 flex items-center mr-2"><span className={`w-2 h-2 rounded-full mr-1.5 ${apiStatus === 'SUCCESS' ? 'bg-emerald-500 animate-pulse' : 'bg-yellow-500'}`}></span>{apiStatus === 'SUCCESS' ? '赛程已更新' : apiErrorMsg}</div>
 	                <button onClick={navigateBack} className="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white rounded-full transition-all" title="返回上一页"><Home className="w-4 h-4 sm:w-5 sm:h-5" /></button>
             </div>
          </div>
@@ -2172,6 +2155,7 @@ export default function App() {
 
       <MatchDetailDrawer match={selectedMatch} onClose={handleCloseMatch} onTeamClick={handleOpenTeam} isTop={lastOpened === 'match'} />
       <TeamDetailDrawer team={selectedTeam} teamMatches={selectedTeamMatches} onClose={handleCloseTeam} isTop={lastOpened === 'team'} />
+      <SiteWatermark className="fixed bottom-[max(8px,env(safe-area-inset-bottom))] left-0 right-0 z-[260] px-4" />
     </div>
   );
 }
