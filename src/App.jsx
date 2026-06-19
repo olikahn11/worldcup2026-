@@ -1354,7 +1354,7 @@ function DailyPredictionsView() {
         setListStatus('LOADING');
         const response = await fetch('/api/worldcup');
         const data = await response.json();
-        if (!response.ok || data.error) throw new Error(data.error || '赛程接口异常');
+        if (!response.ok || data.error) throw new Error('赛程暂时无法加载');
         if (cancelled) return;
         setVisibleMatches(getTodayPredictionMatches(data.fixtures));
         setListStatus(data.stale ? 'STALE' : 'SUCCESS');
@@ -1969,12 +1969,16 @@ function TeamDetailDrawer({ team, teamMatches = [], onClose, isTop }) {
   useEffect(() => {
     let cancelled = false;
     const teamId = team?.apiId;
-    if (!teamId || team?.isPlaceholder) {
+    const teamName = team?.apiName || team?.name;
+    if ((!teamId && !teamName) || team?.isPlaceholder) {
       setTeamDetailState({ status: 'IDLE', data: null, error: '' });
       return;
     }
     setTeamDetailState({ status: 'LOADING', data: null, error: '' });
-    fetch(`/api/team-detail?team=${teamId}`)
+    const params = new URLSearchParams();
+    if (teamId) params.set('team', teamId);
+    if (teamName) params.set('name', teamName);
+    fetch(`/api/team-detail?${params.toString()}`)
       .then(response => response.json().then(data => {
         if (!response.ok || data.error) throw new Error('球队详情暂时无法加载');
         return data;
@@ -1982,20 +1986,40 @@ function TeamDetailDrawer({ team, teamMatches = [], onClose, isTop }) {
       .then(data => { if (!cancelled) setTeamDetailState({ status: 'SUCCESS', data, error: '' }); })
       .catch(() => { if (!cancelled) setTeamDetailState({ status: 'ERROR', data: null, error: '球队详情暂时无法加载' }); });
     return () => { cancelled = true; };
-  }, [team?.apiId, team?.isPlaceholder]);
+  }, [team?.apiId, team?.apiName, team?.isPlaceholder, team?.name]);
 
   if (!team || team.isPlaceholder) return null;
   const zIndex = isTop ? 'z-[100]' : 'z-[90]';
   const coach = teamDetailState.data?.coaches?.response?.[0];
   const squadTeam = teamDetailState.data?.squad?.response?.[0];
   const squadPlayers = squadTeam?.players || [];
+  const remoteTeam = teamDetailState.data?.teamInfo?.response?.[0]?.team;
+  const remoteVenue = teamDetailState.data?.teamInfo?.response?.[0]?.venue;
+  const remoteStats = teamDetailState.data?.statistics?.response;
+  const remoteFixtures = teamDetailState.data?.fixtures?.response || [];
+  const statCards = [
+    ['场次', remoteStats?.fixtures?.played?.total],
+    ['胜', remoteStats?.fixtures?.wins?.total],
+    ['平', remoteStats?.fixtures?.draws?.total],
+    ['负', remoteStats?.fixtures?.loses?.total],
+    ['进球', remoteStats?.goals?.for?.total?.total],
+    ['失球', remoteStats?.goals?.against?.total?.total],
+  ];
   return (
     <>
       <div className={`fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity ${zIndex}`} onClick={onClose} />
       <div className={`fixed bottom-0 left-0 right-0 bg-slate-900 border-t border-slate-700 rounded-t-3xl p-4 sm:p-6 shadow-2xl transform transition-transform duration-300 ease-in-out ${zIndex} h-[90vh] flex flex-col`}>
         <div className="w-12 h-1.5 bg-slate-700 rounded-full mx-auto mb-4 shrink-0 opacity-50" />
         <button onClick={onClose} className="absolute top-5 right-5 text-slate-400 hover:text-white bg-slate-800 rounded-full p-1 z-10"><X className="w-5 h-5"/></button>
-        <div className="flex flex-col items-center text-center shrink-0"><TeamFlag name={team.name} flag={team.flag} sizeClass="w-20 h-20 shadow-lg drop-shadow-xl" /><h2 className="text-2xl sm:text-3xl font-black mt-3 text-white">{team.name}</h2><span className="text-xs text-slate-400 font-mono mt-1 border border-slate-700 bg-slate-800 px-2 py-0.5 rounded">{team.group} 组</span></div>
+        <div className="flex flex-col items-center text-center shrink-0">
+          <TeamFlag name={team.name} flag={remoteTeam?.logo || team.flag} sizeClass="w-20 h-20 shadow-lg drop-shadow-xl" />
+          <h2 className="text-2xl sm:text-3xl font-black mt-3 text-white">{team.name}</h2>
+          <div className="flex flex-wrap items-center justify-center gap-2 mt-2">
+            {team.group && <span className="text-xs text-slate-400 font-mono border border-slate-700 bg-slate-800 px-2 py-0.5 rounded">{team.group} 组</span>}
+            {remoteTeam?.code && <span className="text-xs text-cyan-300 font-mono border border-cyan-700/60 bg-cyan-950/40 px-2 py-0.5 rounded">{remoteTeam.code}</span>}
+            {remoteTeam?.country && <span className="text-xs text-slate-400 border border-slate-700 bg-slate-800 px-2 py-0.5 rounded">{remoteTeam.country}</span>}
+          </div>
+        </div>
         <div className="flex mt-6 bg-slate-950 p-1 rounded-lg border border-slate-800 shrink-0 mx-4 sm:mx-10"><button onClick={() => setActiveTab('stats')} className={`flex-1 py-2 text-xs sm:text-sm font-bold rounded transition-colors ${activeTab === 'stats' ? 'bg-emerald-600/30 text-emerald-400' : 'text-slate-400'}`}>本届赛事数据</button><button onClick={() => setActiveTab('squad')} className={`flex-1 py-2 text-xs sm:text-sm font-bold rounded transition-colors ${activeTab === 'squad' ? 'bg-blue-600/30 text-blue-400' : 'text-slate-400'}`}>大名单与主帅</button></div>
         <div className="flex-1 overflow-y-auto mt-4 px-2 sm:px-6 custom-scrollbar pb-6">
            {activeTab === 'stats' && (
@@ -2006,13 +2030,38 @@ function TeamDetailDrawer({ team, teamMatches = [], onClose, isTop }) {
                   <div className="bg-slate-800/80 p-3 rounded-xl border border-slate-700 text-center"><div className="text-[10px] text-slate-400 mb-1">进球数</div><div className="text-2xl font-black text-white">{team.gf || 0}</div></div>
                   <div className="bg-slate-800/80 p-3 rounded-xl border border-slate-700 text-center"><div className="text-[10px] text-slate-400 mb-1">失球数</div><div className="text-2xl font-black text-red-400">{team.ga || 0}</div></div>
                </div>
-               <div className="bg-slate-950 border border-slate-800 rounded-xl p-4">
-                  <h4 className="text-sm font-bold text-slate-300 mb-3 border-b border-slate-800 pb-2">战绩记录</h4>
-                  <div className="flex justify-around text-center"><div><div className="text-xl font-black text-emerald-500">{team.w || 0}</div><div className="text-[10px] text-slate-500 mt-1">胜 (WIN)</div></div><div><div className="text-xl font-black text-yellow-500">{team.d || 0}</div><div className="text-[10px] text-slate-500 mt-1">平 (DRAW)</div></div><div><div className="text-xl font-black text-red-500">{team.l || 0}</div><div className="text-[10px] text-slate-500 mt-1">负 (LOSE)</div></div></div>
-               </div>
-               <div className="bg-slate-950 border border-slate-800 rounded-xl p-4">
-                  <h4 className="text-sm font-bold text-slate-300 mb-3 border-b border-slate-800 pb-2">本届小组赛赛程</h4>
-                  <div className="space-y-2">
+	               <div className="bg-slate-950 border border-slate-800 rounded-xl p-4">
+	                  <h4 className="text-sm font-bold text-slate-300 mb-3 border-b border-slate-800 pb-2">战绩记录</h4>
+	                  <div className="flex justify-around text-center"><div><div className="text-xl font-black text-emerald-500">{team.w || 0}</div><div className="text-[10px] text-slate-500 mt-1">胜</div></div><div><div className="text-xl font-black text-yellow-500">{team.d || 0}</div><div className="text-[10px] text-slate-500 mt-1">平</div></div><div><div className="text-xl font-black text-red-500">{team.l || 0}</div><div className="text-[10px] text-slate-500 mt-1">负</div></div></div>
+	               </div>
+                 {teamDetailState.status === 'LOADING' && <div className="text-center text-xs text-slate-400 py-4"><RefreshCw className="w-4 h-4 animate-spin mx-auto mb-2 text-cyan-400" />正在加载球队资料...</div>}
+                 {teamDetailState.status === 'SUCCESS' && (
+                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                     <div className="bg-slate-950 border border-slate-800 rounded-xl p-4">
+                       <h4 className="text-sm font-bold text-slate-300 mb-3 border-b border-slate-800 pb-2">球队资料</h4>
+                       <div className="space-y-2 text-xs text-slate-400">
+                         <div className="flex justify-between gap-3"><span>成立年份</span><span className="text-slate-200 font-mono">{remoteTeam?.founded || '-'}</span></div>
+                         <div className="flex justify-between gap-3"><span>主场城市</span><span className="text-slate-200 text-right">{remoteVenue?.city || '-'}</span></div>
+                         <div className="flex justify-between gap-3"><span>主场名称</span><span className="text-slate-200 text-right truncate max-w-[180px]">{remoteVenue?.name || '-'}</span></div>
+                         <div className="flex justify-between gap-3"><span>容量</span><span className="text-slate-200 font-mono">{remoteVenue?.capacity || '-'}</span></div>
+                       </div>
+                     </div>
+                     <div className="bg-slate-950 border border-slate-800 rounded-xl p-4">
+                       <h4 className="text-sm font-bold text-slate-300 mb-3 border-b border-slate-800 pb-2">赛事统计</h4>
+                       <div className="grid grid-cols-3 gap-2">
+                         {statCards.map(([label, value]) => (
+                           <div key={label} className="rounded-lg bg-slate-900 border border-slate-800 px-2 py-2 text-center">
+                             <div className="text-[10px] text-slate-500">{label}</div>
+                             <div className="text-sm font-black text-cyan-300 mt-1">{value ?? '-'}</div>
+                           </div>
+                         ))}
+                       </div>
+                     </div>
+                   </div>
+                 )}
+	               <div className="bg-slate-950 border border-slate-800 rounded-xl p-4">
+	                  <h4 className="text-sm font-bold text-slate-300 mb-3 border-b border-slate-800 pb-2">本届小组赛赛程</h4>
+	                  <div className="space-y-2">
                     {teamMatches.map(match => {
                       const isHome = match.home?.id === team.id || match.home?.apiId === team.apiId;
                       const opponent = isHome ? match.away : match.home;
@@ -2024,10 +2073,25 @@ function TeamDetailDrawer({ team, teamMatches = [], onClose, isTop }) {
                           <span className={`font-mono text-xs font-bold shrink-0 ${match.status === 'LIVE' ? 'text-emerald-400' : match.status === 'FINISHED' ? 'text-white' : 'text-slate-500'}`}>{score}</span>
                         </div>
                       );
-                    })}
-                    {teamMatches.length === 0 && <div className="text-center text-xs text-slate-500 py-4">赛程整理中...</div>}
-                  </div>
-               </div>
+	                    })}
+                      {teamMatches.length === 0 && remoteFixtures.slice(0, 6).map((fixture) => {
+                        const home = normalizeTeam(fixture.teams?.home);
+                        const away = normalizeTeam(fixture.teams?.away);
+                        const isHome = home.name === team.name || home.apiId === team.apiId;
+                        const opponent = isHome ? away : home;
+                        const status = normalizeStatus(fixture.fixture?.status);
+                        const score = status === 'FINISHED' || status === 'LIVE' ? `${fixture.goals?.home ?? 0} - ${fixture.goals?.away ?? 0}` : 'VS';
+                        return (
+                          <div key={fixture.fixture?.id} className="flex items-center justify-between gap-2 bg-slate-900 border border-slate-800 rounded-lg px-3 py-2">
+                            <span className="text-[10px] text-slate-500 w-24 shrink-0">{formatBeijingTime(fixture.fixture?.date)}</span>
+                            <span className="flex items-center gap-1.5 text-xs text-slate-300 min-w-0 flex-1"><TeamFlag flag={opponent?.flag} sizeClass="w-4 h-4 shrink-0" /><span className="truncate">{opponent?.name || '待定'}</span></span>
+                            <span className={`font-mono text-xs font-bold shrink-0 ${status === 'LIVE' ? 'text-emerald-400' : status === 'FINISHED' ? 'text-white' : 'text-slate-500'}`}>{score}</span>
+                          </div>
+                        );
+                      })}
+	                    {teamMatches.length === 0 && remoteFixtures.length === 0 && <div className="text-center text-xs text-slate-500 py-4">赛程整理中...</div>}
+	                  </div>
+	               </div>
              </div>
            )}
            {activeTab === 'squad' && (
