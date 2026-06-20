@@ -313,6 +313,12 @@ const getAnalysisForMatch = (match) => {
   return null;
 };
 
+const getPredictionAdvice = (analysis) => {
+  if (!analysis) return '待更新';
+  const recommendation = String(analysis.final?.recommendation || '').split('/')[0].trim();
+  return recommendation || analysis.final?.tendency || '待更新';
+};
+
 const getExactMatchTime = (t1, t2) => {
   return groupStageSchedule[`${t1.name} vs ${t2.name}`] || groupStageSchedule[`${t2.name} vs ${t1.name}`] || '时间待定 00:00';
 };
@@ -1442,6 +1448,7 @@ function DailyPredictionsView() {
             </div>
             <h2 className="mt-3 text-2xl sm:text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 to-emerald-300 tracking-wider">世界杯每日预测</h2>
             <p className="mt-2 text-xs sm:text-sm text-[#94a3b8]">每天下午2点更新分析；当前可选比赛范围：北京时间 {windowLabel}。</p>
+            <SiteWatermark className="mt-3 text-[11px] sm:text-sm" />
           </div>
 
           <div className="mb-3 flex items-center justify-between">
@@ -1457,7 +1464,7 @@ function DailyPredictionsView() {
               const isSelected = selectedIds.includes(match.id);
               const hasAnalysis = !!getAnalysisForMatch(match);
               return (
-                <label key={match.id} className={`grid grid-cols-[28px_52px_1fr_58px] sm:grid-cols-[32px_70px_1fr_74px] items-center gap-2 px-3 py-2.5 border-b border-[#1f2a44] last:border-b-0 bg-[#111827] hover:bg-[#0b1020] hover:shadow-[0_0_18px_rgba(34,211,238,0.12)] transition-all duration-200 ${isSelected ? 'shadow-[inset_3px_0_0_#22d3ee]' : ''}`}>
+                <label key={match.id} className={`grid grid-cols-[28px_52px_1fr_82px] sm:grid-cols-[32px_70px_1fr_104px] items-center gap-2 px-3 py-2.5 border-b border-[#1f2a44] last:border-b-0 bg-[#111827] hover:bg-[#0b1020] hover:shadow-[0_0_18px_rgba(34,211,238,0.12)] transition-all duration-200 ${isSelected ? 'shadow-[inset_3px_0_0_#22d3ee]' : ''}`}>
                   <input type="checkbox" checked={isSelected} onChange={(event) => toggleSelected(event, match.id)} className="h-4 w-4 accent-cyan-400" />
                   <span className="text-[10px] sm:text-xs text-[#94a3b8] font-mono">{match.time}</span>
                   <span className="min-w-0 flex items-center justify-center gap-1.5 text-xs sm:text-sm font-black text-[#e5e7eb]">
@@ -1467,7 +1474,7 @@ function DailyPredictionsView() {
                     <span className="truncate">{match.awayTeam.name || '未知球队'}</span>
                     <TeamFlag flag={match.awayTeam.flag} sizeClass="w-4 h-4 sm:w-5 sm:h-5 shrink-0" />
                   </span>
-                  <span className={`justify-self-end rounded-lg border px-2 py-1 text-[10px] sm:text-xs font-black shadow-[0_0_12px_rgba(34,211,238,0.12)] ${hasAnalysis ? 'border-[#22d3ee]/40 bg-[#22d3ee]/10 text-[#22d3ee]' : 'border-[#1f2a44] bg-[#0b1020] text-[#94a3b8]'}`}>{hasAnalysis ? getAnalysisForMatch(match).final.score : '待更新'}</span>
+                  <span className={`justify-self-end rounded-lg border px-2 py-1 text-[10px] sm:text-xs font-black shadow-[0_0_12px_rgba(34,211,238,0.12)] ${hasAnalysis ? 'border-[#22d3ee]/40 bg-[#22d3ee]/10 text-[#22d3ee]' : 'border-[#1f2a44] bg-[#0b1020] text-[#94a3b8]'}`}>{getPredictionAdvice(getAnalysisForMatch(match))}</span>
                 </label>
               );
             })}
@@ -1738,14 +1745,25 @@ function FormationPitch({ recentLineup }) {
   );
 }
 
-function RulesView({ groups, knockouts, getTeamFromSlot }) {
-  const [subTab, setSubTab] = useState('rules');
+function RulesView({ groups, knockouts, getTeamFromSlot, defaultTab = 'rules', locked = false }) {
+  const [subTab, setSubTab] = useState(defaultTab);
   const [heroState, setHeroState] = useState({ status: 'IDLE', data: null, error: '' });
+  const heroRequestStartedRef = useRef(false);
   useEffect(() => {
-    if (subTab !== 'heroes' || heroState.status === 'SUCCESS' || heroState.status === 'LOADING') return;
+    if (locked) setSubTab(defaultTab);
+  }, [defaultTab, locked]);
+  useEffect(() => {
+    if (subTab !== 'heroes' || heroRequestStartedRef.current) return;
     let cancelled = false;
+    heroRequestStartedRef.current = true;
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 9000);
+    const timeoutId = setTimeout(() => {
+      controller.abort();
+      if (!cancelled) {
+        heroRequestStartedRef.current = false;
+        setHeroState({ status: 'ERROR', data: null, error: '英雄榜暂时无法加载' });
+      }
+    }, 9000);
     setHeroState({ status: 'LOADING', data: null, error: '' });
     fetch('/api/worldcup-leaders', { signal: controller.signal })
       .then(response => response.json().then(data => {
@@ -1753,14 +1771,20 @@ function RulesView({ groups, knockouts, getTeamFromSlot }) {
         return data;
       }))
       .then(data => { if (!cancelled) setHeroState({ status: 'SUCCESS', data, error: '' }); })
-      .catch(() => { if (!cancelled) setHeroState({ status: 'ERROR', data: null, error: '英雄榜暂时无法加载' }); })
+      .catch(() => {
+        if (!cancelled) {
+          heroRequestStartedRef.current = false;
+          setHeroState({ status: 'ERROR', data: null, error: '英雄榜暂时无法加载' });
+        }
+      })
       .finally(() => clearTimeout(timeoutId));
     return () => {
       cancelled = true;
+      heroRequestStartedRef.current = false;
       clearTimeout(timeoutId);
       controller.abort();
     };
-  }, [heroState.status, subTab]);
+  }, [subTab]);
 
   const grouped104 = useMemo(() => {
     const allGroupMatches = []; Object.keys(groups).forEach(g => { groups[g].matches.forEach(m => { allGroupMatches.push({ ...m, groupName: g }); }); });
@@ -1784,13 +1808,13 @@ function RulesView({ groups, knockouts, getTeamFromSlot }) {
 
   return (
 	    <div className="h-full flex flex-col bg-slate-950 relative overflow-hidden">
-	      <div className="bg-slate-900 border-b border-slate-800 px-2 py-2 flex justify-center z-10 shrink-0">
+	      {!locked && <div className="bg-slate-900 border-b border-slate-800 px-2 py-2 flex justify-center z-10 shrink-0">
 	        <div className="flex bg-slate-950/80 p-1 rounded-lg border border-slate-800 w-full sm:w-auto">
 	          <button onClick={() => setSubTab('rules')} className={`flex-1 sm:flex-none justify-center px-4 sm:px-6 py-1.5 rounded font-bold text-xs sm:text-sm transition-all whitespace-nowrap flex items-center ${subTab === 'rules' ? 'bg-emerald-600/20 text-emerald-400 border border-emerald-500/30' : 'text-slate-500 hover:text-slate-300'}`}><BookOpen className="w-4 h-4 mr-1.5" /> 2026最新扩军新规说明</button>
 	          <button onClick={() => setSubTab('schedule')} className={`flex-1 sm:flex-none justify-center px-4 sm:px-6 py-1.5 rounded font-bold text-xs sm:text-sm transition-all whitespace-nowrap flex items-center ml-2 ${subTab === 'schedule' ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30' : 'text-slate-500 hover:text-slate-300'}`}><CalendarDays className="w-4 h-4 mr-1.5" /> 104场全赛程</button>
 	          <button onClick={() => setSubTab('heroes')} className={`flex-1 sm:flex-none justify-center px-4 sm:px-6 py-1.5 rounded font-bold text-xs sm:text-sm transition-all whitespace-nowrap flex items-center ml-2 ${subTab === 'heroes' ? 'bg-cyan-600/20 text-cyan-400 border border-cyan-500/30' : 'text-slate-500 hover:text-slate-300'}`}><Crown className="w-4 h-4 mr-1.5" /> 英雄榜</button>
 	        </div>
-	      </div>
+	      </div>}
       <div className="flex-1 overflow-y-auto custom-scrollbar relative pb-10">
         <div className="max-w-4xl lg:max-w-6xl mx-auto p-2 sm:p-6 space-y-6 sm:space-y-8 animate-fade-in bg-slate-950 pb-6 w-full">
 	          {subTab === 'rules' ? (
@@ -2033,6 +2057,110 @@ function GroupScheduleByTime({ groups, onMatchClick, onTeamClick }) {
   );
 }
 
+const STAT_LABELS = {
+  'Shots on Goal': '射正',
+  'Shots off Goal': '射偏',
+  'Total Shots': '射门',
+  'Blocked Shots': '被封堵射门',
+  'Shots insidebox': '禁区内射门',
+  'Shots outsidebox': '禁区外射门',
+  Fouls: '犯规',
+  'Corner Kicks': '角球',
+  Offsides: '越位',
+  'Ball Possession': '控球率',
+  'Yellow Cards': '黄牌',
+  'Red Cards': '红牌',
+  'Goalkeeper Saves': '门将扑救',
+  'Total passes': '传球',
+  'Passes accurate': '准确传球',
+  'Passes %': '传球成功率',
+  expected_goals: '预期进球'
+};
+
+const getStatLabel = (type) => STAT_LABELS[type] || type || '数据';
+const getStatValue = (value) => value === null || value === undefined || value === '' ? '-' : value;
+
+function MatchLineupCard({ lineup }) {
+  const starters = lineup?.startXI || [];
+  const substitutes = lineup?.substitutes || [];
+  return (
+    <div className="rounded-xl bg-slate-950 border border-slate-800 p-3">
+      <div className="flex items-center justify-between gap-2 border-b border-slate-800 pb-2 mb-3">
+        <span className="flex items-center gap-2 text-sm font-black text-cyan-300"><TeamFlag flag={lineup?.team?.logo} sizeClass="w-5 h-5" />{TEAM_NAME_ZH[lineup?.team?.name] || lineup?.team?.name || '球队'}</span>
+        <span className="rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-2 py-0.5 text-xs font-black text-cyan-300">{lineup?.formation || '阵型待定'}</span>
+      </div>
+      <div className="grid grid-cols-1 gap-3 text-[11px]">
+        <div>
+          <div className="mb-1.5 text-xs font-bold text-slate-300">首发</div>
+          <div className="grid grid-cols-1 gap-1">
+            {starters.slice(0, 11).map(row => (
+              <div key={row.player?.id || row.player?.name} className="flex justify-between gap-2 rounded bg-slate-900 px-2 py-1.5">
+                <span className="truncate text-slate-200">{row.player?.name || '球员'}</span>
+                <span className="shrink-0 font-mono text-slate-500">#{row.player?.number || '-'} {row.player?.pos || ''}</span>
+              </div>
+            ))}
+            {starters.length === 0 && <div className="rounded border border-dashed border-slate-800 px-2 py-4 text-center text-slate-500">首发待公布</div>}
+          </div>
+        </div>
+        <div>
+          <div className="mb-1.5 text-xs font-bold text-slate-300">替补</div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-1">
+            {substitutes.slice(0, 12).map(row => (
+              <div key={row.player?.id || row.player?.name} className="flex justify-between gap-2 rounded bg-slate-900/70 px-2 py-1">
+                <span className="truncate text-slate-300">{row.player?.name || '球员'}</span>
+                <span className="shrink-0 font-mono text-slate-600">#{row.player?.number || '-'}</span>
+              </div>
+            ))}
+            {substitutes.length === 0 && <div className="rounded border border-dashed border-slate-800 px-2 py-3 text-center text-slate-500 sm:col-span-2">替补待公布</div>}
+          </div>
+        </div>
+        <div className="flex items-center justify-between rounded bg-slate-900 px-2 py-1.5">
+          <span className="text-slate-500">主教练</span>
+          <span className="font-bold text-slate-200">{lineup?.coach?.name || '待公布'}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PlayerImpactList({ players = [] }) {
+  const rows = players
+    .flatMap(teamRow => (teamRow.players || []).map(playerRow => ({
+      team: teamRow.team,
+      player: playerRow.player,
+      stats: playerRow.statistics?.[0] || {}
+    })))
+    .sort((a, b) => Number(b.stats.games?.rating || 0) - Number(a.stats.games?.rating || 0))
+    .slice(0, 12);
+
+  return (
+    <div className="bg-slate-950 border border-slate-800 rounded-xl p-3">
+      <div className="text-sm font-bold text-slate-300 mb-2">球员表现</div>
+      {rows.length > 0 ? (
+        <div className="space-y-2">
+          {rows.map(row => (
+            <div key={`${row.team?.id}-${row.player?.id}`} className="grid grid-cols-[1fr_auto] gap-2 rounded-lg bg-slate-900 border border-slate-800 px-3 py-2">
+              <div className="min-w-0 flex items-center gap-2">
+                {row.player?.photo ? <img src={row.player.photo} alt={row.player.name} className="h-7 w-7 rounded-full object-cover" /> : <UserCircle2 className="h-7 w-7 text-slate-600" />}
+                <div className="min-w-0">
+                  <div className="truncate text-xs font-bold text-slate-100">{row.player?.name || '球员'}</div>
+                  <div className="text-[10px] text-slate-500">{TEAM_NAME_ZH[row.team?.name] || row.team?.name || '球队'} · {row.stats.games?.position || '位置'}</div>
+                </div>
+              </div>
+              <div className="grid grid-cols-4 gap-1 text-center text-[10px]">
+                <span className="rounded bg-slate-950 px-1 py-1 text-emerald-300">球 {row.stats.goals?.total ?? 0}</span>
+                <span className="rounded bg-slate-950 px-1 py-1 text-cyan-300">助 {row.stats.goals?.assists ?? 0}</span>
+                <span className="rounded bg-slate-950 px-1 py-1 text-yellow-300">评 {row.stats.games?.rating ? Number(row.stats.games.rating).toFixed(1) : '-'}</span>
+                <span className="rounded bg-slate-950 px-1 py-1 text-slate-400">传 {row.stats.passes?.total ?? '-'}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : <div className="text-center text-xs text-slate-500 py-4 border border-dashed border-slate-800 rounded-lg">球员表现待公布。</div>}
+    </div>
+  );
+}
+
 function MatchDetailDrawer({ match, onClose, onTeamClick, isTop }) {
   const [detailState, setDetailState] = useState({ status: 'IDLE', data: null, error: '' });
   useEffect(() => {
@@ -2043,70 +2171,92 @@ function MatchDetailDrawer({ match, onClose, onTeamClick, isTop }) {
       return;
     }
     setDetailState({ status: 'LOADING', data: null, error: '' });
-    fetch(`/api/worldcup-detail?fixture=${fixtureId}`)
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
+    fetch(`/api/worldcup-detail?fixture=${fixtureId}`, { signal: controller.signal })
       .then(response => response.json().then(data => {
         if (!response.ok || data.error) throw new Error('详情暂时无法加载');
         return data;
       }))
       .then(data => { if (!cancelled) setDetailState({ status: 'SUCCESS', data, error: '' }); })
-      .catch(() => { if (!cancelled) setDetailState({ status: 'ERROR', data: null, error: '详情暂时无法加载' }); });
-    return () => { cancelled = true; };
+      .catch(() => { if (!cancelled) setDetailState({ status: 'ERROR', data: null, error: '详情暂时无法加载' }); })
+      .finally(() => clearTimeout(timeoutId));
+    return () => {
+      cancelled = true;
+      clearTimeout(timeoutId);
+      controller.abort();
+    };
   }, [match?.apiFixtureId]);
 
   if (!match) return null;
   const zIndex = isTop ? 'z-[100]' : 'z-[90]';
   const hTeam = match.homeTeam || match.home; const aTeam = match.awayTeam || match.away;
+  const fixtureInfo = detailState.data?.fixture?.response?.[0];
   const lineups = detailState.data?.lineups?.response || [];
   const events = detailState.data?.events?.response || [];
   const statistics = detailState.data?.statistics?.response || [];
+  const players = detailState.data?.players?.response || [];
+  const fixtureStatus = fixtureInfo?.fixture?.status?.long || (match.status === 'FINISHED' ? '已结束' : match.status === 'LIVE' ? '进行中' : '未开赛');
+  const detailVenue = fixtureInfo?.fixture?.venue?.name || match.venue || '美加墨赛区';
+  const detailCity = fixtureInfo?.fixture?.venue?.city;
   return (
     <>
       <div className={`fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity ${zIndex}`} onClick={onClose} />
       <div className={`fixed bottom-0 left-0 right-0 bg-slate-900 border-t border-slate-700 rounded-t-3xl p-4 sm:p-6 shadow-2xl transform transition-transform duration-300 ease-in-out ${zIndex} max-h-[85vh] overflow-y-auto custom-scrollbar`}>
         <div className="w-12 h-1.5 bg-slate-700 rounded-full mx-auto mb-6 opacity-50" />
         <button onClick={onClose} className="absolute top-5 right-5 text-slate-400 hover:text-white bg-slate-800 rounded-full p-1"><X className="w-5 h-5"/></button>
-        <div className="text-center mb-6"><p className="text-emerald-400 font-bold text-sm bg-emerald-900/20 inline-block px-3 py-1 rounded-full border border-emerald-500/30">{match.round || '比赛数据中心'}</p><p className="text-slate-400 text-xs mt-3 flex items-center justify-center"><Clock className="w-3.5 h-3.5 mr-1" /> {match.timeStr} • {match.venue || '美加墨赛区'}</p></div>
+        <div className="text-center mb-6"><p className="text-emerald-400 font-bold text-sm bg-emerald-900/20 inline-block px-3 py-1 rounded-full border border-emerald-500/30">{match.round || '比赛数据中心'}</p><p className="text-slate-400 text-xs mt-3 flex items-center justify-center"><Clock className="w-3.5 h-3.5 mr-1" /> {match.timeStr} • {detailVenue}{detailCity ? ` · ${detailCity}` : ''}</p></div>
         <div className="flex items-center justify-between bg-slate-950 border border-slate-800 p-4 sm:p-6 rounded-2xl mb-6 shadow-inner">
            <div className="flex flex-col items-center gap-2 w-1/3 cursor-pointer hover:scale-105 transition-transform" onClick={() => onTeamClick(hTeam)}><TeamFlag name={hTeam?.name} flag={hTeam?.flag} sizeClass="w-12 h-12 sm:w-16 sm:h-16" /><span className="font-bold text-sm sm:text-base text-center text-slate-200 mt-2">{hTeam?.isPlaceholder ? hTeam.placeholderName : hTeam?.name}</span><span className="text-[10px] text-blue-400">点击看数据</span></div>
            <div className="w-1/3 text-center"><div className="text-3xl sm:text-4xl font-black bg-gradient-to-b from-white to-slate-400 bg-clip-text text-transparent mb-1">{match.homeScore !== undefined && match.homeScore !== null ? `${match.homeScore} - ${match.awayScore}` : 'VS'}</div><div className="text-[10px] text-slate-500">{match.status === 'FINISHED' ? '已结束' : match.status === 'LIVE' ? '进行中' : '未开赛'}</div></div>
            <div className="flex flex-col items-center gap-2 w-1/3 cursor-pointer hover:scale-105 transition-transform" onClick={() => onTeamClick(aTeam)}><TeamFlag name={aTeam?.name} flag={aTeam?.flag} sizeClass="w-12 h-12 sm:w-16 sm:h-16" /><span className="font-bold text-sm sm:text-base text-center text-slate-200 mt-2">{aTeam?.isPlaceholder ? aTeam.placeholderName : aTeam?.name}</span><span className="text-[10px] text-blue-400">点击看数据</span></div>
         </div>
         <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4">
-           <h4 className="text-white font-bold mb-4 flex items-center border-b border-slate-700 pb-2"><Activity className="w-4 h-4 mr-2 text-red-400" /> 比赛详情数据</h4>
+           <h4 className="text-white font-bold mb-4 flex items-center border-b border-slate-700 pb-2"><Activity className="w-4 h-4 mr-2 text-red-400" /> 比赛数据中心</h4>
            {detailState.status === 'LOADING' && <div className="text-center text-xs text-slate-400 py-6"><RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2 text-cyan-400" />正在加载阵容、事件与技术统计...</div>}
            {detailState.status === 'ERROR' && <div className="text-center text-xs text-yellow-400 py-6">{detailState.error}</div>}
            {detailState.status === 'IDLE' && <div className="text-center text-xs text-slate-500 py-6">该场比赛详情待更新。</div>}
            {detailState.status === 'SUCCESS' && (
              <div className="space-y-4">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  {[
+                    ['比赛状态', fixtureStatus],
+                    ['半场比分', fixtureInfo?.score?.halftime?.home !== null && fixtureInfo?.score?.halftime?.home !== undefined ? `${fixtureInfo.score.halftime.home}-${fixtureInfo.score.halftime.away}` : '-'],
+                    ['全场比分', fixtureInfo?.goals?.home !== null && fixtureInfo?.goals?.home !== undefined ? `${fixtureInfo.goals.home}-${fixtureInfo.goals.away}` : '-'],
+                    ['赛事轮次', fixtureInfo?.league?.round || match.groupName || match.round || '-']
+                  ].map(([label, value]) => (
+                    <div key={label} className="rounded-xl border border-slate-800 bg-slate-950 px-3 py-3 text-center">
+                      <div className="text-[10px] text-slate-500">{label}</div>
+                      <div className="mt-1 truncate text-xs font-black text-cyan-300">{value}</div>
+                    </div>
+                  ))}
+                </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {statistics.map(teamStats => (
                     <div key={teamStats.team?.id || teamStats.team?.name} className="bg-slate-950 border border-slate-800 rounded-xl p-3">
                       <div className="font-bold text-slate-200 text-sm mb-2 flex items-center gap-2"><TeamFlag flag={teamStats.team?.logo} sizeClass="w-5 h-5" />{TEAM_NAME_ZH[teamStats.team?.name] || teamStats.team?.name || '球队'}</div>
                       <div className="space-y-1.5 text-xs">
-                        {(teamStats.statistics || []).slice(0, 8).map(stat => (
-                          <div key={stat.type} className="flex justify-between gap-3"><span className="text-slate-500">{stat.type}</span><span className="font-mono text-slate-300">{stat.value ?? '-'}</span></div>
+                        {(teamStats.statistics || []).map(stat => (
+                          <div key={stat.type} className="flex justify-between gap-3"><span className="text-slate-500">{getStatLabel(stat.type)}</span><span className="font-mono text-slate-300">{getStatValue(stat.value)}</span></div>
                         ))}
                       </div>
                     </div>
                   ))}
+                  {statistics.length === 0 && <div className="sm:col-span-2 text-center text-xs text-slate-500 py-4 border border-dashed border-slate-800 rounded-lg">技术统计待公布。</div>}
                 </div>
                 <div className="bg-slate-950 border border-slate-800 rounded-xl p-3">
                   <div className="text-sm font-bold text-slate-300 mb-2">阵容/首发</div>
                   {lineups.length > 0 ? (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      {lineups.map(lineup => (
-                        <div key={lineup.team?.id || lineup.team?.name} className="rounded-lg bg-slate-900 border border-slate-800 p-3">
-                          <div className="flex items-center justify-between text-xs mb-2"><span className="font-bold text-cyan-300">{TEAM_NAME_ZH[lineup.team?.name] || lineup.team?.name}</span><span className="text-slate-500">{lineup.formation || '阵型待定'}</span></div>
-                          <div className="space-y-1 text-[11px] text-slate-300">{(lineup.startXI || []).slice(0, 11).map(row => <div key={row.player?.id || row.player?.name} className="flex justify-between gap-2"><span className="truncate">{row.player?.name}</span><span className="text-slate-500">{row.player?.pos || row.player?.number || ''}</span></div>)}</div>
-                        </div>
-                      ))}
+                      {lineups.map(lineup => <MatchLineupCard key={lineup.team?.id || lineup.team?.name} lineup={lineup} />)}
                     </div>
                   ) : <div className="text-center text-xs text-slate-500 py-4 border border-dashed border-slate-800 rounded-lg">赛前阵容尚未公布。</div>}
                 </div>
+                <PlayerImpactList players={players} />
                 <div className="bg-slate-950 border border-slate-800 rounded-xl p-3">
                   <div className="text-sm font-bold text-slate-300 mb-2">关键事件</div>
                   {events.length > 0 ? (
-                    <div className="space-y-2">{events.slice(0, 12).map((event, index) => <div key={`${event.time?.elapsed}-${event.player?.id || index}`} className="flex items-center gap-2 text-xs bg-slate-900 rounded-lg px-3 py-2"><span className="font-mono text-cyan-300 w-8">{event.time?.elapsed || 0}'</span><span className="text-slate-500">{event.type}</span><span className="text-slate-200 truncate">{event.player?.name || event.detail || '事件'}</span></div>)}</div>
+                    <div className="space-y-2">{events.map((event, index) => <div key={`${event.time?.elapsed}-${event.player?.id || index}`} className="grid grid-cols-[40px_70px_1fr] items-center gap-2 text-xs bg-slate-900 rounded-lg px-3 py-2"><span className="font-mono text-cyan-300">{event.time?.elapsed || 0}'</span><span className="text-slate-500">{event.type}</span><span className="text-slate-200 truncate">{event.player?.name || event.detail || '事件'}{event.assist?.name ? ` · 助攻 ${event.assist.name}` : ''}</span></div>)}</div>
                   ) : <div className="text-center text-xs text-slate-500 py-4 border border-dashed border-slate-800 rounded-lg">暂无比赛事件。</div>}
                 </div>
              </div>
@@ -2503,13 +2653,15 @@ export default function App() {
             </div>
          </div>
          <nav className="flex space-x-1.5 overflow-x-auto hide-scrollbar pb-1 pt-1">
+            <button onClick={() => navigateToTab('daily_predictions')} className={`whitespace-nowrap px-4 sm:px-5 py-1.5 rounded-full text-[10px] sm:text-xs font-black transition-all flex items-center border ${activeTab === 'daily_predictions' ? 'bg-cyan-500 text-slate-950 border-cyan-300 shadow-[0_0_18px_rgba(34,211,238,0.45)]' : 'bg-cyan-500/10 border-cyan-500/40 text-cyan-300 hover:bg-cyan-500/20 hover:shadow-[0_0_14px_rgba(34,211,238,0.25)]'}`}><Sparkles className="w-3 h-3 mr-1" />今日预测</button>
             <button onClick={() => navigateToTab('meeting')} className={`whitespace-nowrap px-3 sm:px-4 py-1.5 rounded-full text-[10px] sm:text-xs font-bold transition-all flex items-center ${activeTab === 'meeting' ? 'bg-red-600 text-white shadow-lg' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}><Swords className="w-3 h-3 mr-1" />宿命对决</button>
             <button onClick={() => navigateToTab('prediction')} className={`whitespace-nowrap px-3 sm:px-4 py-1.5 rounded-full text-[10px] sm:text-xs font-bold transition-all flex items-center ${activeTab === 'prediction' ? 'bg-yellow-600 text-white shadow-lg' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}><Wand2 className="w-3 h-3 mr-1" />夺冠推演</button>
-            <button onClick={() => navigateToTab('daily_predictions')} className={`whitespace-nowrap px-3 sm:px-4 py-1.5 rounded-full text-[10px] sm:text-xs font-bold transition-all flex items-center ${activeTab === 'daily_predictions' ? 'bg-cyan-600 text-white shadow-lg shadow-cyan-500/20' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}><Sparkles className="w-3 h-3 mr-1" />每日预测</button>
             <button onClick={() => navigateToTab('live_bracket')} className={`whitespace-nowrap px-3 sm:px-4 py-1.5 rounded-full text-[10px] sm:text-xs font-bold transition-all flex items-center ${activeTab === 'live_bracket' ? 'bg-purple-600 text-white shadow-lg' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}><GitBranch className="w-3 h-3 mr-1" />实况大树</button>
             <button onClick={() => navigateToTab('group_schedule')} className={`whitespace-nowrap px-3 sm:px-4 py-1.5 rounded-full text-[10px] sm:text-xs font-bold transition-all flex items-center ${activeTab === 'group_schedule' ? 'bg-emerald-600 text-white shadow-lg' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}><Activity className="w-3 h-3 mr-1" />小组全景</button>
+            <button onClick={() => navigateToTab('full_schedule')} className={`whitespace-nowrap px-3 sm:px-4 py-1.5 rounded-full text-[10px] sm:text-xs font-bold transition-all flex items-center ${activeTab === 'full_schedule' ? 'bg-blue-600 text-white shadow-lg' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}><CalendarDays className="w-3 h-3 mr-1" />全部赛程</button>
+            <button onClick={() => navigateToTab('heroes')} className={`whitespace-nowrap px-3 sm:px-4 py-1.5 rounded-full text-[10px] sm:text-xs font-bold transition-all flex items-center ${activeTab === 'heroes' ? 'bg-cyan-600 text-white shadow-lg' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}><Crown className="w-3 h-3 mr-1" />球星榜</button>
             <button onClick={() => navigateToTab('knockout_schedule')} className={`whitespace-nowrap px-3 sm:px-4 py-1.5 rounded-full text-[10px] sm:text-xs font-bold transition-all flex items-center ${activeTab === 'knockout_schedule' ? 'bg-blue-600 text-white shadow-lg' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}><LayoutList className="w-3 h-3 mr-1" />淘汰列表</button>
-            <button onClick={() => navigateToTab('rules')} className={`whitespace-nowrap px-3 sm:px-4 py-1.5 rounded-full text-[10px] sm:text-xs font-bold transition-all flex items-center ${activeTab === 'rules' ? 'bg-slate-600 text-white shadow-lg' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}><Shield className="w-3 h-3 mr-1" />104场规程</button>
+            <button onClick={() => navigateToTab('rules')} className={`whitespace-nowrap px-3 sm:px-4 py-1.5 rounded-full text-[10px] sm:text-xs font-bold transition-all flex items-center ${activeTab === 'rules' ? 'bg-slate-600 text-white shadow-lg' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}><Shield className="w-3 h-3 mr-1" />赛制规则</button>
          </nav>
       </header>
 
@@ -2521,10 +2673,12 @@ export default function App() {
           </SafeSectionBoundary>
         </div>
         <div className={activeTab === 'meeting' ? 'h-full' : 'hidden'}><TeamMeetingPredictor groups={groups} isFullscreen={isFullscreen} setIsFullscreen={setIsFullscreen} /></div>
-        <div className={activeTab === 'live_bracket' ? 'h-full' : 'hidden'}><LiveBracketView knockouts={projectedKnockoutFlat} getTeamFromSlot={getTeamFromSlot} onMatchClick={handleOpenMatch} onTeamClick={handleOpenTeam} onExitHome={navigateBack} isFullscreen={isFullscreen} setIsFullscreen={setIsFullscreen} /></div>
-        <div className={activeTab === 'group_schedule' ? 'h-full' : 'hidden'}><GroupScheduleView groups={groups} onMatchClick={handleOpenMatch} onTeamClick={handleOpenTeam} /></div>
-        <div className={activeTab === 'knockout_schedule' ? 'h-full' : 'hidden'}><KnockoutScheduleView knockouts={projectedKnockoutFlat} getTeamFromSlot={getTeamFromSlot} onMatchClick={handleOpenMatch} onTeamClick={handleOpenTeam} /></div>
-        <div className={activeTab === 'rules' ? 'h-full' : 'hidden'}><RulesView groups={groups} knockouts={projectedKnockoutRounds} getTeamFromSlot={getTeamFromSlot} /></div>
+        <div className={activeTab === 'live_bracket' ? 'h-full' : 'hidden'}><SafeSectionBoundary><LiveBracketView knockouts={projectedKnockoutFlat} getTeamFromSlot={getTeamFromSlot} onMatchClick={handleOpenMatch} onTeamClick={handleOpenTeam} onExitHome={navigateBack} isFullscreen={isFullscreen} setIsFullscreen={setIsFullscreen} /></SafeSectionBoundary></div>
+        <div className={activeTab === 'group_schedule' ? 'h-full' : 'hidden'}><SafeSectionBoundary><GroupScheduleView groups={groups} onMatchClick={handleOpenMatch} onTeamClick={handleOpenTeam} /></SafeSectionBoundary></div>
+        <div className={activeTab === 'full_schedule' ? 'h-full' : 'hidden'}><SafeSectionBoundary><RulesView key="full-schedule" groups={groups} knockouts={projectedKnockoutRounds} getTeamFromSlot={getTeamFromSlot} defaultTab="schedule" locked /></SafeSectionBoundary></div>
+        <div className={activeTab === 'heroes' ? 'h-full' : 'hidden'}><SafeSectionBoundary><RulesView key="heroes" groups={groups} knockouts={projectedKnockoutRounds} getTeamFromSlot={getTeamFromSlot} defaultTab="heroes" locked /></SafeSectionBoundary></div>
+        <div className={activeTab === 'knockout_schedule' ? 'h-full' : 'hidden'}><SafeSectionBoundary><KnockoutScheduleView knockouts={projectedKnockoutFlat} getTeamFromSlot={getTeamFromSlot} onMatchClick={handleOpenMatch} onTeamClick={handleOpenTeam} /></SafeSectionBoundary></div>
+        <div className={activeTab === 'rules' ? 'h-full' : 'hidden'}><SafeSectionBoundary><RulesView key="rules" groups={groups} knockouts={projectedKnockoutRounds} getTeamFromSlot={getTeamFromSlot} defaultTab="rules" locked /></SafeSectionBoundary></div>
       </div>
 
       <MatchDetailDrawer match={selectedMatch} onClose={handleCloseMatch} onTeamClick={handleOpenTeam} isTop={lastOpened === 'match'} />

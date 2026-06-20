@@ -3,19 +3,35 @@ const detailCache = globalThis.__worldCupFixtureDetailCache || new Map();
 
 globalThis.__worldCupFixtureDetailCache = detailCache;
 
+const withTimeout = async (promise, ms = 6500) => {
+  let timerId;
+  const timeout = new Promise((_, reject) => {
+    timerId = setTimeout(() => reject(new Error('request timeout')), ms);
+  });
+  try {
+    return await Promise.race([promise, timeout]);
+  } finally {
+    clearTimeout(timerId);
+  }
+};
+
 const fetchApi = async (endpoint, params, apiKey) => {
   const url = new URL(`${API_BASE}/${endpoint}`);
   Object.entries(params).forEach(([key, value]) => url.searchParams.set(key, value));
-  const response = await fetch(url, {
+  const response = await withTimeout(fetch(url, {
     headers: {
       'x-apisports-key': apiKey,
       Accept: 'application/json'
     }
-  });
-  const data = await response.json();
+  }));
+  const data = await withTimeout(response.json(), 2500);
   if (!response.ok) throw new Error(data?.message || `API request failed: ${endpoint}`);
   return data;
 };
+
+const safeData = (result, fallback = { response: [] }) => (
+  result.status === 'fulfilled' ? result.value : fallback
+);
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -42,12 +58,21 @@ export default async function handler(req, res) {
   }
 
   try {
-    const [lineups, events, statistics] = await Promise.all([
+    const [fixture, lineups, events, statistics, players] = await Promise.allSettled([
+      fetchApi('fixtures', { id: fixtureId }, apiKey),
       fetchApi('fixtures/lineups', { fixture: fixtureId }, apiKey),
       fetchApi('fixtures/events', { fixture: fixtureId }, apiKey),
-      fetchApi('fixtures/statistics', { fixture: fixtureId }, apiKey)
+      fetchApi('fixtures/statistics', { fixture: fixtureId }, apiKey),
+      fetchApi('fixtures/players', { fixture: fixtureId }, apiKey)
     ]);
-    const data = { lineups, events, statistics, updatedAt: new Date().toISOString() };
+    const data = {
+      fixture: safeData(fixture),
+      lineups: safeData(lineups),
+      events: safeData(events),
+      statistics: safeData(statistics),
+      players: safeData(players),
+      updatedAt: new Date().toISOString()
+    };
     detailCache.set(fixtureId, { data, expiresAt: Date.now() + 5 * 60 * 1000 });
     res.setHeader('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=300');
     return res.status(200).json(data);
