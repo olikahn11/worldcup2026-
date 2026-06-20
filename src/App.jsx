@@ -271,8 +271,26 @@ const getDailyPredictionWindow = (now = new Date()) => {
   };
 };
 
+const getLatestManualAnalysisWindow = () => {
+  const latestTimestamp = Object.entries(groupStageSchedule)
+    .filter(([matchName]) => manualMatchAnalysis[matchName])
+    .map(([, timeStr]) => parseScheduleTimeToMs(timeStr))
+    .filter(Number.isFinite)
+    .reduce((latest, timestamp) => Math.max(latest, timestamp), Number.NEGATIVE_INFINITY);
+
+  if (!Number.isFinite(latestTimestamp)) return null;
+  return getDailyPredictionWindow(new Date(latestTimestamp));
+};
+
+const getActivePredictionWindow = (now = new Date()) => {
+  const currentWindow = getDailyPredictionWindow(now);
+  const latestManualWindow = getLatestManualAnalysisWindow();
+  if (latestManualWindow && latestManualWindow.startMs > currentWindow.startMs) return latestManualWindow;
+  return currentWindow;
+};
+
 const getDailyWindowLabel = (now = new Date()) => {
-  const { startMs, endMs } = getDailyPredictionWindow(now);
+  const { startMs, endMs } = getActivePredictionWindow(now);
   const formatter = new Intl.DateTimeFormat('zh-CN', {
     timeZone: 'Asia/Shanghai',
     month: 'numeric',
@@ -319,7 +337,7 @@ const getSchedulePredictionMatches = (startMs, endMs) => (
 );
 
 const getFallbackPredictionMatches = () => {
-  const { startMs, endMs } = getDailyPredictionWindow();
+  const { startMs, endMs } = getActivePredictionWindow();
   return getSchedulePredictionMatches(startMs, endMs);
 };
 
@@ -339,7 +357,7 @@ const toPredictionMatch = (fixture, index) => {
 };
 
 const getTodayPredictionMatches = (fixturesPayload) => {
-  const { startMs, endMs } = getDailyPredictionWindow();
+  const { startMs, endMs } = getActivePredictionWindow();
   const localRows = getSchedulePredictionMatches(startMs, endMs);
   const rows = fixturesPayload?.response || [];
   if (!Array.isArray(rows) || rows.length === 0) return localRows;
