@@ -1448,7 +1448,6 @@ function DailyPredictionsView() {
             </div>
             <h2 className="mt-3 text-2xl sm:text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 to-emerald-300 tracking-wider">世界杯每日预测</h2>
             <p className="mt-2 text-xs sm:text-sm text-[#94a3b8]">每天下午2点更新分析；当前可选比赛范围：北京时间 {windowLabel}。</p>
-            <SiteWatermark className="mt-3 text-[11px] sm:text-sm" />
           </div>
 
           <div className="mb-3 flex items-center justify-between">
@@ -1748,6 +1747,8 @@ function FormationPitch({ recentLineup }) {
 function RulesView({ groups, knockouts, getTeamFromSlot, defaultTab = 'rules', locked = false }) {
   const [subTab, setSubTab] = useState(defaultTab);
   const [heroState, setHeroState] = useState({ status: 'IDLE', data: null, error: '' });
+  const [expandedScheduleDates, setExpandedScheduleDates] = useState({});
+  const [scheduleNowMs] = useState(() => Date.now());
   const heroRequestStartedRef = useRef(false);
   useEffect(() => {
     if (locked) setSubTab(defaultTab);
@@ -1790,10 +1791,11 @@ function RulesView({ groups, knockouts, getTeamFromSlot, defaultTab = 'rules', l
     const allGroupMatches = []; Object.keys(groups).forEach(g => { groups[g].matches.forEach(m => { allGroupMatches.push({ ...m, groupName: g }); }); });
     const allKnockoutMatches = ['r32', 'r16', 'qf', 'sf', 'third', 'final'].flatMap(round => (knockouts[round] || []).map(m => ({ ...m, home: getTeamFromSlot(m.homeStr), away: getTeamFromSlot(m.awayStr) })));
     
-    const all104 = [...allGroupMatches, ...allKnockoutMatches].sort((a,b) => {
-        const timeA = a.timeStr || '时间待定 00:00';
-        const timeB = b.timeStr || '时间待定 00:00';
-        return timeA.localeCompare(timeB);
+    const all104 = [...allGroupMatches, ...allKnockoutMatches].sort((a, b) => {
+        const timeA = parseScheduleTimeToMs(a.timeStr);
+        const timeB = parseScheduleTimeToMs(b.timeStr);
+        if (Number.isFinite(timeA) && Number.isFinite(timeB)) return timeA - timeB;
+        return String(a.timeStr || '时间待定 00:00').localeCompare(String(b.timeStr || '时间待定 00:00'));
     });
     
     const grouped = {};
@@ -1803,8 +1805,32 @@ function RulesView({ groups, knockouts, getTeamFromSlot, defaultTab = 'rules', l
         if (!grouped[date]) grouped[date] = [];
         grouped[date].push(m);
     });
-    return grouped;
-  }, [groups, knockouts, getTeamFromSlot]);
+    return Object.entries(grouped)
+      .map(([date, matches]) => {
+        const isMatchFinishedForSchedule = (match) => {
+          const matchMs = parseScheduleTimeToMs(match.timeStr);
+          return match.status === 'FINISHED' || (Number.isFinite(matchMs) && matchMs < scheduleNowMs - 150 * 60 * 1000);
+        };
+        const allFinished = matches.length > 0 && matches.every(isMatchFinishedForSchedule);
+        const nextTime = Math.min(...matches
+          .filter(match => !isMatchFinishedForSchedule(match))
+          .map(match => parseScheduleTimeToMs(match.timeStr))
+          .filter(Number.isFinite));
+        const firstTime = Math.min(...matches
+          .map(match => parseScheduleTimeToMs(match.timeStr))
+          .filter(Number.isFinite));
+        return {
+          date,
+          matches,
+          allFinished,
+          sortTime: Number.isFinite(nextTime) ? nextTime : (Number.isFinite(firstTime) ? firstTime : Number.MAX_SAFE_INTEGER)
+        };
+      })
+      .sort((a, b) => {
+        if (a.allFinished !== b.allFinished) return a.allFinished ? 1 : -1;
+        return a.sortTime - b.sortTime;
+      });
+  }, [groups, knockouts, getTeamFromSlot, scheduleNowMs]);
 
   return (
 	    <div className="h-full flex flex-col bg-slate-950 relative overflow-hidden">
@@ -1868,11 +1894,22 @@ function RulesView({ groups, knockouts, getTeamFromSlot, defaultTab = 'rules', l
 	            <div className="bg-slate-900/50 border border-slate-800 rounded-2xl p-3 sm:p-8 shadow-2xl relative">
               <h2 className="text-xl sm:text-3xl font-black text-blue-400 mb-8 text-center tracking-wider">2026 世界杯 104场 赛程时间轴一览</h2>
               <div className="space-y-6">
-                {Object.keys(grouped104).map((date, idx) => (
+                {grouped104.map(({ date, matches, allFinished }, idx) => {
+                  const isExpanded = !allFinished || expandedScheduleDates[date];
+                  return (
                    <div key={`all-${date}`} className={`p-4 rounded-xl border border-slate-800/60 ${idx % 2 === 0 ? 'bg-slate-900/80' : 'bg-slate-800/40'}`}>
-                      <h4 className="text-emerald-400 font-bold mb-4 flex items-center text-sm sm:text-base border-b border-slate-700/50 pb-2"><CalendarDays className="w-4 h-4 mr-2" /> {date}</h4>
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                         {grouped104[date].map(m => {
+                      <button
+                        type="button"
+                        onClick={() => allFinished && setExpandedScheduleDates(current => ({ ...current, [date]: !current[date] }))}
+                        className={`w-full text-left text-emerald-400 font-bold flex items-center justify-between text-sm sm:text-base ${isExpanded ? 'mb-4 border-b border-slate-700/50 pb-2' : ''} ${allFinished ? 'cursor-pointer hover:text-cyan-300 transition-colors' : 'cursor-default'}`}
+                      >
+                        <span className="flex items-center"><CalendarDays className="w-4 h-4 mr-2" /> {date}</span>
+                        <span className={`text-[10px] rounded-full border px-2 py-0.5 ${allFinished ? 'border-slate-700 text-slate-400 bg-slate-950/60' : 'border-cyan-500/30 text-cyan-300 bg-cyan-500/10'}`}>
+                          {allFinished ? (isExpanded ? '收起' : `已结束 · ${matches.length}场`) : '即将/进行中'}
+                        </span>
+                      </button>
+                      {isExpanded && <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                         {matches.map(m => {
                             const dateStr = m.timeStr || '时间待定 00:00';
                             const timePart = dateStr.includes(' ') ? dateStr.split(' ')[1] : '00:00';
                             return (
@@ -1882,9 +1919,9 @@ function RulesView({ groups, knockouts, getTeamFromSlot, defaultTab = 'rules', l
                                <div className="flex items-center space-x-1.5 w-[42%] justify-start"><TeamFlag flag={m.away?.flag} sizeClass="w-4 h-4" /><span className={`truncate leading-tight ${m.away?.isPlaceholder ? 'text-slate-500' : 'text-slate-200 font-bold'}`}>{m.away?.name || m.awayStr}</span></div>
                             </div>
                          )})}
-                      </div>
+                      </div>}
                    </div>
-                ))}
+                )})}
 	              </div>
 	            </div>
 	          ) : (
@@ -1894,7 +1931,7 @@ function RulesView({ groups, knockouts, getTeamFromSlot, defaultTab = 'rules', l
 	              {heroState.status === 'LOADING' && <div className="py-10 text-center text-sm text-slate-400"><RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2 text-cyan-400" />正在加载英雄榜...</div>}
 	              {heroState.status === 'ERROR' && <div className="py-10 text-center text-sm text-yellow-400">{heroState.error}</div>}
 	              {heroState.status === 'SUCCESS' && (
-	                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+	                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
 	                  <HeroBoardCard title="射手榜" rows={heroState.data?.boards?.scorers} unit=" 球" />
 	                  <HeroBoardCard title="助攻榜" rows={heroState.data?.boards?.assists} unit=" 次" />
 	                  <HeroBoardCard title="抢断榜" rows={heroState.data?.boards?.tackles} unit=" 次" />
@@ -2683,7 +2720,8 @@ export default function App() {
 
       <MatchDetailDrawer match={selectedMatch} onClose={handleCloseMatch} onTeamClick={handleOpenTeam} isTop={lastOpened === 'match'} />
       <TeamDetailDrawer team={selectedTeam} teamMatches={selectedTeamMatches} onClose={handleCloseTeam} isTop={lastOpened === 'team'} />
-      <SiteWatermark className="fixed bottom-[max(8px,env(safe-area-inset-bottom))] left-0 right-0 z-[260] px-4" />
+      <SiteWatermark className="fixed top-[48%] left-0 right-0 z-[255] px-4 text-[9px] sm:text-[11px] opacity-30 drop-shadow-none" />
+      <SiteWatermark className="fixed bottom-[max(8px,env(safe-area-inset-bottom))] left-0 right-0 z-[260] px-4 opacity-100 text-cyan-200 drop-shadow-[0_0_14px_rgba(34,211,238,0.8)]" />
     </div>
   );
 }
