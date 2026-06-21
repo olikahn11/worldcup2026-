@@ -76,6 +76,8 @@ const groupStageSchedule = {
   "巴拿马 vs 英格兰": "6月28日 05:00", "克罗地亚 vs 加纳": "6月28日 05:00", "哥伦比亚 vs 葡萄牙": "6月28日 07:30", "刚果(金) vs 乌兹别克斯坦": "6月28日 07:30", "约旦 vs 阿根廷": "6月28日 10:00", "阿尔及利亚 vs 奥地利": "6月28日 10:00"
 };
 
+// 每日预测维护边界：
+// 只在这里更新每天的分析文案、概率、比分和推荐方向；不要改下面 DailyPredictionSection 的列表结构和样式。
 const manualMatchAnalysis = {
   '瑞士 vs 波黑': {
     conclusion: '倾向瑞士不败，参考比分 2-1。',
@@ -1661,18 +1663,19 @@ function DailyPredictionsView() {
               const isSelected = selectedIds.includes(match.id);
               const hasAnalysis = !!getAnalysisForMatch(match);
               return (
+                // 固定版式：外层四列为 checkbox / 时间 / 对阵 / 推荐；对阵列内部三列保持主队、vs、客队等距居中。
                 <label key={match.id} className={`grid grid-cols-[28px_50px_minmax(0,1fr)_72px] sm:grid-cols-[32px_70px_minmax(0,1fr)_104px] items-center gap-2 px-3 py-2.5 border-b border-[#1f2a44] last:border-b-0 bg-[#111827] hover:bg-[#0b1020] hover:shadow-[0_0_18px_rgba(34,211,238,0.12)] transition-all duration-200 ${isSelected ? 'shadow-[inset_3px_0_0_#22d3ee]' : ''}`}>
                   <input type="checkbox" checked={isSelected} onChange={(event) => toggleSelected(event, match.id)} className="h-4 w-4 accent-cyan-400" />
                   <span className="text-[10px] sm:text-xs text-[#94a3b8] font-mono">{match.time}</span>
-                  <span className="min-w-0 grid grid-cols-[minmax(0,1fr)_24px_minmax(0,1fr)] items-center gap-1.5 text-xs sm:text-sm font-black text-[#e5e7eb]">
-                    <span className="min-w-0 flex items-center gap-1.5">
+                  <span className="min-w-0 grid grid-cols-[minmax(0,1fr)_32px_minmax(0,1fr)] sm:grid-cols-[minmax(0,1fr)_40px_minmax(0,1fr)] items-center gap-1.5 text-xs sm:text-sm font-black text-[#e5e7eb]">
+                    <span className="min-w-0 flex items-center justify-end gap-1.5">
                       <TeamFlag flag={match.homeTeam.flag} sizeClass="w-4 h-4 sm:w-5 sm:h-5 shrink-0" />
-                      <span className="truncate">{match.homeTeam.name || '未知球队'}</span>
+                      <span className="truncate text-right">{match.homeTeam.name || '未知球队'}</span>
                     </span>
                     <span className="text-center text-[#22d3ee] font-black">vs</span>
-                    <span className="min-w-0 flex items-center gap-1.5">
+                    <span className="min-w-0 flex items-center justify-start gap-1.5">
                       <TeamFlag flag={match.awayTeam.flag} sizeClass="w-4 h-4 sm:w-5 sm:h-5 shrink-0" />
-                      <span className="truncate">{match.awayTeam.name || '未知球队'}</span>
+                      <span className="truncate text-left">{match.awayTeam.name || '未知球队'}</span>
                     </span>
                   </span>
                   <span className={`justify-self-end rounded-lg border px-2 py-1 text-[10px] sm:text-xs font-black shadow-[0_0_12px_rgba(34,211,238,0.12)] ${hasAnalysis ? 'border-[#22d3ee]/40 bg-[#22d3ee]/10 text-[#22d3ee]' : 'border-[#1f2a44] bg-[#0b1020] text-[#94a3b8]'}`}>{getPredictionAdvice(getAnalysisForMatch(match))}</span>

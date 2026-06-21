@@ -1,16 +1,15 @@
-# React + Vite
+# worldcup2026
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+世界杯预测网站。每日预测模块版式已经固定，日常只更新比赛分析数据。
 
-Currently, two official plugins are available:
+## 每日预测更新规则
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+每天写好的预测文案只改 `src/App.jsx` 里的 `manualMatchAnalysis` 数据：
 
-## React Compiler
+- 按 `主队 vs 客队` 增加或替换当天比赛分析。
+- 可以更新 `conclusion`、`logic`、`evidence`、`news`、`probabilities`、`risk`、`final`。
+- 不改 `DailyPredictionSection` 的 HTML 结构、Tailwind 样式、按钮、对齐方式和展开区模板。
+- 列表右侧显示的是 `final.recommendation` 的第一个方向，例如 `西班牙胜`、`摩洛哥不败`。
+- 每天下午 2 点为更新周期起点，页面自动展示北京时间 14:00 到次日 13:59 的比赛。
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+固定展示格式：checkbox / 时间 / 主队 vs 客队 / 推荐方向。`vs` 必须保持在对阵列正中，两边球队距离一致。
