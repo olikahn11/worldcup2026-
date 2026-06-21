@@ -397,6 +397,74 @@ const getExactMatchTime = (t1, t2) => {
   return groupStageSchedule[`${t1.name} vs ${t2.name}`] || groupStageSchedule[`${t2.name} vs ${t1.name}`] || '时间待定 00:00';
 };
 
+const hasTournamentProgress = (groups) => (
+  Object.values(groups || {}).some(group => (
+    (group.teams || []).some(team => Number(team.played || 0) > 0 || Number(team.pts || 0) > 0 || Number(team.gf || 0) > 0 || Number(team.ga || 0) > 0) ||
+    (group.matches || []).some(match => match.status === 'FINISHED' || match.status === 'LIVE' || match.homeScore != null || match.awayScore != null)
+  ))
+);
+
+const readCachedTournament = () => {
+  try {
+    const cached = window.localStorage.getItem('wc2026-live-tournament');
+    if (!cached) return null;
+    const parsed = JSON.parse(cached);
+    if (!parsed?.groups || !hasTournamentProgress(parsed.groups)) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+};
+
+const writeCachedTournament = (tournament) => {
+  try {
+    if (tournament?.groups && hasTournamentProgress(tournament.groups)) {
+      window.localStorage.setItem('wc2026-live-tournament', JSON.stringify({
+        groups: tournament.groups,
+        knockoutFlat: tournament.knockoutFlat,
+        knockoutRounds: tournament.knockoutRounds,
+        savedAt: Date.now()
+      }));
+    }
+  } catch {
+    // localStorage can be unavailable in private browsing; the live view still works without it.
+  }
+};
+
+const isFastRefreshWindow = (date = new Date()) => {
+  const { hour } = getBeijingParts(date);
+  return hour >= 0 && hour < 14;
+};
+
+const VALID_TABS = new Set([
+  'daily_predictions',
+  'meeting',
+  'prediction',
+  'live_bracket',
+  'group_schedule',
+  'full_schedule',
+  'heroes',
+  'knockout_schedule',
+  'rules'
+]);
+
+const readSavedTab = () => {
+  try {
+    const saved = window.localStorage.getItem('wc2026-active-tab');
+    return VALID_TABS.has(saved) ? saved : 'daily_predictions';
+  } catch {
+    return 'daily_predictions';
+  }
+};
+
+const writeSavedTab = (tab) => {
+  try {
+    if (VALID_TABS.has(tab)) window.localStorage.setItem('wc2026-active-tab', tab);
+  } catch {
+    // Ignore storage errors; navigation still works for the current session.
+  }
+};
+
 const initialGroups = Object.keys(teamsData).reduce((acc, group) => {
   const teams = teamsData[group].map(t => ({ ...t, pts: 0, gd: 0, gf: 0, ga: 0, w: 0, d: 0, l: 0 }));
   const pairings = [[0, 1], [2, 3], [3, 1], [0, 2], [3, 0], [1, 2]];
@@ -1818,7 +1886,7 @@ function FormationPitch({ recentLineup }) {
   );
 }
 
-function RulesView({ groups, knockouts, getTeamFromSlot, defaultTab = 'rules', locked = false }) {
+function RulesView({ groups, knockouts, getTeamFromSlot, onMatchClick, onTeamClick, defaultTab = 'rules', locked = false }) {
   const [subTab, setSubTab] = useState(defaultTab);
   const [heroState, setHeroState] = useState({ status: 'IDLE', data: null, error: '' });
   const [expandedScheduleDates, setExpandedScheduleDates] = useState({});
@@ -1987,10 +2055,10 @@ function RulesView({ groups, knockouts, getTeamFromSlot, defaultTab = 'rules', l
                             const dateStr = m.timeStr || '时间待定 00:00';
                             const timePart = dateStr.includes(' ') ? dateStr.split(' ')[1] : '00:00';
                             return (
-                            <div key={`all-m-${m.id}`} className="bg-slate-950 border border-slate-800 rounded-lg p-2.5 flex justify-between items-center text-xs sm:text-sm">
-                               <div className="flex items-center space-x-1.5 w-[42%] justify-end"><span className={`truncate leading-tight ${m.home?.isPlaceholder ? 'text-slate-500' : 'text-slate-200 font-bold'}`}>{m.home?.name || m.homeStr}</span><TeamFlag flag={m.home?.flag} sizeClass="w-4 h-4" /></div>
+                            <div key={`all-m-${m.id}`} onClick={() => onMatchClick && onMatchClick({ ...m, homeTeam: m.home, awayTeam: m.away })} className="bg-slate-950 border border-slate-800 rounded-lg p-2.5 flex justify-between items-center text-xs sm:text-sm cursor-pointer hover:border-cyan-500/50 hover:bg-slate-900 transition-all">
+                               <div onClick={(event) => { event.stopPropagation(); if (m.home && !m.home.isPlaceholder && onTeamClick) onTeamClick(m.home); }} className="flex items-center space-x-1.5 w-[42%] justify-end hover:scale-105 transition-transform"><span className={`truncate leading-tight ${m.home?.isPlaceholder ? 'text-slate-500' : 'text-slate-200 font-bold'}`}>{m.home?.name || m.homeStr}</span><TeamFlag flag={m.home?.flag} sizeClass="w-4 h-4" /></div>
                                <div className="flex flex-col items-center w-[16%]"><span className="text-[9px] font-mono text-slate-500 mb-0.5 leading-tight">{timePart}</span><span className={`text-[10px] font-black bg-slate-900 px-1 rounded ${m.status === 'LIVE' ? 'text-emerald-400' : 'text-slate-500'}`}>{m.status === 'FINISHED' || m.status === 'LIVE' ? `${m.homeScore}-${m.awayScore}` : 'VS'}</span></div>
-                               <div className="flex items-center space-x-1.5 w-[42%] justify-start"><TeamFlag flag={m.away?.flag} sizeClass="w-4 h-4" /><span className={`truncate leading-tight ${m.away?.isPlaceholder ? 'text-slate-500' : 'text-slate-200 font-bold'}`}>{m.away?.name || m.awayStr}</span></div>
+                               <div onClick={(event) => { event.stopPropagation(); if (m.away && !m.away.isPlaceholder && onTeamClick) onTeamClick(m.away); }} className="flex items-center space-x-1.5 w-[42%] justify-start hover:scale-105 transition-transform"><TeamFlag flag={m.away?.flag} sizeClass="w-4 h-4" /><span className={`truncate leading-tight ${m.away?.isPlaceholder ? 'text-slate-500' : 'text-slate-200 font-bold'}`}>{m.away?.name || m.awayStr}</span></div>
                             </div>
                          )})}
                       </div>}
@@ -2624,12 +2692,14 @@ function TeamDetailDrawer({ team, teamMatches = [], onClose, isTop }) {
 export default function App() {
   useEffect(() => { setupViewport(); }, []);
 
-  const [activeTab, setActiveTab] = useState('meeting'); 
-  const activeTabRef = useRef('meeting');
+  const [activeTab, setActiveTab] = useState(() => readSavedTab()); 
+  const activeTabRef = useRef(activeTab);
   const [, setTabHistory] = useState([]);
-  const [groups, setGroups] = useState(initialGroups);
-  const [knockoutFlat, setKnockoutFlat] = useState(officialKnockoutRoundsFlat);
-  const [knockoutRounds, setKnockoutRounds] = useState(officialKnockoutRounds);
+  const [initialTournament] = useState(() => readCachedTournament());
+  const [groups, setGroups] = useState(initialTournament?.groups || initialGroups);
+  const groupsRef = useRef(initialTournament?.groups || initialGroups);
+  const [knockoutFlat, setKnockoutFlat] = useState(initialTournament?.knockoutFlat || officialKnockoutRoundsFlat);
+  const [knockoutRounds, setKnockoutRounds] = useState(initialTournament?.knockoutRounds || officialKnockoutRounds);
   const [selectedMatch, setSelectedMatch] = useState(null); 
   const [selectedTeam, setSelectedTeam] = useState(null); 
   const [lastOpened, setLastOpened] = useState(null); 
@@ -2637,8 +2707,12 @@ export default function App() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   useEffect(() => {
     activeTabRef.current = activeTab;
+    writeSavedTab(activeTab);
     setIsFullscreen(false);
   }, [activeTab]);
+  useEffect(() => {
+    groupsRef.current = groups;
+  }, [groups]);
 
   const [apiStatus, setApiStatus] = useState('LOCAL'); 
   const [apiErrorMsg, setApiErrorMsg] = useState('赛程加载中...');
@@ -2656,9 +2730,17 @@ export default function App() {
         if (cancelled) return;
 
         const tournament = buildLiveTournament(data.fixtures, data.standings);
+        const currentHasProgress = hasTournamentProgress(groupsRef.current);
+        const nextHasProgress = hasTournamentProgress(tournament.groups);
+        if (currentHasProgress && !nextHasProgress) {
+          setApiStatus('SUCCESS');
+          setApiErrorMsg('显示最近赛程');
+          return;
+        }
         setGroups(tournament.groups);
         setKnockoutFlat(tournament.knockoutFlat);
         setKnockoutRounds(tournament.knockoutRounds);
+        writeCachedTournament(tournament);
         setApiStatus('SUCCESS');
         setApiErrorMsg(data.stale ? '显示最近赛程' : '赛程已更新');
       } catch {
@@ -2669,7 +2751,7 @@ export default function App() {
     };
 
     fetchRealData();
-    timerId = window.setInterval(fetchRealData, 60_000);
+    timerId = window.setInterval(fetchRealData, isFastRefreshWindow() ? 30_000 : 5 * 60_000);
     const handleVisibility = () => { if (!document.hidden) fetchRealData(); };
     document.addEventListener('visibilitychange', handleVisibility);
 
@@ -2786,10 +2868,10 @@ export default function App() {
         <div className={activeTab === 'meeting' ? 'h-full' : 'hidden'}><TeamMeetingPredictor groups={groups} isFullscreen={isFullscreen} setIsFullscreen={setIsFullscreen} /></div>
         <div className={activeTab === 'live_bracket' ? 'h-full' : 'hidden'}><SafeSectionBoundary><LiveBracketView knockouts={projectedKnockoutFlat} getTeamFromSlot={getTeamFromSlot} onMatchClick={handleOpenMatch} onTeamClick={handleOpenTeam} onExitHome={navigateBack} isFullscreen={isFullscreen} setIsFullscreen={setIsFullscreen} /></SafeSectionBoundary></div>
         <div className={activeTab === 'group_schedule' ? 'h-full' : 'hidden'}><SafeSectionBoundary><GroupScheduleView groups={groups} onMatchClick={handleOpenMatch} onTeamClick={handleOpenTeam} /></SafeSectionBoundary></div>
-        <div className={activeTab === 'full_schedule' ? 'h-full' : 'hidden'}><SafeSectionBoundary><RulesView key="full-schedule" groups={groups} knockouts={projectedKnockoutRounds} getTeamFromSlot={getTeamFromSlot} defaultTab="schedule" locked /></SafeSectionBoundary></div>
-        <div className={activeTab === 'heroes' ? 'h-full' : 'hidden'}><SafeSectionBoundary><RulesView key="heroes" groups={groups} knockouts={projectedKnockoutRounds} getTeamFromSlot={getTeamFromSlot} defaultTab="heroes" locked /></SafeSectionBoundary></div>
+        <div className={activeTab === 'full_schedule' ? 'h-full' : 'hidden'}><SafeSectionBoundary><RulesView key="full-schedule" groups={groups} knockouts={projectedKnockoutRounds} getTeamFromSlot={getTeamFromSlot} onMatchClick={handleOpenMatch} onTeamClick={handleOpenTeam} defaultTab="schedule" locked /></SafeSectionBoundary></div>
+        <div className={activeTab === 'heroes' ? 'h-full' : 'hidden'}><SafeSectionBoundary><RulesView key="heroes" groups={groups} knockouts={projectedKnockoutRounds} getTeamFromSlot={getTeamFromSlot} onMatchClick={handleOpenMatch} onTeamClick={handleOpenTeam} defaultTab="heroes" locked /></SafeSectionBoundary></div>
         <div className={activeTab === 'knockout_schedule' ? 'h-full' : 'hidden'}><SafeSectionBoundary><KnockoutScheduleView knockouts={projectedKnockoutFlat} getTeamFromSlot={getTeamFromSlot} onMatchClick={handleOpenMatch} onTeamClick={handleOpenTeam} /></SafeSectionBoundary></div>
-        <div className={activeTab === 'rules' ? 'h-full' : 'hidden'}><SafeSectionBoundary><RulesView key="rules" groups={groups} knockouts={projectedKnockoutRounds} getTeamFromSlot={getTeamFromSlot} defaultTab="rules" locked /></SafeSectionBoundary></div>
+        <div className={activeTab === 'rules' ? 'h-full' : 'hidden'}><SafeSectionBoundary><RulesView key="rules" groups={groups} knockouts={projectedKnockoutRounds} getTeamFromSlot={getTeamFromSlot} onMatchClick={handleOpenMatch} onTeamClick={handleOpenTeam} defaultTab="rules" locked /></SafeSectionBoundary></div>
       </div>
 
       <MatchDetailDrawer match={selectedMatch} onClose={handleCloseMatch} onTeamClick={handleOpenTeam} isTop={lastOpened === 'match'} />

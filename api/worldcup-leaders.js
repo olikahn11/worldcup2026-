@@ -5,6 +5,17 @@ const leadersCache = globalThis.__worldCupLeadersCache || { data: null, expiresA
 
 globalThis.__worldCupLeadersCache = leadersCache;
 
+const getBeijingHour = () => Number(new Intl.DateTimeFormat('en-US', {
+  timeZone: 'Asia/Shanghai',
+  hour: '2-digit',
+  hourCycle: 'h23'
+}).format(new Date()));
+
+const getCacheSeconds = () => {
+  const hour = getBeijingHour();
+  return hour >= 0 && hour < 14 ? 60 : 300;
+};
+
 const withTimeout = async (promise, ms = 6500) => {
   let timerId;
   const timeout = new Promise((_, reject) => {
@@ -76,13 +87,14 @@ export default async function handler(req, res) {
   }
 
   const apiKey = process.env.API_FOOTBALL_KEY;
+  const cacheSeconds = getCacheSeconds();
   if (!apiKey) {
     if (leadersCache.data) return res.status(200).json({ ...leadersCache.data, stale: true });
     return res.status(500).json({ error: '英雄榜暂时无法加载' });
   }
 
   if (leadersCache.data && leadersCache.expiresAt > Date.now()) {
-    res.setHeader('Cache-Control', 'public, s-maxage=600, stale-while-revalidate=600');
+    res.setHeader('Cache-Control', `public, s-maxage=${cacheSeconds}, stale-while-revalidate=600`);
     return res.status(200).json(leadersCache.data);
   }
 
@@ -119,8 +131,8 @@ export default async function handler(req, res) {
     };
 
     leadersCache.data = data;
-    leadersCache.expiresAt = Date.now() + 10 * 60 * 1000;
-    res.setHeader('Cache-Control', 'public, s-maxage=600, stale-while-revalidate=600');
+    leadersCache.expiresAt = Date.now() + cacheSeconds * 1000;
+    res.setHeader('Cache-Control', `public, s-maxage=${cacheSeconds}, stale-while-revalidate=600`);
     return res.status(200).json(data);
   } catch (error) {
     console.error('世界杯英雄榜加载失败:', error);

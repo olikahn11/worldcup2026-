@@ -5,6 +5,17 @@ const cache = globalThis.__worldCupLiveCache || { data: null, expiresAt: 0 };
 
 globalThis.__worldCupLiveCache = cache;
 
+const getBeijingHour = () => Number(new Intl.DateTimeFormat('en-US', {
+  timeZone: 'Asia/Shanghai',
+  hour: '2-digit',
+  hourCycle: 'h23'
+}).format(new Date()));
+
+const getCacheSeconds = () => {
+  const hour = getBeijingHour();
+  return hour >= 0 && hour < 14 ? 20 : 180;
+};
+
 const fetchApi = async (endpoint, params, apiKey) => {
   const url = new URL(`${API_BASE}/${endpoint}`);
   Object.entries(params).forEach(([key, value]) => url.searchParams.set(key, value));
@@ -37,13 +48,14 @@ export default async function handler(req, res) {
   }
 
   const apiKey = process.env.API_FOOTBALL_KEY;
+  const cacheSeconds = getCacheSeconds();
   if (!apiKey) {
     if (cache.data) return res.status(200).json({ ...cache.data, stale: true });
     return res.status(500).json({ error: '赛程暂时无法加载' });
   }
 
   if (cache.data && cache.expiresAt > Date.now()) {
-    res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=120');
+    res.setHeader('Cache-Control', `public, s-maxage=${cacheSeconds}, stale-while-revalidate=120`);
     return res.status(200).json(cache.data);
   }
 
@@ -59,8 +71,8 @@ export default async function handler(req, res) {
       stale: false
     };
     cache.data = payload;
-    cache.expiresAt = Date.now() + 60 * 1000;
-    res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=120');
+    cache.expiresAt = Date.now() + cacheSeconds * 1000;
+    res.setHeader('Cache-Control', `public, s-maxage=${cacheSeconds}, stale-while-revalidate=120`);
     return res.status(200).json(payload);
   } catch (error) {
     console.error('世界杯赛程加载失败:', error);
