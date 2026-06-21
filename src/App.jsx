@@ -1661,15 +1661,19 @@ function DailyPredictionsView() {
               const isSelected = selectedIds.includes(match.id);
               const hasAnalysis = !!getAnalysisForMatch(match);
               return (
-                <label key={match.id} className={`grid grid-cols-[28px_52px_1fr_82px] sm:grid-cols-[32px_70px_1fr_104px] items-center gap-2 px-3 py-2.5 border-b border-[#1f2a44] last:border-b-0 bg-[#111827] hover:bg-[#0b1020] hover:shadow-[0_0_18px_rgba(34,211,238,0.12)] transition-all duration-200 ${isSelected ? 'shadow-[inset_3px_0_0_#22d3ee]' : ''}`}>
+                <label key={match.id} className={`grid grid-cols-[28px_50px_minmax(0,1fr)_72px] sm:grid-cols-[32px_70px_minmax(0,1fr)_104px] items-center gap-2 px-3 py-2.5 border-b border-[#1f2a44] last:border-b-0 bg-[#111827] hover:bg-[#0b1020] hover:shadow-[0_0_18px_rgba(34,211,238,0.12)] transition-all duration-200 ${isSelected ? 'shadow-[inset_3px_0_0_#22d3ee]' : ''}`}>
                   <input type="checkbox" checked={isSelected} onChange={(event) => toggleSelected(event, match.id)} className="h-4 w-4 accent-cyan-400" />
                   <span className="text-[10px] sm:text-xs text-[#94a3b8] font-mono">{match.time}</span>
-                  <span className="min-w-0 flex items-center justify-center gap-1.5 text-xs sm:text-sm font-black text-[#e5e7eb]">
-                    <TeamFlag flag={match.homeTeam.flag} sizeClass="w-4 h-4 sm:w-5 sm:h-5 shrink-0" />
-                    <span className="truncate">{match.homeTeam.name || '未知球队'}</span>
-                    <span className="text-[#22d3ee] font-black">vs</span>
-                    <span className="truncate">{match.awayTeam.name || '未知球队'}</span>
-                    <TeamFlag flag={match.awayTeam.flag} sizeClass="w-4 h-4 sm:w-5 sm:h-5 shrink-0" />
+                  <span className="min-w-0 grid grid-cols-[minmax(0,1fr)_24px_minmax(0,1fr)] items-center gap-1.5 text-xs sm:text-sm font-black text-[#e5e7eb]">
+                    <span className="min-w-0 flex items-center gap-1.5">
+                      <TeamFlag flag={match.homeTeam.flag} sizeClass="w-4 h-4 sm:w-5 sm:h-5 shrink-0" />
+                      <span className="truncate">{match.homeTeam.name || '未知球队'}</span>
+                    </span>
+                    <span className="text-center text-[#22d3ee] font-black">vs</span>
+                    <span className="min-w-0 flex items-center gap-1.5">
+                      <TeamFlag flag={match.awayTeam.flag} sizeClass="w-4 h-4 sm:w-5 sm:h-5 shrink-0" />
+                      <span className="truncate">{match.awayTeam.name || '未知球队'}</span>
+                    </span>
                   </span>
                   <span className={`justify-self-end rounded-lg border px-2 py-1 text-[10px] sm:text-xs font-black shadow-[0_0_12px_rgba(34,211,238,0.12)] ${hasAnalysis ? 'border-[#22d3ee]/40 bg-[#22d3ee]/10 text-[#22d3ee]' : 'border-[#1f2a44] bg-[#0b1020] text-[#94a3b8]'}`}>{getPredictionAdvice(getAnalysisForMatch(match))}</span>
                 </label>
