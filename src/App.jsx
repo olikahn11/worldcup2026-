@@ -1732,7 +1732,7 @@ function DailyPredictionsView() {
         <div className="max-w-4xl mx-auto w-full px-3 sm:px-5 py-5 sm:py-8">
           <div className="mb-5 text-center">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-400/30 text-cyan-300 text-[10px] font-black tracking-[0.18em] shadow-[0_0_18px_rgba(34,211,238,0.14)]">
-              <Sparkles className="w-3.5 h-3.5" /> 每日更新
+              <Sparkles className="w-3.5 h-3.5" /> 赛前观点
             </div>
             <h2 className="mt-3 text-2xl sm:text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 to-emerald-300 tracking-wider">世界杯每日预测</h2>
             <p className="mt-2 text-xs sm:text-sm text-[#94a3b8]">每天下午2点更新分析；当前可选比赛范围：北京时间 {windowLabel}。</p>
@@ -1777,7 +1777,7 @@ function DailyPredictionsView() {
             <div className="mt-4 rounded-[18px] border border-cyan-400/25 bg-cyan-500/5 px-4 py-3 shadow-[0_0_18px_rgba(34,211,238,0.08)]">
               <div className="mb-2 flex items-center gap-2 text-xs font-black text-cyan-300">
                 <Sparkles className="w-3.5 h-3.5" />
-                今日四场一句话
+                今日简评
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 {dailySummaryItems.map(item => (
@@ -1793,12 +1793,12 @@ function DailyPredictionsView() {
             <h3 className="mb-3 text-sm sm:text-base font-black text-[#e5e7eb]">操作区</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               <button type="button" onClick={analyzeSelected} className="wc-cyan-button w-full py-2.5 text-sm font-black">分析选中比赛</button>
-              <button type="button" onClick={analyzeAll} className="wc-cyan-button w-full py-2.5 text-sm font-black">一键分析本周期全部比赛</button>
+              <button type="button" onClick={analyzeAll} className="wc-cyan-button w-full py-2.5 text-sm font-black">展开全部比赛</button>
             </div>
           </div>
 
           <div ref={resultsRef} className="mt-5">
-            <h3 className="mb-3 text-sm sm:text-base font-black text-[#e5e7eb]">分析展示区</h3>
+            <h3 className="mb-3 text-sm sm:text-base font-black text-[#e5e7eb]">比赛解读</h3>
             {message && (
               <div className="rounded-[18px] border border-[#1f2a44] bg-[#111827] p-5 text-center text-sm font-bold text-[#94a3b8]">{message}</div>
             )}
@@ -1826,16 +1826,16 @@ function DailyPredictionsView() {
                         {analysis.essence ? (
                           <div className="space-y-3">
                             <div className="rounded-xl border border-[#1f2a44] bg-[#050816] p-3">
-                              <div className="text-xs font-black text-[#22d3ee] mb-2">比赛本质判断</div>
+                              <div className="text-xs font-black text-[#22d3ee] mb-2">比赛底色</div>
                               <p className="text-xs sm:text-sm leading-relaxed text-[#e5e7eb]">{analysis.essence}</p>
                             </div>
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                               <div className="rounded-xl border border-[#22d3ee]/35 bg-[#22d3ee]/10 p-3">
-                                <div className="text-xs font-black text-[#22d3ee] mb-1">明确倾向</div>
+                                <div className="text-xs font-black text-[#22d3ee] mb-1">方向</div>
                                 <div className="text-lg font-black text-[#e5e7eb]">{analysis.final.tendency}</div>
                               </div>
                               <div className="rounded-xl border border-[#1f2a44] bg-[#050816] p-3">
-                                <div className="text-xs font-black text-[#22d3ee] mb-2">比分预测</div>
+                                <div className="text-xs font-black text-[#22d3ee] mb-2">比分</div>
                                 <div className="space-y-1 text-xs sm:text-sm text-[#e5e7eb]">
                                   <div>主推：<b>{analysis.scorePrediction?.main || analysis.final.score}</b></div>
                                   {analysis.scorePrediction?.backup && <div>备用：<b>{analysis.scorePrediction.backup}</b></div>}
@@ -1848,15 +1848,15 @@ function DailyPredictionsView() {
                                 {analysis.probabilities ? renderProbabilityBars(analysis.probabilities) : <div className="text-xs text-[#94a3b8]">概率待更新</div>}
                               </div>
                               <div className="rounded-xl border border-[#1f2a44] bg-[#050816] p-3">
-                                <div className="text-xs font-black text-[#22d3ee] mb-2">大小球判断</div>
+                                <div className="text-xs font-black text-[#22d3ee] mb-2">大小球</div>
                                 <p className="text-xs sm:text-sm leading-relaxed text-[#e5e7eb]">{analysis.totalGoals}</p>
                               </div>
                             </div>
                             <div className="rounded-xl border border-[#ef4444]/40 bg-[#ef4444]/10 p-3 text-xs sm:text-sm leading-relaxed text-[#fecaca]">
-                              <span className="font-black text-[#ef4444]">冷门风险：</span>{analysis.upsetRisk || analysis.risk}
+                              <span className="font-black text-[#ef4444]">风险点：</span>{analysis.upsetRisk || analysis.risk}
                             </div>
                             <div className="rounded-xl border border-[#22d3ee]/40 bg-[#22d3ee]/10 p-3 text-xs sm:text-sm leading-relaxed text-[#e5e7eb]">
-                              <div className="font-black text-[#22d3ee] mb-1">最终一句话总结</div>
+                              <div className="font-black text-[#22d3ee] mb-1">收口判断</div>
                               {analysis.summary}
                             </div>
                           </div>
@@ -1890,7 +1890,7 @@ function DailyPredictionsView() {
                                   {analysis.probabilities ? renderProbabilityBars(analysis.probabilities) : <div className="text-xs text-[#94a3b8]">概率待更新</div>}
                                 </div>
                                 <div className="rounded-xl border border-[#1f2a44] bg-[#050816] p-3">
-                                  <div className="text-xs font-black text-[#22d3ee] mb-2">赔率/新闻/伤病总结</div>
+                                  <div className="text-xs font-black text-[#22d3ee] mb-2">赛前信息</div>
                                   <div className="space-y-1 text-xs text-[#94a3b8]">{analysis.news.map(item => <div key={item}>{item}</div>)}</div>
                                 </div>
                               </div>
