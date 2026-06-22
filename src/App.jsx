@@ -1823,91 +1823,46 @@ function DailyPredictionsView() {
                           </div>
 	                        ) : (
 	                        <>
-                        {analysis.essence ? (
-                          <div className="space-y-3">
+                        <div className="space-y-3">
+                          <div className="rounded-xl border border-[#1f2a44] bg-[#050816] p-3">
+                            <div className="text-xs font-black text-[#22d3ee] mb-2">比赛底色</div>
+                            <p className="text-xs sm:text-sm leading-relaxed text-[#e5e7eb]">
+                              {analysis.essence || analysis.conclusion || analysis.logic?.form || '赛前信息待更新。'}
+                            </p>
+                          </div>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div className="rounded-xl border border-[#22d3ee]/35 bg-[#22d3ee]/10 p-3">
+                              <div className="text-xs font-black text-[#22d3ee] mb-1">方向</div>
+                              <div className="text-lg font-black text-[#e5e7eb]">{analysis.final.tendency}</div>
+                            </div>
                             <div className="rounded-xl border border-[#1f2a44] bg-[#050816] p-3">
-                              <div className="text-xs font-black text-[#22d3ee] mb-2">比赛底色</div>
-                              <p className="text-xs sm:text-sm leading-relaxed text-[#e5e7eb]">{analysis.essence}</p>
-                            </div>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                              <div className="rounded-xl border border-[#22d3ee]/35 bg-[#22d3ee]/10 p-3">
-                                <div className="text-xs font-black text-[#22d3ee] mb-1">方向</div>
-                                <div className="text-lg font-black text-[#e5e7eb]">{analysis.final.tendency}</div>
+                              <div className="text-xs font-black text-[#22d3ee] mb-2">比分</div>
+                              <div className="space-y-1 text-xs sm:text-sm text-[#e5e7eb]">
+                                <div>主推：<b>{analysis.scorePrediction?.main || analysis.final.score}</b></div>
+                                {analysis.scorePrediction?.backup && <div>备用：<b>{analysis.scorePrediction.backup}</b></div>}
                               </div>
-                              <div className="rounded-xl border border-[#1f2a44] bg-[#050816] p-3">
-                                <div className="text-xs font-black text-[#22d3ee] mb-2">比分</div>
-                                <div className="space-y-1 text-xs sm:text-sm text-[#e5e7eb]">
-                                  <div>主推：<b>{analysis.scorePrediction?.main || analysis.final.score}</b></div>
-                                  {analysis.scorePrediction?.backup && <div>备用：<b>{analysis.scorePrediction.backup}</b></div>}
-                                </div>
-                              </div>
-                            </div>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                              <div className="rounded-xl border border-[#1f2a44] bg-[#050816] p-3">
-                                <div className="text-xs font-black text-[#22d3ee] mb-2">胜平负概率</div>
-                                {analysis.probabilities ? renderProbabilityBars(analysis.probabilities) : <div className="text-xs text-[#94a3b8]">概率待更新</div>}
-                              </div>
-                              <div className="rounded-xl border border-[#1f2a44] bg-[#050816] p-3">
-                                <div className="text-xs font-black text-[#22d3ee] mb-2">大小球</div>
-                                <p className="text-xs sm:text-sm leading-relaxed text-[#e5e7eb]">{analysis.totalGoals}</p>
-                              </div>
-                            </div>
-                            <div className="rounded-xl border border-[#ef4444]/40 bg-[#ef4444]/10 p-3 text-xs sm:text-sm leading-relaxed text-[#fecaca]">
-                              <span className="font-black text-[#ef4444]">风险点：</span>{analysis.upsetRisk || analysis.risk}
-                            </div>
-                            <div className="rounded-xl border border-[#22d3ee]/40 bg-[#22d3ee]/10 p-3 text-xs sm:text-sm leading-relaxed text-[#e5e7eb]">
-                              <div className="font-black text-[#22d3ee] mb-1">收口判断</div>
-                              {analysis.summary}
                             </div>
                           </div>
-                        ) : (
-                          <>
-                            <div className="mb-3 rounded-xl border border-[#22d3ee]/30 bg-[#22d3ee]/10 p-3">
-                              <div className="text-[10px] font-black text-[#22d3ee] mb-1">【结论】</div>
-                              <div className="text-lg sm:text-xl font-black text-[#e5e7eb] leading-snug">{analysis.conclusion}</div>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div className="rounded-xl border border-[#1f2a44] bg-[#050816] p-3">
+                              <div className="text-xs font-black text-[#22d3ee] mb-2">胜平负概率</div>
+                              {analysis.probabilities ? renderProbabilityBars(analysis.probabilities) : <div className="text-xs text-[#94a3b8]">概率待更新</div>}
                             </div>
-                            <div className="grid grid-cols-1 sm:grid-cols-[1fr_220px] gap-3">
-                              <div className="space-y-3">
-                                <div>
-                                  <div className="text-xs font-black text-[#22d3ee] mb-2">【分析逻辑】</div>
-                                  <div className="grid grid-cols-1 gap-2 text-xs sm:text-sm text-[#e5e7eb]">
-                                    <p><span className="text-[#94a3b8]">1. 状态分析：</span>{analysis.logic.form}</p>
-                                    <p><span className="text-[#94a3b8]">2. 战术对比：</span>{analysis.logic.tactics}</p>
-                                    <p><span className="text-[#94a3b8]">3. 攻防特点：</span>{analysis.logic.attackDefense}</p>
-                                    <p><span className="text-[#94a3b8]">4. 主客因素：</span>{analysis.logic.venue}</p>
-                                  </div>
-                                </div>
-                                <div>
-                                  <div className="text-xs font-black text-[#22d3ee] mb-2">【关键证据】</div>
-                                  <ul className="space-y-1.5 text-xs sm:text-sm text-[#e5e7eb]">
-                                    {analysis.evidence.map(item => <li key={item} className="flex gap-2"><span className="text-[#22c55e]">-</span><span>{item}</span></li>)}
-                                  </ul>
-                                </div>
-                              </div>
-                              <div className="space-y-3">
-                                <div className="rounded-xl border border-[#1f2a44] bg-[#050816] p-3">
-                                  <div className="text-xs font-black text-[#22d3ee] mb-2">胜平负概率</div>
-                                  {analysis.probabilities ? renderProbabilityBars(analysis.probabilities) : <div className="text-xs text-[#94a3b8]">概率待更新</div>}
-                                </div>
-                                <div className="rounded-xl border border-[#1f2a44] bg-[#050816] p-3">
-                                  <div className="text-xs font-black text-[#22d3ee] mb-2">赛前信息</div>
-                                  <div className="space-y-1 text-xs text-[#94a3b8]">{analysis.news.map(item => <div key={item}>{item}</div>)}</div>
-                                </div>
-                              </div>
+                            <div className="rounded-xl border border-[#1f2a44] bg-[#050816] p-3">
+                              <div className="text-xs font-black text-[#22d3ee] mb-2">大小球</div>
+                              <p className="text-xs sm:text-sm leading-relaxed text-[#e5e7eb]">
+                                {analysis.totalGoals || analysis.final.recommendation || '大小球观点待更新。'}
+                              </p>
                             </div>
-                            <div className="mt-3 rounded-xl border border-[#ef4444]/40 bg-[#ef4444]/10 p-3 text-xs sm:text-sm text-[#fecaca]">
-                              <span className="font-black text-[#ef4444]">【风险提示】</span> {analysis.risk}
-                            </div>
-                            <div className="mt-3 rounded-xl border border-[#22d3ee]/40 bg-[#22d3ee]/10 p-3 text-xs sm:text-sm text-[#e5e7eb]">
-                              <div className="font-black text-[#22d3ee] mb-1">【最终判断】</div>
-                              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                                <span>胜平负倾向：<b>{analysis.final.tendency}</b></span>
-                                <span>最稳比分：<b>{analysis.final.score}</b></span>
-                                <span>推荐方向：<b>{analysis.final.recommendation}</b></span>
-                              </div>
-                            </div>
-                          </>
-                        )}
+                          </div>
+                          <div className="rounded-xl border border-[#ef4444]/40 bg-[#ef4444]/10 p-3 text-xs sm:text-sm leading-relaxed text-[#fecaca]">
+                            <span className="font-black text-[#ef4444]">风险点：</span>{analysis.upsetRisk || analysis.risk}
+                          </div>
+                          <div className="rounded-xl border border-[#22d3ee]/40 bg-[#22d3ee]/10 p-3 text-xs sm:text-sm leading-relaxed text-[#e5e7eb]">
+                            <div className="font-black text-[#22d3ee] mb-1">收口判断</div>
+                            {analysis.summary || analysis.conclusion}
+                          </div>
+                        </div>
 	                        </>
 	                        )}
                       </div>
