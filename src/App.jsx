@@ -301,6 +301,7 @@ const manualMatchAnalysis = {
     news: ['主推比分 2-0', '备用比分 2-1', '阿根廷胜 61%，平局 23%，奥地利胜 16%'],
     probabilities: { home: 61, draw: 23, away: 16 },
     risk: '中低风险。奥地利的高压和定位球有制造混乱的能力，但压上后身后空间风险会迅速放大。',
+    summary: '阿根廷更稳、更会管理比赛，奥地利能制造压力但难掀翻卫冕冠军。',
     final: { tendency: '阿根廷胜', score: '2-0', recommendation: '阿根廷胜 / 小3.5' }
   },
   '法国 vs 伊拉克': {
@@ -315,6 +316,7 @@ const manualMatchAnalysis = {
     news: ['主推比分 3-0', '备用比分 3-1', '法国胜 72%，平局 17%，伊拉克胜 11%'],
     probabilities: { home: 72, draw: 17, away: 11 },
     risk: '低风险。唯一风险是法国领先后轮换、节奏下降。',
+    summary: '法国优势非常清晰，正常发挥就是两球以上胜出。',
     final: { tendency: '法国胜', score: '3-0', recommendation: '法国胜 / 大2.5' }
   },
   '挪威 vs 塞内加尔': {
@@ -329,6 +331,7 @@ const manualMatchAnalysis = {
     news: ['主推比分 2-1', '备用比分 1-1', '挪威胜 40%，平局 30%，塞内加尔胜 30%'],
     probabilities: { home: 40, draw: 30, away: 30 },
     risk: '中高风险。塞内加尔不是弱队，若持续冲击挪威边后卫，挪威防线会承压。',
+    summary: '这是四场里最接近的一场，仍优先站挪威不败。',
     final: { tendency: '挪威不败', score: '2-1', recommendation: '挪威不败 / 大2.5' }
   },
   '约旦 vs 阿尔及利亚': {
@@ -343,6 +346,7 @@ const manualMatchAnalysis = {
     news: ['主推比分 1-2', '备用比分 1-1', '约旦胜 24%，平局 29%，阿尔及利亚胜 47%'],
     probabilities: { home: 24, draw: 29, away: 47 },
     risk: '中等风险。约旦纪律性和反击速度足够制造麻烦，阿尔及利亚如果继续进攻断层，平局风险很高。',
+    summary: '阿尔及利亚压力更大但牌面更厚，应以进攻质量压过约旦。',
     final: { tendency: '阿尔及利亚胜', score: '1-2', recommendation: '阿尔及利亚胜 / 大2.5' }
   }
 };
@@ -1609,6 +1613,18 @@ function DailyPredictionsView() {
     [analysisIds, visibleMatches]
   );
 
+  const dailySummaryItems = useMemo(() => (
+    visibleMatches
+      .map(match => {
+        const analysis = getAnalysisForMatch(match);
+        if (!analysis) return null;
+        const matchName = `${match.homeTeam.name} vs ${match.awayTeam.name}`;
+        const summary = analysis.summary || analysis.conclusion || getPredictionAdvice(analysis);
+        return `${matchName}：${summary}`;
+      })
+      .filter(Boolean)
+  ), [visibleMatches]);
+
   useEffect(() => {
     let cancelled = false;
     const loadMatches = async () => {
@@ -1740,6 +1756,22 @@ function DailyPredictionsView() {
             })}
             {visibleMatches.length === 0 && <div className="p-6 text-center text-sm text-[#94a3b8]">当前更新周期暂无可选比赛</div>}
           </div>
+
+          {dailySummaryItems.length > 0 && (
+            <div className="mt-4 rounded-[18px] border border-cyan-400/25 bg-cyan-500/5 px-4 py-3 shadow-[0_0_18px_rgba(34,211,238,0.08)]">
+              <div className="mb-2 flex items-center gap-2 text-xs font-black text-cyan-300">
+                <Sparkles className="w-3.5 h-3.5" />
+                今日四场一句话
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {dailySummaryItems.map(item => (
+                  <div key={item} className="rounded-xl border border-[#1f2a44] bg-[#0b1020]/75 px-3 py-2 text-xs sm:text-sm font-bold leading-relaxed text-[#e5e7eb]">
+                    {item}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div className="mt-4 rounded-[18px] border border-[#1f2a44] bg-[#0b1020] p-3">
             <h3 className="mb-3 text-sm sm:text-base font-black text-[#e5e7eb]">操作区</h3>
