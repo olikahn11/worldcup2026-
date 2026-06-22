@@ -1620,7 +1620,7 @@ function DailyPredictionsView() {
   const [selectedIds, setSelectedIds] = useState([]);
   const [analysisIds, setAnalysisIds] = useState([]);
   const [expandedIds, setExpandedIds] = useState({});
-  const [message, setMessage] = useState('请选择比赛');
+  const [message, setMessage] = useState('勾选上方比赛后，可查看对应解读；也可以直接展开本轮全部比赛。');
   const resultsRef = useRef(null);
   const windowLabel = useMemo(() => getDailyWindowLabel(), []);
 
@@ -1675,7 +1675,7 @@ function DailyPredictionsView() {
 
   const analyzeSelected = useCallback(() => {
     if (selectedIds.length === 0) {
-      setMessage('请选择比赛');
+      setMessage('先勾选一场或多场比赛，再查看对应解读；也可以直接点“展开全部比赛”。');
       setAnalysisIds([]);
       scrollToResults();
       return;
@@ -1798,7 +1798,7 @@ function DailyPredictionsView() {
           </div>
 
           <div ref={resultsRef} className="mt-5">
-            <h3 className="mb-3 text-sm sm:text-base font-black text-[#e5e7eb]">比赛解读</h3>
+            <h3 className="mb-3 text-sm sm:text-base font-black text-[#e5e7eb]">选中比赛解读</h3>
             {message && (
               <div className="rounded-[18px] border border-[#1f2a44] bg-[#111827] p-5 text-center text-sm font-bold text-[#94a3b8]">{message}</div>
             )}
