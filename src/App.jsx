@@ -291,6 +291,7 @@ const manualMatchAnalysis = {
   },
   '阿根廷 vs 奥地利': {
     conclusion: '明确倾向阿根廷胜，阿根廷更稳、更会管理比赛，参考比分 2-0。',
+    essence: '这是J组头名主动权战。阿根廷首轮3-0阿尔及利亚，梅西帽子戏法，赢球基本可提前锁定晋级；奥地利3-1约旦，但过程并不轻松。阿根廷阵容完整度更高，预计只在右后卫位置小调整，整体不会大轮换。',
     logic: {
       form: '这是J组头名主动权战。阿根廷首轮3-0阿尔及利亚，梅西帽子戏法，赢球基本可提前锁定晋级。',
       tactics: '奥地利首轮3-1约旦但过程并不轻松，会用高压和定位球制造混乱。',
@@ -300,12 +301,16 @@ const manualMatchAnalysis = {
     evidence: ['阿根廷首轮3-0取胜且梅西帽子戏法', '阿根廷阵容完整度更高', '奥地利高压和定位球有威胁', '阿根廷更擅长管理比赛节奏'],
     news: ['主推比分 2-0', '备用比分 2-1', '阿根廷胜 61%，平局 23%，奥地利胜 16%'],
     probabilities: { home: 61, draw: 23, away: 16 },
+    scorePrediction: { main: '阿根廷 2-0 奥地利', backup: '阿根廷 2-1 奥地利' },
+    totalGoals: '倾向小3.5球。奥地利会压迫，但面对阿根廷的中场控节奏和防线保护，比赛更像阿根廷控盘胜出，不是纯对攻。',
+    upsetRisk: '中低。奥地利的高压和定位球有制造混乱的能力，但如果前场压上被梅西、阿尔马达、劳塔罗打身后，风险会迅速放大。',
     risk: '中低风险。奥地利的高压和定位球有制造混乱的能力，但压上后身后空间风险会迅速放大。',
     summary: '阿根廷更稳、更会管理比赛，奥地利能制造压力但难掀翻卫冕冠军。',
     final: { tendency: '阿根廷胜', score: '2-0', recommendation: '阿根廷胜 / 小3.5' }
   },
   '法国 vs 伊拉克': {
     conclusion: '明确倾向法国胜，优势非常清晰，正常发挥就是两球以上胜出。',
+    essence: '这是强队抢提前出线、弱队被迫求分的压力差比赛。法国首轮3-1塞内加尔，姆巴佩和奥利塞状态在线；伊拉克1-4负挪威，比分偏重但防线失误和禁区防空问题明显。',
     logic: {
       form: '这是强队抢提前出线、弱队被迫求分的压力差比赛。法国首轮3-1塞内加尔，姆巴佩和奥利塞状态在线。',
       tactics: '伊拉克1-4负挪威，比分偏重但防线失误和禁区防空问题明显。',
@@ -315,12 +320,16 @@ const manualMatchAnalysis = {
     evidence: ['法国首轮3-1击败塞内加尔', '姆巴佩和奥利塞状态在线', '伊拉克防线失误和防空问题明显', '法国边路和肋部速度优势突出'],
     news: ['主推比分 3-0', '备用比分 3-1', '法国胜 72%，平局 17%，伊拉克胜 11%'],
     probabilities: { home: 72, draw: 17, away: 11 },
+    scorePrediction: { main: '法国 3-0 伊拉克', backup: '法国 3-1 伊拉克' },
+    totalGoals: '倾向大2.5球。伊拉克必须比首轮更主动，但一旦阵型前移，法国边路和肋部速度会直接惩罚。',
+    upsetRisk: '低。唯一风险是法国领先后轮换、节奏下降，但伊拉克要连续90分钟限制姆巴佩、登贝莱、奥利塞这种冲击力，难度太高。',
     risk: '低风险。唯一风险是法国领先后轮换、节奏下降。',
     summary: '法国优势非常清晰，正常发挥就是两球以上胜出。',
     final: { tendency: '法国胜', score: '3-0', recommendation: '法国胜 / 大2.5' }
   },
   '挪威 vs 塞内加尔': {
     conclusion: '倾向挪威不败，优先看挪威小胜，参考比分 2-1。',
+    essence: '这是I组第二名甚至头名争夺的关键战。挪威首轮4-1伊拉克，哈兰德梅开二度；塞内加尔1-3输法国后不能再输，比赛动机更急。挪威锋线强，但防线并非无漏洞；塞内加尔身体、转换和边路冲击会比伊拉克更难处理。',
     logic: {
       form: '这是I组第二名甚至头名争夺的关键战。挪威首轮4-1伊拉克，哈兰德梅开二度；塞内加尔1-3输法国后不能再输。',
       tactics: '挪威锋线强但防线并非无漏洞，塞内加尔身体、转换和边路冲击会比伊拉克更难处理。',
@@ -330,12 +339,16 @@ const manualMatchAnalysis = {
     evidence: ['挪威首轮4-1取胜且哈兰德梅开二度', '塞内加尔不能再输，比赛动机更急', '塞内加尔边路冲击会考验挪威防线', '两队都有前场支点和反击速度'],
     news: ['主推比分 2-1', '备用比分 1-1', '挪威胜 40%，平局 30%，塞内加尔胜 30%'],
     probabilities: { home: 40, draw: 30, away: 30 },
+    scorePrediction: { main: '挪威 2-1 塞内加尔', backup: '1-1' },
+    totalGoals: '倾向大2.5球。两队都有明确前场支点和反击速度，塞内加尔必须拿分，会让比赛比法国-伊拉克更开放。',
+    upsetRisk: '中高。塞内加尔不是弱队，若马内、尼古拉斯-杰克逊、伊斯梅拉-萨尔能持续冲击挪威边后卫，挪威防线会承压；但哈兰德的终结效率仍是决定性差异。',
     risk: '中高风险。塞内加尔不是弱队，若持续冲击挪威边后卫，挪威防线会承压。',
-    summary: '这是四场里最接近的一场，仍优先站挪威不败。',
+    summary: '这是四场里最接近的一场，但仍站挪威不败，优先看2-1。',
     final: { tendency: '挪威不败', score: '2-1', recommendation: '挪威不败 / 大2.5' }
   },
   '约旦 vs 阿尔及利亚': {
     conclusion: '明确倾向阿尔及利亚胜，阿尔及利亚牌面更厚，参考比分 1-2。',
+    essence: '这是J组真正的生死战，两队首轮都输，谁再输基本就被推到淘汰边缘。约旦首轮对奥地利打得不差，射正和反击质量有亮点；阿尔及利亚0-3输阿根廷后压力更大，马赫雷斯是否回到核心位置、前场效率能否恢复，是关键变量。',
     logic: {
       form: '这是J组真正的生死战，两队首轮都输，谁再输基本就被推到淘汰边缘。',
       tactics: '约旦首轮对奥地利打得不差，射正和反击质量有亮点；阿尔及利亚0-3输阿根廷后压力更大。',
@@ -345,8 +358,11 @@ const manualMatchAnalysis = {
     evidence: ['两队首轮都输，本场容错率很低', '约旦反击质量有亮点', '阿尔及利亚个人能力和中前场变化更强', '双方都不适合保守平局'],
     news: ['主推比分 1-2', '备用比分 1-1', '约旦胜 24%，平局 29%，阿尔及利亚胜 47%'],
     probabilities: { home: 24, draw: 29, away: 47 },
+    scorePrediction: { main: '约旦 1-2 阿尔及利亚', backup: '1-1' },
+    totalGoals: '倾向大2.5球。双方都不能满足于保守平局，约旦反击有威胁，阿尔及利亚也必须把技术型前场压上去。',
+    upsetRisk: '中。约旦纪律性和反击速度足够制造麻烦，阿尔及利亚如果继续首轮那种进攻断层，平局风险很高；但综合个人能力和中前场变化，阿尔及利亚更值得站。',
     risk: '中等风险。约旦纪律性和反击速度足够制造麻烦，阿尔及利亚如果继续进攻断层，平局风险很高。',
-    summary: '阿尔及利亚压力更大但牌面更厚，应以进攻质量压过约旦。',
+    summary: '阿尔及利亚压力更大但牌面更厚，这场应以进攻质量压过约旦。',
     final: { tendency: '阿尔及利亚胜', score: '1-2', recommendation: '阿尔及利亚胜 / 大2.5' }
   }
 };
@@ -1805,54 +1821,95 @@ function DailyPredictionsView() {
                           <div className="rounded-xl border border-dashed border-[#1f2a44] bg-[#050816] p-5 text-center text-sm text-[#94a3b8]">
                             这场比赛的分析待更新。
                           </div>
-                        ) : (
-                        <>
-                        <div className="mb-3 rounded-xl border border-[#22d3ee]/30 bg-[#22d3ee]/10 p-3">
-                          <div className="text-[10px] font-black text-[#22d3ee] mb-1">【结论】</div>
-                          <div className="text-lg sm:text-xl font-black text-[#e5e7eb] leading-snug">{analysis.conclusion}</div>
-                        </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-[1fr_220px] gap-3">
+	                        ) : (
+	                        <>
+                        {analysis.essence ? (
                           <div className="space-y-3">
-                            <div>
-                              <div className="text-xs font-black text-[#22d3ee] mb-2">【分析逻辑】</div>
-                              <div className="grid grid-cols-1 gap-2 text-xs sm:text-sm text-[#e5e7eb]">
-                                <p><span className="text-[#94a3b8]">1. 状态分析：</span>{analysis.logic.form}</p>
-                                <p><span className="text-[#94a3b8]">2. 战术对比：</span>{analysis.logic.tactics}</p>
-                                <p><span className="text-[#94a3b8]">3. 攻防特点：</span>{analysis.logic.attackDefense}</p>
-                                <p><span className="text-[#94a3b8]">4. 主客因素：</span>{analysis.logic.venue}</p>
+                            <div className="rounded-xl border border-[#1f2a44] bg-[#050816] p-3">
+                              <div className="text-xs font-black text-[#22d3ee] mb-2">比赛本质判断</div>
+                              <p className="text-xs sm:text-sm leading-relaxed text-[#e5e7eb]">{analysis.essence}</p>
+                            </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                              <div className="rounded-xl border border-[#22d3ee]/35 bg-[#22d3ee]/10 p-3">
+                                <div className="text-xs font-black text-[#22d3ee] mb-1">明确倾向</div>
+                                <div className="text-lg font-black text-[#e5e7eb]">{analysis.final.tendency}</div>
+                              </div>
+                              <div className="rounded-xl border border-[#1f2a44] bg-[#050816] p-3">
+                                <div className="text-xs font-black text-[#22d3ee] mb-2">比分预测</div>
+                                <div className="space-y-1 text-xs sm:text-sm text-[#e5e7eb]">
+                                  <div>主推：<b>{analysis.scorePrediction?.main || analysis.final.score}</b></div>
+                                  {analysis.scorePrediction?.backup && <div>备用：<b>{analysis.scorePrediction.backup}</b></div>}
+                                </div>
                               </div>
                             </div>
-                            <div>
-                              <div className="text-xs font-black text-[#22d3ee] mb-2">【关键证据】</div>
-                              <ul className="space-y-1.5 text-xs sm:text-sm text-[#e5e7eb]">
-                                {analysis.evidence.map(item => <li key={item} className="flex gap-2"><span className="text-[#22c55e]">-</span><span>{item}</span></li>)}
-                              </ul>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                              <div className="rounded-xl border border-[#1f2a44] bg-[#050816] p-3">
+                                <div className="text-xs font-black text-[#22d3ee] mb-2">胜平负概率</div>
+                                {analysis.probabilities ? renderProbabilityBars(analysis.probabilities) : <div className="text-xs text-[#94a3b8]">概率待更新</div>}
+                              </div>
+                              <div className="rounded-xl border border-[#1f2a44] bg-[#050816] p-3">
+                                <div className="text-xs font-black text-[#22d3ee] mb-2">大小球判断</div>
+                                <p className="text-xs sm:text-sm leading-relaxed text-[#e5e7eb]">{analysis.totalGoals}</p>
+                              </div>
+                            </div>
+                            <div className="rounded-xl border border-[#ef4444]/40 bg-[#ef4444]/10 p-3 text-xs sm:text-sm leading-relaxed text-[#fecaca]">
+                              <span className="font-black text-[#ef4444]">冷门风险：</span>{analysis.upsetRisk || analysis.risk}
+                            </div>
+                            <div className="rounded-xl border border-[#22d3ee]/40 bg-[#22d3ee]/10 p-3 text-xs sm:text-sm leading-relaxed text-[#e5e7eb]">
+                              <div className="font-black text-[#22d3ee] mb-1">最终一句话总结</div>
+                              {analysis.summary}
                             </div>
                           </div>
-                          <div className="space-y-3">
-                            <div className="rounded-xl border border-[#1f2a44] bg-[#050816] p-3">
-                              <div className="text-xs font-black text-[#22d3ee] mb-2">胜平负概率</div>
-                              {analysis.probabilities ? renderProbabilityBars(analysis.probabilities) : <div className="text-xs text-[#94a3b8]">概率待更新</div>}
+                        ) : (
+                          <>
+                            <div className="mb-3 rounded-xl border border-[#22d3ee]/30 bg-[#22d3ee]/10 p-3">
+                              <div className="text-[10px] font-black text-[#22d3ee] mb-1">【结论】</div>
+                              <div className="text-lg sm:text-xl font-black text-[#e5e7eb] leading-snug">{analysis.conclusion}</div>
                             </div>
-                            <div className="rounded-xl border border-[#1f2a44] bg-[#050816] p-3">
-                              <div className="text-xs font-black text-[#22d3ee] mb-2">赔率/新闻/伤病总结</div>
-                              <div className="space-y-1 text-xs text-[#94a3b8]">{analysis.news.map(item => <div key={item}>{item}</div>)}</div>
+                            <div className="grid grid-cols-1 sm:grid-cols-[1fr_220px] gap-3">
+                              <div className="space-y-3">
+                                <div>
+                                  <div className="text-xs font-black text-[#22d3ee] mb-2">【分析逻辑】</div>
+                                  <div className="grid grid-cols-1 gap-2 text-xs sm:text-sm text-[#e5e7eb]">
+                                    <p><span className="text-[#94a3b8]">1. 状态分析：</span>{analysis.logic.form}</p>
+                                    <p><span className="text-[#94a3b8]">2. 战术对比：</span>{analysis.logic.tactics}</p>
+                                    <p><span className="text-[#94a3b8]">3. 攻防特点：</span>{analysis.logic.attackDefense}</p>
+                                    <p><span className="text-[#94a3b8]">4. 主客因素：</span>{analysis.logic.venue}</p>
+                                  </div>
+                                </div>
+                                <div>
+                                  <div className="text-xs font-black text-[#22d3ee] mb-2">【关键证据】</div>
+                                  <ul className="space-y-1.5 text-xs sm:text-sm text-[#e5e7eb]">
+                                    {analysis.evidence.map(item => <li key={item} className="flex gap-2"><span className="text-[#22c55e]">-</span><span>{item}</span></li>)}
+                                  </ul>
+                                </div>
+                              </div>
+                              <div className="space-y-3">
+                                <div className="rounded-xl border border-[#1f2a44] bg-[#050816] p-3">
+                                  <div className="text-xs font-black text-[#22d3ee] mb-2">胜平负概率</div>
+                                  {analysis.probabilities ? renderProbabilityBars(analysis.probabilities) : <div className="text-xs text-[#94a3b8]">概率待更新</div>}
+                                </div>
+                                <div className="rounded-xl border border-[#1f2a44] bg-[#050816] p-3">
+                                  <div className="text-xs font-black text-[#22d3ee] mb-2">赔率/新闻/伤病总结</div>
+                                  <div className="space-y-1 text-xs text-[#94a3b8]">{analysis.news.map(item => <div key={item}>{item}</div>)}</div>
+                                </div>
+                              </div>
                             </div>
-                          </div>
-                        </div>
-                        <div className="mt-3 rounded-xl border border-[#ef4444]/40 bg-[#ef4444]/10 p-3 text-xs sm:text-sm text-[#fecaca]">
-                          <span className="font-black text-[#ef4444]">【风险提示】</span> {analysis.risk}
-                        </div>
-                        <div className="mt-3 rounded-xl border border-[#22d3ee]/40 bg-[#22d3ee]/10 p-3 text-xs sm:text-sm text-[#e5e7eb]">
-                          <div className="font-black text-[#22d3ee] mb-1">【最终判断】</div>
-                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                            <span>胜平负倾向：<b>{analysis.final.tendency}</b></span>
-                            <span>最稳比分：<b>{analysis.final.score}</b></span>
-                            <span>推荐方向：<b>{analysis.final.recommendation}</b></span>
-                          </div>
-                        </div>
-                        </>
+                            <div className="mt-3 rounded-xl border border-[#ef4444]/40 bg-[#ef4444]/10 p-3 text-xs sm:text-sm text-[#fecaca]">
+                              <span className="font-black text-[#ef4444]">【风险提示】</span> {analysis.risk}
+                            </div>
+                            <div className="mt-3 rounded-xl border border-[#22d3ee]/40 bg-[#22d3ee]/10 p-3 text-xs sm:text-sm text-[#e5e7eb]">
+                              <div className="font-black text-[#22d3ee] mb-1">【最终判断】</div>
+                              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                                <span>胜平负倾向：<b>{analysis.final.tendency}</b></span>
+                                <span>最稳比分：<b>{analysis.final.score}</b></span>
+                                <span>推荐方向：<b>{analysis.final.recommendation}</b></span>
+                              </div>
+                            </div>
+                          </>
                         )}
+	                        </>
+	                        )}
                       </div>
                     )}
                   </article>
