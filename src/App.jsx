@@ -7,6 +7,7 @@ import {
   ArrowRight, Dices, Swords, Search, Home, LayoutList,
   ChevronDown, Sparkles
 } from 'lucide-react';
+import CupApp from './CupApp.jsx';
 
 const RealTrophy = ({ className }) => {
   const [imgError, setImgError] = useState(false);
@@ -2852,7 +2853,7 @@ function TeamDetailDrawer({ team, teamMatches = [], onClose, isTop }) {
   );
 }
 
-export default function App() {
+function MainSiteApp() {
   useEffect(() => { setupViewport(); }, []);
 
   const [activeTab, setActiveTab] = useState(() => readSavedTab()); 
@@ -3043,4 +3044,14 @@ export default function App() {
       <SiteWatermark className="fixed bottom-[max(8px,env(safe-area-inset-bottom))] left-0 right-0 z-[260] px-4 opacity-100 text-cyan-200 drop-shadow-[0_0_14px_rgba(34,211,238,0.8)]" />
     </div>
   );
+}
+
+export default function App() {
+  useEffect(() => { setupViewport(); }, []);
+
+  if (window.location.hostname === 'cup.xiaohuang365.com' || window.location.search.includes('cup=1')) {
+    return <CupApp />;
+  }
+
+  return <MainSiteApp />;
 }
