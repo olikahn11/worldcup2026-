@@ -408,6 +408,72 @@ const manualMatchAnalysis = {
     risk: '中高。刚果（金）反击纪律和身体对抗都在线，哥伦比亚压得太深会留出身后空间。',
     summary: '哥伦比亚更像胜方，但这不是稳胆，刚果（金）有很现实的抢分能力。',
     final: { tendency: '哥伦比亚胜', score: '2-1', recommendation: '哥伦比亚胜 / 大2.5' }
+  },
+  '瑞士 vs 加拿大': {
+    conclusion: '倾向加拿大不败，首选平局。',
+    essence: '这是 Group B 头名争夺战。加拿大 4 分净胜球优势更大，打平基本可保小组第一；瑞士同为 4 分，但必须赢才更稳拿头名。双方都不是生死战，比赛会有强度但不会无脑对攻。',
+    probabilities: { home: 30, draw: 34, away: 36 },
+    scorePrediction: { main: '1-1', backup: '加拿大 2-1' },
+    totalGoals: '小 2.75。加拿大火力强，但瑞士控制和比赛目标会压节奏。',
+    upsetRisk: '中等。瑞士有 Manzambi 这种替补冲击点，加拿大若高压后场被打穿，会丢关键球。',
+    risk: '中等。瑞士替补冲击点和加拿大后场高压后的空间，是这场主要变量。',
+    summary: '加拿大主场和净胜球优势更稳，但瑞士韧性强，这场首选 1-1。',
+    final: { tendency: '加拿大不败，首选平局', score: '1-1', recommendation: '加拿大不败 / 小2.75' }
+  },
+  '波黑 vs 卡塔尔': {
+    conclusion: '明确倾向波黑胜。',
+    essence: '这是双方面临淘汰压力的必须赢比赛。波黑主帅 Barbarez 已明确要踢得更主动，卡塔尔 1 分且 0-6 输加拿大后防线信心受损。',
+    probabilities: { home: 50, draw: 26, away: 24 },
+    scorePrediction: { main: '波黑 2-1', backup: '波黑 2-0' },
+    totalGoals: '大 2.5。双方都需要赢，卡塔尔防守完整性不足，比赛后段会打开。',
+    upsetRisk: '中等偏高。卡塔尔有 Lopetegui，若先守住前 30 分钟，波黑急躁后会给反击空间。',
+    risk: '中等偏高。卡塔尔如果守住开局，波黑压上后的反击空间会变大。',
+    summary: '波黑身体和欧洲比赛强度更可靠，这场看波黑主动压出后拿下。',
+    final: { tendency: '波黑胜', score: '2-1', recommendation: '波黑胜 / 大2.5' }
+  },
+  '摩洛哥 vs 海地': {
+    conclusion: '明确倾向摩洛哥胜。',
+    essence: '摩洛哥争出线和排名，海地已经两连败且 0 进球，比赛本质是摩洛哥控局破密防。摩洛哥换帅后更需要结果稳定，不会轻易冒进。',
+    probabilities: { home: 68, draw: 22, away: 10 },
+    scorePrediction: { main: '摩洛哥 2-0', backup: '摩洛哥 1-0' },
+    totalGoals: '小 3。摩洛哥会占优，但海地大概率密集防守，除非早丢球崩盘，否则不追大胜。',
+    upsetRisk: '低到中。风险只在摩洛哥终结效率低、久攻不下，被海地定位球或反击偷一个。',
+    risk: '低到中。摩洛哥久攻不下和海地定位球、反击偷袭是主要风险。',
+    summary: '摩洛哥实力和组织性明显占优，但比分应保守看 2-0。',
+    final: { tendency: '摩洛哥胜', score: '2-0', recommendation: '摩洛哥胜 / 小3' }
+  },
+  '苏格兰 vs 巴西': {
+    conclusion: '明确倾向巴西胜，但不是大胜。',
+    essence: '这是苏格兰求分保出线、巴西争小组第一的强弱压制战。巴西 Raphinha 缺席，但 Neymar 已恢复可用；苏格兰 Aaron Hickey 缺阵，Steve Clarke 会以低位整体防守和定位球寻找机会。',
+    probabilities: { home: 20, draw: 30, away: 50 },
+    scorePrediction: { main: '巴西 2-1', backup: '1-1' },
+    totalGoals: '小 3.25。巴西个人能力强，但苏格兰目标是拿分，比赛会被低位防守压住。',
+    upsetRisk: '中等。苏格兰身体、执行力和定位球会制造麻烦，巴西若没有早进球，大胜概率会被明显压低。',
+    risk: '中等。苏格兰低位防守、身体对抗和定位球会压低巴西大胜空间。',
+    summary: '巴西能赢在个人能力和替补深度，但苏格兰不会轻易被打穿。',
+    final: { tendency: '巴西胜', score: '1-2', recommendation: '巴西胜 / 小3.25' }
+  },
+  '捷克 vs 墨西哥': {
+    conclusion: '明确倾向墨西哥胜。',
+    essence: '捷克 1 分必须赢，墨西哥 6 分且主场作战，打平也基本稳头名。墨西哥本届两场零封，Aguirre 的球队控制和防守纪律更成熟。',
+    probabilities: { home: 18, draw: 27, away: 55 },
+    scorePrediction: { main: '墨西哥 1-0', backup: '墨西哥 2-0' },
+    totalGoals: '小 2.5。墨西哥不需要疯狂进攻，捷克必须压出但进攻效率有限。',
+    upsetRisk: '中等。捷克的高点、Soucek 后插上和定位球是主要风险，但运动战持续破门能力不足。',
+    risk: '中等。捷克高点、Soucek 后插上和定位球会制造麻烦。',
+    summary: '墨西哥主场、状态和防守稳定性都更强，这场看 1-0 控制胜。',
+    final: { tendency: '墨西哥胜', score: '0-1', recommendation: '墨西哥胜 / 小2.5' }
+  },
+  '南非 vs 韩国': {
+    conclusion: '倾向韩国不败，胜平方向偏韩国。',
+    essence: '韩国 3 分，平局大概率够用；南非 1 分必须赢。韩国有场外干扰，Son 中路效果不理想，但整体技术和前场个人能力仍高于南非。南非会针对韩国弱点打反击。',
+    probabilities: { home: 28, draw: 34, away: 38 },
+    scorePrediction: { main: '1-1', backup: '韩国 2-1' },
+    totalGoals: '小 2.75。南非必须赢但进攻稳定性一般，韩国也不会无谓冒险。',
+    upsetRisk: '中等偏高。韩国心理和舆论环境不稳，若继续让 Son 打不舒服的位置，南非反击有机会制造冷门。',
+    risk: '中等偏高。韩国心理和舆论环境不稳，南非反击有机会制造波动。',
+    summary: '韩国纸面更强，但这场不是大胜局，最合理是 1-1 或韩国小胜。',
+    final: { tendency: '韩国不败', score: '1-1', recommendation: '韩国不败 / 小2.75' }
   }
 };
 
