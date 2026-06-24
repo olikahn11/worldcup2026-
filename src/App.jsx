@@ -477,7 +477,15 @@ const manualMatchAnalysis = {
   }
 };
 
-const getMatchAnalysisKeyFromTeams = (homeName, awayName) => `${homeName || ''} vs ${awayName || ''}`;
+const getMatchAnalysisKeyFromTeams = (homeName, awayName) => `${normalizeTeamNameForMatch(homeName) || ''} vs ${normalizeTeamNameForMatch(awayName) || ''}`;
+
+const getPredictionDedupeKey = (match) => {
+  const teams = [
+    normalizeTeamNameForMatch(match?.homeTeam?.name),
+    normalizeTeamNameForMatch(match?.awayTeam?.name)
+  ].filter(Boolean).sort();
+  return teams.length === 2 ? teams.join('__') : getMatchAnalysisKey(match);
+};
 
 const getBeijingParts = (date = new Date()) => {
   const parts = new Intl.DateTimeFormat('en-CA', {
@@ -617,7 +625,7 @@ const getTodayPredictionMatches = (fixturesPayload) => {
   const apiRows = windowRows.map(toPredictionMatch);
   const mergedByMatch = new Map();
   [...apiRows, ...localRows].forEach(match => {
-    const key = getMatchAnalysisKey(match);
+    const key = getPredictionDedupeKey(match);
     if (!mergedByMatch.has(key)) mergedByMatch.set(key, match);
   });
   return Array.from(mergedByMatch.values()).sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
@@ -774,16 +782,21 @@ const officialKnockoutRoundsFlat = Object.values(officialKnockoutRounds).flat();
 
 const TEAM_NAME_ZH = {
   'Algeria':'阿尔及利亚','Argentina':'阿根廷','Australia':'澳大利亚','Austria':'奥地利',
-  'Belgium':'比利时','Bosnia & Herzegovina':'波黑','Brazil':'巴西','Canada':'加拿大',
+  'Belgium':'比利时','Bosnia & Herzegovina':'波黑','Bosnia and Herzegovina':'波黑','Bosnia-Herzegovina':'波黑','Brazil':'巴西','Canada':'加拿大',
   'Cape Verde Islands':'佛得角','Colombia':'哥伦比亚','Congo DR':'刚果(金)','Croatia':'克罗地亚',
-  'Curaçao':'库拉索','Czech Republic':'捷克','Ecuador':'厄瓜多尔','Egypt':'埃及',
+  'Curaçao':'库拉索','Curacao':'库拉索','Czech Republic':'捷克','Czechia':'捷克','Ecuador':'厄瓜多尔','Egypt':'埃及',
   'England':'英格兰','France':'法国','Germany':'德国','Ghana':'加纳','Haiti':'海地',
   'Iran':'伊朗','Iraq':'伊拉克','Ivory Coast':'科特迪瓦','Japan':'日本','Jordan':'约旦',
   'Mexico':'墨西哥','Morocco':'摩洛哥','Netherlands':'荷兰','New Zealand':'新西兰',
   'Norway':'挪威','Panama':'巴拿马','Paraguay':'巴拉圭','Portugal':'葡萄牙','Qatar':'卡塔尔',
   'Saudi Arabia':'沙特阿拉伯','Scotland':'苏格兰','Senegal':'塞内加尔','South Africa':'南非',
-  'South Korea':'韩国','Spain':'西班牙','Sweden':'瑞典','Switzerland':'瑞士','Tunisia':'突尼斯',
-  'Türkiye':'土耳其','USA':'美国','Uruguay':'乌拉圭','Uzbekistan':'乌兹别克斯坦'
+  'South Korea':'韩国','Korea Republic':'韩国','Republic of Korea':'韩国','Spain':'西班牙','Sweden':'瑞典','Switzerland':'瑞士','Tunisia':'突尼斯',
+  'Türkiye':'土耳其','Turkey':'土耳其','USA':'美国','United States':'美国','United States of America':'美国','Uruguay':'乌拉圭','Uzbekistan':'乌兹别克斯坦'
+};
+
+const normalizeTeamNameForMatch = (name) => {
+  const raw = String(name || '').trim();
+  return TEAM_NAME_ZH[raw] || raw;
 };
 
 const formatBeijingTime = (dateString) => {
@@ -799,7 +812,7 @@ const formatBeijingTime = (dateString) => {
 const normalizeTeam = (team, group) => ({
   id: String(team?.id || `unknown_${team?.name || 'team'}`),
   apiId: team?.id,
-  name: TEAM_NAME_ZH[team?.name] || team?.name || '待定',
+  name: normalizeTeamNameForMatch(team?.name) || '待定',
   apiName: team?.name,
   flag: team?.logo || '❔',
   winner: team?.winner,
