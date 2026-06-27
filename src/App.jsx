@@ -5,7 +5,7 @@ import {
   RotateCcw, X, Shield, MapPin, UserCircle2, Users,
   RefreshCw, CheckCircle2, BookOpen,
   ArrowRight, Dices, Swords, Search, Home, LayoutList,
-  ChevronDown, Sparkles
+  ChevronDown, Sparkles, Calculator, Route, Info
 } from 'lucide-react';
 
 const RealTrophy = ({ className }) => {
@@ -665,6 +665,7 @@ const toPredictionMatch = (fixture, index) => {
   const analysis = manualMatchAnalysis[getMatchAnalysisKeyFromTeams(home.name, away.name)];
   return {
     id: fixture?.fixture?.id ? `api_match_${fixture.fixture.id}` : `api_match_${index}`,
+    fixtureId: fixture?.fixture?.id ? String(fixture.fixture.id) : null,
     time: formatBeijingTime(fixture?.fixture?.date),
     timestamp: new Date(fixture?.fixture?.date).getTime(),
     homeTeam: { name: home.name || '未知球队', flag: home.flag || '❔' },
@@ -1160,6 +1161,82 @@ const SLOT_TO_MATCH = {
   'K1': [87], 'K2': [83], 'K3': [80], 'L1': [80], 'L2': [83], 'L3': [87]
 };
 
+const BRACKET_CHILDREN_MAP = Object.entries(REAL_BRACKET_PARENT_MAP).reduce((map, [child, parent]) => {
+  if (!map[parent]) map[parent] = [];
+  map[parent].push(Number(child));
+  return map;
+}, {});
+
+const getSlotCandidateNames = (slotStr, groups) => {
+  if (!slotStr) return [];
+  if (slotStr.includes('/')) {
+    return slotStr.split('/').flatMap(slot => {
+      const groupName = slot.charAt(0);
+      const group = groups?.[groupName];
+      if (isGroupComplete(group)) return [group?.teams?.[2]?.name].filter(Boolean);
+      return [group?.teams?.[2]?.name ? `${group.teams[2].name}（${groupName}3临时）` : `${groupName}组第三名`];
+    });
+  }
+  if (/^[A-L][1-3]$/.test(slotStr)) {
+    const groupName = slotStr.charAt(0);
+    const rank = Number(slotStr.charAt(1)) - 1;
+    const group = groups?.[groupName];
+    if (isGroupComplete(group)) return [group?.teams?.[rank]?.name].filter(Boolean);
+    return (group?.teams || []).map(team => `${team.name}（${groupName}组候选）`);
+  }
+  return [];
+};
+
+const getLeafCandidateNames = (matchNumber, groups) => {
+  const children = BRACKET_CHILDREN_MAP[matchNumber];
+  if (children?.length) return children.flatMap(child => getLeafCandidateNames(child, groups));
+  const match = officialKnockoutRoundsFlat.find(item => item.id === `ko_${matchNumber}`);
+  return [...getSlotCandidateNames(match?.homeStr, groups), ...getSlotCandidateNames(match?.awayStr, groups)];
+};
+
+const buildTeamKnockoutPath = (team, groups) => {
+  if (!team?.group || !groups?.[team.group]) return [];
+  const group = groups[team.group];
+  const currentRank = group.teams.findIndex(candidate => candidate.id === team.id || candidate.name === team.name) + 1;
+  const possibleRanks = isGroupComplete(group)
+    ? (currentRank > 0 && currentRank <= 3 ? [currentRank] : [])
+    : [1, 2, 3];
+  const rows = new Map();
+
+  possibleRanks.forEach(rank => {
+    const slot = `${team.group}${rank}`;
+    (SLOT_TO_MATCH[slot] || []).forEach(startMatch => {
+      let currentMatch = startMatch;
+      let selectedBranchMatch = null;
+      while (currentMatch) {
+        const match = officialKnockoutRoundsFlat.find(item => item.id === `ko_${currentMatch}`);
+        if (!match) break;
+        let candidates;
+        if (!selectedBranchMatch) {
+          const homeContains = match.homeStr === slot || (match.homeStr || '').split('/').includes(slot);
+          const opponentSlot = homeContains ? match.awayStr : match.homeStr;
+          candidates = getSlotCandidateNames(opponentSlot, groups);
+        } else {
+          const siblings = (BRACKET_CHILDREN_MAP[currentMatch] || []).filter(child => child !== selectedBranchMatch);
+          candidates = siblings.flatMap(sibling => getLeafCandidateNames(sibling, groups));
+        }
+        if (!rows.has(match.round)) rows.set(match.round, { round: match.round, candidates: new Set(), routes: new Set() });
+        candidates.filter(name => name && !String(name).startsWith(team.name)).forEach(name => rows.get(match.round).candidates.add(name));
+        rows.get(match.round).routes.add(`${slot}→第${startMatch}场`);
+        selectedBranchMatch = currentMatch;
+        currentMatch = REAL_BRACKET_PARENT_MAP[currentMatch];
+      }
+    });
+  });
+
+  const order = ['1/16决赛', '1/8决赛', '1/4决赛', '半决赛', '决赛'];
+  return order.map(round => rows.get(round)).filter(Boolean).map(row => ({
+    round: row.round,
+    candidates: [...row.candidates],
+    routes: [...row.routes]
+  }));
+};
+
 // ==========================================
 // 3. 全景大树引擎 (深度自适应全屏压缩版)
 // ==========================================
@@ -1337,6 +1414,7 @@ const BracketNode = ({ match, x, y, isPortrait, mode, isFinal, isThirdPlace, set
 
     const handleHomeClick = (e) => { e.stopPropagation(); if (isLive && onTeamClick && match.home && !match.home.isPlaceholder) onTeamClick(match.home); else if (isLive && onMatchClick) onMatchClick(match); if (isSandbox && match.home && !match.home.isPlaceholder) setPrediction(match.id, match.home); }
     const handleAwayClick = (e) => { e.stopPropagation(); if (isLive && onTeamClick && match.away && !match.away.isPlaceholder) onTeamClick(match.away); else if (isLive && onMatchClick) onMatchClick(match); if (isSandbox && match.away && !match.away.isPlaceholder) setPrediction(match.id, match.away); }
+    const placementMark = (team) => team?.placementStatus === 'CONFIRMED' ? '✓' : team?.placementStatus === 'PROVISIONAL' ? '?' : '';
 
     return (
         <div className={`absolute flex flex-col justify-center bg-slate-900 border ${isSandbox && match.predictedWinner ? 'border-yellow-500 shadow-[0_0_8px_rgba(234,179,8,0.4)]' : isFinal ? 'border-yellow-600/80 shadow-[0_0_15px_rgba(234,179,8,0.3)] z-40' : 'border-slate-700'} rounded overflow-hidden z-10 hover:z-50 hover:scale-125 transition-all duration-300`} style={{ left: `${x}%`, top: `${y}%`, transform: 'translate(-50%, -50%)', width: isPortrait ? '12.2%' : '13%', height: isPortrait ? '7.5%' : '10.5%', maxWidth: '120px', minWidth: '42px', minHeight: '38px' }}>
@@ -1346,17 +1424,17 @@ const BracketNode = ({ match, x, y, isPortrait, mode, isFinal, isThirdPlace, set
             <div className={`w-full h-[50%] flex items-center justify-between px-1 border-b border-slate-800/80 cursor-pointer ${isSandbox && match.home && !match.home.isPlaceholder && !homeWinner ? 'hover:bg-yellow-500/20' : ''} ${homeWinner ? 'bg-emerald-900/60 border-l-2 border-emerald-500' : 'border-l-2 border-transparent'}`} onClick={handleHomeClick}>
                 <div className="flex items-center w-[85%] overflow-hidden min-w-0 flex-1">
                     <TeamFlag flag={match.home?.flag} sizeClass="w-3 h-3 lg:w-4 lg:h-4 shrink-0" />
-                    <span className={`text-[6px] sm:text-[9px] ml-0.5 sm:ml-1.5 leading-none truncate block ${homeWinner ? 'font-bold text-yellow-400' : match.home?.isPlaceholder ? 'text-slate-500' : 'text-slate-200'}`} title={match.home?.name}>{match.home?.name}</span>
+                    <span className={`text-[6px] sm:text-[9px] ml-0.5 sm:ml-1.5 leading-none truncate block ${homeWinner ? 'font-bold text-yellow-400' : match.home?.placementStatus === 'PROVISIONAL' ? 'text-amber-300' : match.home?.isPlaceholder ? 'text-slate-500' : 'text-slate-200'}`} title={[match.home?.name, ...(match.home?.candidateNames || [])].filter(Boolean).join(' · ')}>{match.home?.name}</span>
                 </div>
-                {isLive && <span className={`text-[6px] lg:text-[8px] leading-none shrink-0 text-right w-[15%] ${homeWinner ? 'text-yellow-400 font-bold' : 'text-slate-500'}`}>{match.status === 'FINISHED' || match.status === 'LIVE' ? match.homeScore : '-'}</span>}
+                {isLive && <span className={`text-[6px] lg:text-[8px] leading-none shrink-0 text-right w-[15%] ${match.home?.placementStatus === 'CONFIRMED' ? 'text-emerald-400' : match.home?.placementStatus === 'PROVISIONAL' ? 'text-amber-400' : homeWinner ? 'text-yellow-400 font-bold' : 'text-slate-500'}`}>{placementMark(match.home) || (match.status === 'FINISHED' || match.status === 'LIVE' ? match.homeScore : '-')}</span>}
             </div>
 
             <div className={`w-full h-[50%] flex items-center justify-between px-1 cursor-pointer ${isSandbox && match.away && !match.away.isPlaceholder && !awayWinner ? 'hover:bg-yellow-500/20' : ''} ${awayWinner ? 'bg-emerald-900/60 border-l-2 border-emerald-500' : 'border-l-2 border-transparent'}`} onClick={handleAwayClick}>
                 <div className="flex items-center w-[85%] overflow-hidden min-w-0 flex-1">
                     <TeamFlag flag={match.away?.flag} sizeClass="w-3 h-3 lg:w-4 lg:h-4 shrink-0" />
-                    <span className={`text-[6px] sm:text-[9px] ml-0.5 sm:ml-1.5 leading-none truncate block ${awayWinner ? 'font-bold text-yellow-400' : match.away?.isPlaceholder ? 'text-slate-500' : 'text-slate-200'}`} title={match.away?.name}>{match.away?.name}</span>
+                    <span className={`text-[6px] sm:text-[9px] ml-0.5 sm:ml-1.5 leading-none truncate block ${awayWinner ? 'font-bold text-yellow-400' : match.away?.placementStatus === 'PROVISIONAL' ? 'text-amber-300' : match.away?.isPlaceholder ? 'text-slate-500' : 'text-slate-200'}`} title={[match.away?.name, ...(match.away?.candidateNames || [])].filter(Boolean).join(' · ')}>{match.away?.name}</span>
                 </div>
-                {isLive && <span className={`text-[6px] lg:text-[8px] leading-none shrink-0 text-right w-[15%] ${awayWinner ? 'text-yellow-400 font-bold' : 'text-slate-500'}`}>{match.status === 'FINISHED' || match.status === 'LIVE' ? match.awayScore : '-'}</span>}
+                {isLive && <span className={`text-[6px] lg:text-[8px] leading-none shrink-0 text-right w-[15%] ${match.away?.placementStatus === 'CONFIRMED' ? 'text-emerald-400' : match.away?.placementStatus === 'PROVISIONAL' ? 'text-amber-400' : awayWinner ? 'text-yellow-400 font-bold' : 'text-slate-500'}`}>{placementMark(match.away) || (match.status === 'FINISHED' || match.status === 'LIVE' ? match.awayScore : '-')}</span>}
             </div>
         </div>
     )
@@ -1471,7 +1549,52 @@ const getBestThirdPlaceGroups = (groups) => Object.keys(groups)
   .slice(0, 8)
   .map(item => item.groupName);
 
-const getProjectedThirdAssignments = (groups) => assignThirdPlaceTeams(getBestThirdPlaceGroups(groups));
+const isGroupComplete = (group) => {
+  if (!group) return false;
+  const finishedMatches = (group.matches || []).filter(match => match.status === 'FINISHED').length;
+  return finishedMatches >= 6 && (group.teams || []).every(team => Number(team.played || 0) >= 3);
+};
+
+const areAllGroupsComplete = (groups) => (
+  Object.keys(initialGroups).every(groupName => isGroupComplete(groups?.[groupName]))
+);
+
+const getThirdPlaceRanking = (groups) => Object.keys(initialGroups)
+  .map(groupName => ({
+    groupName,
+    team: groups?.[groupName]?.teams?.[2] || getSlotPlaceholder(`${groupName}3`),
+    groupComplete: isGroupComplete(groups?.[groupName])
+  }))
+  .sort((a, b) =>
+    Number(b.team.pts || 0) - Number(a.team.pts || 0) ||
+    Number(b.team.gd || 0) - Number(a.team.gd || 0) ||
+    Number(b.team.gf || 0) - Number(a.team.gf || 0) ||
+    a.groupName.localeCompare(b.groupName)
+  )
+  .map((item, index) => ({ ...item, liveRank: index + 1, qualifyingNow: index < 8 }));
+
+const getProjectedThirdAssignments = (groups) => (
+  areAllGroupsComplete(groups) ? assignThirdPlaceTeams(getBestThirdPlaceGroups(groups)) : {}
+);
+
+const getProvisionalGroupSlot = (slotStr, groups) => {
+  const groupName = slotStr.charAt(0).toUpperCase();
+  const rank = parseInt(slotStr.charAt(1), 10) - 1;
+  const group = groups?.[groupName];
+  const currentTeam = group?.teams?.[rank];
+  if (isGroupComplete(group) && currentTeam) {
+    return { ...currentTeam, group: groupName, projectedSlot: slotStr, placementStatus: 'CONFIRMED' };
+  }
+  const candidates = (group?.teams || []).map(team => team.name).filter(Boolean);
+  return {
+    ...getSlotPlaceholder(slotStr),
+    id: `provisional_${slotStr}`,
+    name: currentTeam ? `临时${slotStr}：${currentTeam.name}?` : `临时${slotStr}：?`,
+    placeholderName: currentTeam ? `临时${slotStr}：${currentTeam.name}?` : `临时${slotStr}：?`,
+    candidateNames: candidates,
+    placementStatus: 'PROVISIONAL'
+  };
+};
 
 const resolveProjectedSlot = (slotStr, groups, knockoutFlat, thirdAssignments, matchId) => {
   if (!slotStr || slotStr === '?') return getSlotPlaceholder(slotStr);
@@ -1488,24 +1611,65 @@ const resolveProjectedSlot = (slotStr, groups, knockoutFlat, thirdAssignments, m
   if (slotStr.includes('/')) {
     const assignedGroup = thirdAssignments[matchId];
     const team = assignedGroup ? groups[assignedGroup]?.teams?.[2] : null;
-    return team ? { ...team, group: assignedGroup, projectedSlot: `${assignedGroup}3` } : getSlotPlaceholder(slotStr);
+    if (team && areAllGroupsComplete(groups)) {
+      return { ...team, group: assignedGroup, projectedSlot: `${assignedGroup}3`, placementStatus: 'CONFIRMED' };
+    }
+    const allowedGroups = slotStr.split('/').map(item => item.charAt(0));
+    const candidates = getThirdPlaceRanking(groups)
+      .filter(item => allowedGroups.includes(item.groupName))
+      .map(item => `${item.groupName}3 ${item.team.name}`);
+    return {
+      ...getSlotPlaceholder(slotStr),
+      id: `provisional_${matchId}_${slotStr}`,
+      name: `第三名候选：${candidates.join(' / ') || '?'}`,
+      placeholderName: `第三名候选：${candidates.join(' / ') || '?'}`,
+      candidateNames: candidates,
+      placementStatus: 'PROVISIONAL'
+    };
   }
   if (/^[A-L][1-4]$/.test(slotStr)) {
-    const groupName = slotStr.charAt(0).toUpperCase();
-    const rank = parseInt(slotStr.charAt(1), 10) - 1;
-    const team = groups[groupName]?.teams?.[rank];
-    return team ? { ...team, group: groupName, projectedSlot: slotStr } : getSlotPlaceholder(slotStr);
+    return getProvisionalGroupSlot(slotStr, groups);
   }
   return getSlotPlaceholder(slotStr);
 };
 
 const buildProjectedKnockouts = (groups, knockoutFlat) => {
   const thirdAssignments = getProjectedThirdAssignments(groups);
-  return knockoutFlat.map(match => ({
-    ...match,
-    home: match.home && !match.home.isPlaceholder ? match.home : resolveProjectedSlot(match.homeStr, groups, knockoutFlat, thirdAssignments, match.id),
-    away: match.away && !match.away.isPlaceholder ? match.away : resolveProjectedSlot(match.awayStr, groups, knockoutFlat, thirdAssignments, match.id)
-  }));
+  const claimedRoundOf32Teams = new Set();
+  const keepUniqueRoundOf32Team = (team, slotStr, matchId) => {
+    if (!team || team.isPlaceholder) return team;
+    const identity = String(team.apiId || team.id || team.name);
+    if (!claimedRoundOf32Teams.has(identity)) {
+      claimedRoundOf32Teams.add(identity);
+      return team;
+    }
+    return {
+      ...getSlotPlaceholder(slotStr),
+      id: `duplicate_guard_${matchId}_${slotStr}`,
+      name: `${slotStr}落位待核对?`,
+      placeholderName: `${slotStr}落位待核对?`,
+      placementStatus: 'PROVISIONAL'
+    };
+  };
+  return knockoutFlat.map(match => {
+    const matchStarted = match.status === 'LIVE' || match.status === 'FINISHED';
+    const isRoundOf32 = match.round === '1/16决赛';
+    const resolvedHome = matchStarted && match.home && !match.home.isPlaceholder
+      ? match.home
+      : (isRoundOf32 || !match.home || match.home.isPlaceholder
+        ? resolveProjectedSlot(match.homeStr, groups, knockoutFlat, thirdAssignments, match.id)
+        : match.home);
+    const resolvedAway = matchStarted && match.away && !match.away.isPlaceholder
+      ? match.away
+      : (isRoundOf32 || !match.away || match.away.isPlaceholder
+        ? resolveProjectedSlot(match.awayStr, groups, knockoutFlat, thirdAssignments, match.id)
+        : match.away);
+    return {
+      ...match,
+      home: isRoundOf32 ? keepUniqueRoundOf32Team(resolvedHome, match.homeStr, match.id) : resolvedHome,
+      away: isRoundOf32 ? keepUniqueRoundOf32Team(resolvedAway, match.awayStr, match.id) : resolvedAway
+    };
+  });
 };
 
 function generateKnockout(standings, sourceKnockouts = officialKnockoutRoundsFlat) {
@@ -1685,6 +1849,10 @@ function TeamMeetingPredictor({ groups, isFullscreen, setIsFullscreen }) {
     const [teamA, setTeamA] = useState(null); const [teamB, setTeamB] = useState(null);
     const [searchA, setSearchA] = useState(''); const [searchB, setSearchB] = useState('');
     const [isCalculating, setIsCalculating] = useState(false); const [results, setResults] = useState(null);
+    const [routeTeam, setRouteTeam] = useState(null);
+    const [routeSearch, setRouteSearch] = useState('');
+    const [routeRows, setRouteRows] = useState([]);
+    const [routeMessage, setRouteMessage] = useState('');
 
     const allTeams = useMemo(() => { let teams = []; Object.keys(groups).forEach(g => { groups[g].teams.forEach(t => teams.push({...t, group: g})); }); return teams; }, [groups]);
 
@@ -1730,6 +1898,17 @@ function TeamMeetingPredictor({ groups, isFullscreen, setIsFullscreen }) {
     const handleClear = (e) => { e.stopPropagation(); setTeamA(null); setTeamB(null); setSearchA(''); setSearchB(''); setResults(null); };
     const handleSelectA = (team) => { setTeamA(team); setResults(null); };
     const handleSelectB = (team) => { setTeamB(team); setResults(null); };
+    const handleSelectRouteTeam = (team) => { setRouteTeam(team); setRouteRows([]); setRouteMessage(''); };
+    const calculateTeamRoute = (event) => {
+        event.stopPropagation();
+        if (!routeTeam) {
+            setRouteMessage('请先选择一支球队');
+            return;
+        }
+        const rows = buildTeamKnockoutPath(routeTeam, groups);
+        setRouteRows(rows);
+        setRouteMessage(rows.length ? '' : '该队当前没有可生成的淘汰赛路径');
+    };
 
     const handleContainerClick = () => {
         if (results && !isCalculating) {
@@ -1798,13 +1977,167 @@ function TeamMeetingPredictor({ groups, isFullscreen, setIsFullscreen }) {
                         {isFullscreen && <p className="text-center text-[10px] text-slate-500 mt-4">提示：再次点击屏幕空白处恢复导航</p>}
                     </div>
                 )}
+
+                {!isFullscreen && (
+                    <div className="mx-auto mt-8 w-full max-w-2xl px-4 pb-8" onClick={event => event.stopPropagation()}>
+                        <div className="overflow-hidden rounded-[18px] border border-cyan-400/30 bg-[#0b1020] shadow-[0_0_24px_rgba(34,211,238,0.1)]">
+                            <div className="border-b border-[#1f2a44] bg-[#111827] px-4 py-3">
+                                <h3 className="flex items-center gap-2 text-base font-black text-cyan-300"><Route className="h-4 w-4" />单队淘汰赛路线</h3>
+                                <p className="mt-1 text-[10px] sm:text-xs text-[#94a3b8]">选择一支球队，查看从32强到决赛各轮可能遇到的球队。未锁定名次按候选范围计算。</p>
+                            </div>
+                            <div className="space-y-3 p-3 sm:p-4">
+                                <TeamSearchInput value={routeSearch} onChange={setRouteSearch} onSelect={handleSelectRouteTeam} selectedTeam={routeTeam} placeholder="输入一支球队名字..." allTeams={allTeams} />
+                                <button type="button" onClick={calculateTeamRoute} disabled={!routeTeam} className="wc-cyan-button w-full py-3 text-sm font-black disabled:cursor-not-allowed disabled:opacity-40">确认并计算未来对手</button>
+                                {routeMessage && <div className="rounded-xl border border-amber-400/30 bg-amber-500/10 p-3 text-center text-xs font-bold text-amber-300">{routeMessage}</div>}
+                                {routeRows.length > 0 && (
+                                    <div className="space-y-2">
+                                        {routeRows.map(row => (
+                                            <div key={row.round} className="rounded-xl border border-[#1f2a44] bg-[#050816] p-3">
+                                                <div className="mb-2 flex items-center justify-between gap-2">
+                                                    <span className="text-sm font-black text-cyan-300">{row.round}</span>
+                                                    <span className="text-[9px] text-[#94a3b8]">{row.routes.join(' / ')}</span>
+                                                </div>
+                                                <div className="flex flex-wrap gap-1.5">
+                                                    {row.candidates.slice(0, 20).map(name => <span key={name} className="rounded-lg border border-[#1f2a44] bg-[#111827] px-2 py-1 text-[10px] font-bold text-[#e5e7eb]">{name}</span>)}
+                                                    {row.candidates.length === 0 && <span className="text-xs text-[#94a3b8]">对手待前序比赛决出</span>}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     )
 }
 
+function BetCalculator({ matches }) {
+  const [oddsRows, setOddsRows] = useState({});
+  const [oddsStatus, setOddsStatus] = useState('LOADING');
+  const [selections, setSelections] = useState({});
+  const [multiplier, setMultiplier] = useState(1);
+
+  useEffect(() => {
+    const fixtureIds = matches.map(match => match.fixtureId).filter(Boolean);
+    if (!fixtureIds.length) {
+      setOddsStatus('EMPTY');
+      setOddsRows({});
+      return;
+    }
+    let cancelled = false;
+    setOddsStatus('LOADING');
+    fetch(`/api/worldcup-odds?fixtureIds=${encodeURIComponent(fixtureIds.join(','))}`)
+      .then(response => response.json().then(data => ({ response, data })))
+      .then(({ response, data }) => {
+        if (!response.ok || data.error) throw new Error(data.error || '赔率暂时无法加载');
+        if (cancelled) return;
+        setOddsRows(Object.fromEntries((data.odds || []).map(row => [String(row.fixtureId), row])));
+        setOddsStatus((data.odds || []).length ? 'SUCCESS' : 'EMPTY');
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setOddsRows({});
+          setOddsStatus('ERROR');
+        }
+      });
+    return () => { cancelled = true; };
+  }, [matches]);
+
+  const toggleOption = (matchId, option) => {
+    setSelections(current => {
+      const values = current[matchId] || [];
+      const nextValues = values.includes(option) ? values.filter(value => value !== option) : [...values, option];
+      const next = { ...current };
+      if (nextValues.length) next[matchId] = nextValues;
+      else delete next[matchId];
+      return next;
+    });
+  };
+
+  const selectedMatches = matches.filter(match => (selections[match.id] || []).length > 0 && oddsRows[match.fixtureId]);
+  const combinationCount = selectedMatches.reduce((count, match) => count * selections[match.id].length, selectedMatches.length ? 1 : 0);
+  const stake = combinationCount * 2 * multiplier;
+  const returns = selectedMatches.map(match => {
+    const odds = oddsRows[match.fixtureId];
+    return selections[match.id].map(option => Number(odds?.[option] || 0)).filter(Boolean);
+  });
+  const minReturn = returns.length ? returns.reduce((total, values) => total * Math.min(...values), 2 * multiplier) : 0;
+  const maxReturn = returns.length ? returns.reduce((total, values) => total * Math.max(...values), 2 * multiplier) : 0;
+  const optionRows = [
+    { key: 'home', label: '主胜' },
+    { key: 'draw', label: '平' },
+    { key: 'away', label: '客胜' }
+  ];
+
+  return (
+    <div className="rounded-[18px] border border-[#1f2a44] bg-[#0b1020] p-3 sm:p-4 shadow-[0_0_22px_rgba(34,211,238,0.08)]">
+      <div className="mb-3 flex items-start justify-between gap-3">
+        <div>
+          <h3 className="flex items-center gap-2 text-base font-black text-cyan-300"><Calculator className="h-4 w-4" />竞彩足球计算器</h3>
+          <p className="mt-1 text-[10px] sm:text-xs text-[#94a3b8]">胜平负复式与N串1，单注2元。奖金为所选市场赔率计算的理论值。</p>
+        </div>
+        <span className={`shrink-0 rounded-lg border px-2 py-1 text-[9px] font-black ${oddsStatus === 'SUCCESS' ? 'border-emerald-400/40 bg-emerald-500/10 text-emerald-300' : 'border-amber-400/40 bg-amber-500/10 text-amber-300'}`}>{oddsStatus === 'LOADING' ? '赔率加载中' : oddsStatus === 'SUCCESS' ? '实时赔率' : '赔率待发布'}</span>
+      </div>
+
+      <div className="space-y-2">
+        {matches.map(match => {
+          const odds = oddsRows[match.fixtureId];
+          return (
+            <div key={`bet-${match.id}`} className="rounded-xl border border-[#1f2a44] bg-[#111827] p-3">
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <span className="min-w-0 truncate text-xs sm:text-sm font-black text-[#e5e7eb]">{match.homeTeam.name} vs {match.awayTeam.name}</span>
+                <span className="shrink-0 text-[9px] text-[#94a3b8]">{match.time}</span>
+              </div>
+              {odds ? (
+                <>
+                  <div className="grid grid-cols-3 gap-2">
+                    {optionRows.map(option => {
+                      const selected = (selections[match.id] || []).includes(option.key);
+                      return (
+                        <button key={option.key} type="button" onClick={() => toggleOption(match.id, option.key)} className={`rounded-xl border px-2 py-2 text-center transition-all duration-200 ${selected ? 'border-cyan-300 bg-cyan-400/15 text-cyan-200 shadow-[0_0_14px_rgba(34,211,238,0.16)]' : 'border-[#1f2a44] bg-[#050816] text-[#94a3b8] hover:border-cyan-400/50'}`}>
+                          <span className="block text-[10px] font-bold">{option.label}</span>
+                          <span className="mt-0.5 block font-mono text-sm font-black">{Number(odds[option.key]).toFixed(2)}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <div className="mt-2 text-right text-[9px] text-[#64748b]">来源：{odds.bookmaker} · {odds.updatedAt ? new Date(odds.updatedAt).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' }) : '刚刚更新'}</div>
+                </>
+              ) : (
+                <div className="rounded-lg border border-dashed border-[#1f2a44] bg-[#050816] px-3 py-3 text-center text-xs text-[#94a3b8]">该场真实赔率待接口发布，暂不可选</div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="mt-4 rounded-xl border border-cyan-400/25 bg-[#050816] p-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          <div><span className="block text-[9px] text-[#94a3b8]">过关方式</span><b className="text-sm text-[#e5e7eb]">{selectedMatches.length ? `${selectedMatches.length}串1` : '未选择'}</b></div>
+          <div><span className="block text-[9px] text-[#94a3b8]">注数</span><b className="text-sm text-[#e5e7eb]">{combinationCount} 注</b></div>
+          <label><span className="block text-[9px] text-[#94a3b8]">倍数</span><input type="number" min="1" max="50" value={multiplier} onChange={event => setMultiplier(Math.max(1, Math.min(50, Number(event.target.value) || 1)))} className="mt-0.5 w-full rounded-lg border border-[#1f2a44] bg-[#111827] px-2 py-1 text-sm font-black text-cyan-300 outline-none focus:border-cyan-400" /></label>
+          <div><span className="block text-[9px] text-[#94a3b8]">投注金额</span><b className="text-sm text-cyan-300">{stake.toFixed(2)} 元</b></div>
+        </div>
+        <div className="mt-3 flex items-center justify-between gap-3 border-t border-[#1f2a44] pt-3">
+          <span className="text-xs font-bold text-[#94a3b8]">理论奖金范围</span>
+          <b className="text-base text-emerald-300">{minReturn ? `${minReturn.toFixed(2)} - ${maxReturn.toFixed(2)} 元` : '0.00 元'}</b>
+        </div>
+      </div>
+
+      <div className="mt-3 flex gap-2 rounded-xl border border-amber-400/25 bg-amber-500/5 p-3 text-[10px] leading-relaxed text-amber-100/80">
+        <Info className="h-4 w-4 shrink-0 text-amber-300" />
+        <span>本工具不售彩。结果按90分钟含伤停计算，不含加时和点球；实际可售玩法、单关资格、最终固定奖金及限额以中国体彩网和线下终端为准。未成年人不得购彩，请理性参与。</span>
+      </div>
+    </div>
+  );
+}
+
 function DailyPredictionsView() {
   const [visibleMatches, setVisibleMatches] = useState(() => getFallbackPredictionMatches());
+  const [dailyMode, setDailyMode] = useState('analysis');
   const [listStatus, setListStatus] = useState('LOCAL');
   const [selectedIds, setSelectedIds] = useState([]);
   const [analysisIds, setAnalysisIds] = useState([]);
@@ -1927,6 +2260,15 @@ function DailyPredictionsView() {
             <p className="mt-2 text-xs sm:text-sm text-[#94a3b8]">每天下午2点更新分析；当前可选比赛范围：北京时间 {windowLabel}。</p>
           </div>
 
+          <div className="mb-4 grid grid-cols-2 gap-2 rounded-[18px] border border-[#1f2a44] bg-[#0b1020] p-1.5">
+            <button type="button" onClick={() => setDailyMode('analysis')} className={`rounded-xl border px-3 py-2.5 text-xs sm:text-sm font-black transition-all duration-200 ${dailyMode === 'analysis' ? 'border-cyan-300 bg-cyan-400/15 text-cyan-200 shadow-[0_0_16px_rgba(34,211,238,0.16)]' : 'border-transparent text-[#94a3b8] hover:text-cyan-300'}`}><Sparkles className="mr-1.5 inline h-4 w-4" />预测分析</button>
+            <button type="button" onClick={() => setDailyMode('calculator')} className={`rounded-xl border px-3 py-2.5 text-xs sm:text-sm font-black transition-all duration-200 ${dailyMode === 'calculator' ? 'border-cyan-300 bg-cyan-400/15 text-cyan-200 shadow-[0_0_16px_rgba(34,211,238,0.16)]' : 'border-transparent text-[#94a3b8] hover:text-cyan-300'}`}><Calculator className="mr-1.5 inline h-4 w-4" />买球计算器</button>
+          </div>
+
+          {dailyMode === 'calculator' ? (
+            <BetCalculator matches={visibleMatches} />
+          ) : (
+          <>
           <div className="mb-3 flex items-center justify-between">
             <h3 className="text-sm sm:text-base font-black text-slate-100 flex items-center gap-2">
               <CalendarDays className="w-4 h-4 text-cyan-300" />
@@ -2061,13 +2403,80 @@ function DailyPredictionsView() {
               })}
             </div>
           </div>
+          </>
+          )}
         </div>
       </div>
     </section>
   );
 }
 
-function LiveBracketView({ knockouts, getTeamFromSlot, onMatchClick, onTeamClick, onExitHome, isFullscreen, setIsFullscreen }) {
+function ThirdPlaceRankingModal({ groups, onClose }) {
+  const rows = useMemo(() => getThirdPlaceRanking(groups), [groups]);
+  const finalRanking = areAllGroupsComplete(groups);
+  return (
+    <div className="fixed inset-0 z-[320] bg-black/75 backdrop-blur-sm p-3 sm:p-6 flex items-center justify-center" onClick={onClose}>
+      <div className="w-full max-w-3xl max-h-[88dvh] overflow-hidden rounded-[18px] border border-amber-400/40 bg-[#0b1020] shadow-[0_0_40px_rgba(251,191,36,0.18)]" onClick={event => event.stopPropagation()}>
+        <div className="flex items-start justify-between gap-3 border-b border-[#1f2a44] bg-[#111827] px-4 py-3">
+          <div>
+            <h3 className="text-base sm:text-xl font-black text-amber-300">第三名实时排行</h3>
+            <p className="mt-1 text-[10px] sm:text-xs text-[#94a3b8]">{finalRanking ? '12组均已完赛，前八名进入32强。' : '当前实时顺序；全部小组完赛前，晋级和落位仍可能变化。'}</p>
+          </div>
+          <button type="button" onClick={onClose} className="wc-cyan-button shrink-0 p-2" aria-label="关闭第三名实时排行"><X className="h-4 w-4" /></button>
+        </div>
+        <div className="overflow-auto max-h-[calc(88dvh-76px)] p-3 sm:p-4">
+          <div className="hidden min-w-[720px] sm:block">
+            <div className="grid grid-cols-[42px_58px_minmax(130px,1fr)_48px_repeat(7,52px)_58px] items-center gap-1 border-b border-[#1f2a44] px-2 pb-2 text-center text-[10px] font-bold text-[#94a3b8]">
+              <span>排名</span><span>小组</span><span className="text-left">当前第三名</span><span>赛</span><span>胜</span><span>平</span><span>负</span><span>进球</span><span>失球</span><span>净胜</span><span>积分</span><span>状态</span>
+            </div>
+            <div className="space-y-1.5 pt-2">
+              {rows.map(row => (
+                <div key={row.groupName} className={`grid grid-cols-[42px_58px_minmax(130px,1fr)_48px_repeat(7,52px)_58px] items-center gap-1 rounded-xl border px-2 py-2.5 text-center text-xs ${row.qualifyingNow ? 'border-emerald-400/45 bg-emerald-500/10 shadow-[0_0_18px_rgba(34,197,94,0.14)]' : 'border-[#1f2a44] bg-[#111827]'}`}>
+                  <span className={`font-black ${row.qualifyingNow ? 'text-emerald-300' : 'text-[#94a3b8]'}`}>{row.liveRank}</span>
+                  <span className="font-black text-amber-300">{row.groupName}组</span>
+                  <span className="flex min-w-0 items-center gap-2 text-left font-bold text-[#e5e7eb]"><TeamFlag flag={row.team.flag} sizeClass="w-5 h-5 shrink-0" /><span className="truncate">{row.team.name}</span>{!row.groupComplete && <span className="text-[9px] text-amber-400">临时</span>}</span>
+                  <span>{row.team.played || 0}</span><span>{row.team.w || 0}</span><span>{row.team.d || 0}</span><span>{row.team.l || 0}</span><span>{row.team.gf || 0}</span><span>{row.team.ga || 0}</span><span>{Number(row.team.gd || 0) > 0 ? `+${row.team.gd}` : row.team.gd || 0}</span><span className="font-black text-cyan-300">{row.team.pts || 0}</span>
+                  <span className={row.qualifyingNow ? 'rounded-md border border-emerald-400/35 bg-emerald-500/15 px-1.5 py-0.5 text-[8px] font-black text-emerald-300' : 'text-[9px] text-[#64748b]'}>{row.qualifyingNow ? '晋级区' : '候补'}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="space-y-2 sm:hidden">
+            {rows.map(row => {
+              const metrics = [
+                ['赛', row.team.played || 0], ['胜', row.team.w || 0], ['平', row.team.d || 0], ['负', row.team.l || 0],
+                ['进', row.team.gf || 0], ['失', row.team.ga || 0], ['净', Number(row.team.gd || 0) > 0 ? `+${row.team.gd}` : row.team.gd || 0], ['分', row.team.pts || 0]
+              ];
+              return (
+                <div key={`mobile-${row.groupName}`} className={`relative rounded-xl border p-3 ${row.qualifyingNow ? 'border-emerald-400/45 bg-emerald-500/10 shadow-[0_0_16px_rgba(34,197,94,0.12)]' : 'border-[#1f2a44] bg-[#111827]'}`}>
+                  <div className="mb-2 flex items-center gap-2 pr-14">
+                    <span className={`w-5 text-center text-sm font-black ${row.qualifyingNow ? 'text-emerald-300' : 'text-[#94a3b8]'}`}>{row.liveRank}</span>
+                    <span className="text-xs font-black text-amber-300">{row.groupName}组</span>
+                    <TeamFlag flag={row.team.flag} sizeClass="w-5 h-5 shrink-0" />
+                    <span className="truncate text-sm font-black text-[#e5e7eb]">{row.team.name}</span>
+                    {!row.groupComplete && <span className="text-[9px] font-bold text-amber-400">临时</span>}
+                  </div>
+                  {row.qualifyingNow && <span className="absolute right-2 top-2 rounded-md border border-emerald-400/35 bg-emerald-500/15 px-1.5 py-0.5 text-[8px] font-black text-emerald-300">晋级区</span>}
+                  <div className="grid grid-cols-8 gap-1">
+                    {metrics.map(([label, value]) => (
+                      <div key={label} className="rounded-md border border-[#1f2a44] bg-[#050816] px-0.5 py-1 text-center">
+                        <span className="block text-[8px] text-[#64748b]">{label}</span>
+                        <b className={`block text-[10px] ${label === '分' ? 'text-cyan-300' : 'text-[#e5e7eb]'}`}>{value}</b>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function LiveBracketView({ knockouts, groups, getTeamFromSlot, onMatchClick, onTeamClick, onExitHome, isFullscreen, setIsFullscreen }) {
+    const [showThirdRanking, setShowThirdRanking] = useState(false);
     const handleExit = (e) => { e.stopPropagation(); onExitHome(); };
     return (
         <div className="h-full flex flex-col bg-slate-950 relative overflow-hidden" onClick={() => setIsFullscreen(!isFullscreen)}>
@@ -2085,8 +2494,9 @@ function LiveBracketView({ knockouts, getTeamFromSlot, onMatchClick, onTeamClick
             
             <div className="flex-1 w-full h-full relative overflow-hidden">
                 <div id="capture-live-bracket" className="w-full h-full relative bg-slate-950 overflow-hidden">
-                    <div className="absolute top-2 sm:top-4 left-0 right-0 text-center z-20 pointer-events-none">
-                        <h2 className="text-base sm:text-xl font-black text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-400 tracking-wider inline-block bg-slate-950/80 backdrop-blur-md px-5 py-1.5 rounded-full border border-slate-800 shadow-xl">世界杯全景实况大树</h2>
+                    <div className="absolute top-2 sm:top-4 left-0 right-0 z-20 flex items-center justify-center gap-2 px-2" onClick={event => event.stopPropagation()}>
+                        <h2 className="text-sm sm:text-xl font-black text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-400 tracking-wider bg-slate-950/80 backdrop-blur-md px-3 sm:px-5 py-1.5 rounded-full border border-slate-800 shadow-xl">世界杯全景实况大树</h2>
+                        <button type="button" onClick={() => setShowThirdRanking(true)} className="wc-cyan-button px-2.5 py-1.5 text-[9px] sm:text-xs font-black">第三名实时排行</button>
                     </div>
 
                     <div className="absolute top-12 left-0 right-0 bottom-24">
@@ -2097,11 +2507,12 @@ function LiveBracketView({ knockouts, getTeamFromSlot, onMatchClick, onTeamClick
                     </div>
                 </div>
             </div>
+            {showThirdRanking && <ThirdPlaceRankingModal groups={groups} onClose={() => setShowThirdRanking(false)} />}
         </div>
     );
 }
 
-function KnockoutScheduleView({ knockouts, getTeamFromSlot, onMatchClick, onTeamClick }) {
+function KnockoutScheduleView({ knockouts, groups, getTeamFromSlot, onMatchClick, onTeamClick }) {
   const roundTabs = [
     { value: '1/16决赛', label: '32强赛' },
     { value: '1/8决赛', label: '16强赛' },
@@ -2111,6 +2522,7 @@ function KnockoutScheduleView({ knockouts, getTeamFromSlot, onMatchClick, onTeam
     { value: '决赛', label: '决赛' }
   ];
   const [activeRound, setActiveRound] = useState('1/16决赛');
+  const [showThirdRanking, setShowThirdRanking] = useState(false);
   const activeRoundLabel = roundTabs.find(round => round.value === activeRound)?.label || activeRound;
   const currentMatches = knockouts.filter(m => m.round === activeRound);
 
@@ -2121,7 +2533,10 @@ function KnockoutScheduleView({ knockouts, getTeamFromSlot, onMatchClick, onTeam
               <div className="flex overflow-x-auto hide-scrollbar border-b border-slate-800 shrink-0 bg-slate-900 px-2 py-3 gap-2 sticky top-0 z-10">{roundTabs.map(round => ( <button key={round.value} onClick={() => setActiveRound(round.value)} className={`px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-colors ${activeRound === round.value ? 'bg-purple-600 text-white shadow-lg' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}>{round.label}</button> ))}</div>
               <div className="max-w-3xl mx-auto bg-slate-950 p-2 sm:p-4 pb-6 w-full">
                 <div className="text-center mb-6">
-                  <h2 className="text-xl sm:text-2xl font-black text-purple-400 mt-4 tracking-wider">{activeRoundLabel}实时对阵</h2>
+                  <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+                    <h2 className="text-xl sm:text-2xl font-black text-purple-400 tracking-wider">{activeRoundLabel}实时对阵</h2>
+                    <button type="button" onClick={() => setShowThirdRanking(true)} className="wc-cyan-button px-3 py-1.5 text-[10px] sm:text-xs font-black">第三名实时排行</button>
+                  </div>
                   <p className="text-xs text-slate-500 mt-1">席位确定后自动落位；未确定席位仅显示组别与名次</p>
                 </div>
                 <div className="space-y-4">
@@ -2132,9 +2547,17 @@ function KnockoutScheduleView({ knockouts, getTeamFromSlot, onMatchClick, onTeam
                       <div key={match.id} onClick={() => onMatchClick({ ...match, homeTeam, awayTeam })} className="flex flex-col bg-slate-900 border border-slate-800 rounded-xl hover:border-purple-500/50 cursor-pointer transition-colors shadow-sm overflow-hidden group">
                         <div className="bg-slate-800/50 px-4 py-1.5 border-b border-slate-700 flex justify-between items-center"><span className="text-[10px] text-slate-400 flex items-center"><Clock className="w-3 h-3 mr-1 opacity-70"/> {match.timeStr}</span><span className="text-[9px] text-purple-400 bg-purple-900/20 px-2 py-0.5 rounded border border-purple-500/20 font-bold">第 {match.id.replace('ko_', '')} 场</span></div>
                         <div className="flex items-center justify-between p-4 gap-3">
-                          <div onClick={(event) => { event.stopPropagation(); if (!homeTeam.isPlaceholder) onTeamClick(homeTeam); }} className={`flex flex-col items-center w-[40%] gap-2 ${homeTeam.isPlaceholder ? '' : 'hover:scale-105 transition-transform'}`}><TeamFlag flag={homeTeam.flag} sizeClass="w-8 h-8 sm:w-10 sm:h-10 drop-shadow-md" /><div className="text-sm font-bold text-center group-hover:text-purple-300 leading-tight">{homeTeam.isPlaceholder ? homeTeam.placeholderName : homeTeam.name}</div></div>
+                          <div onClick={(event) => { event.stopPropagation(); if (!homeTeam.isPlaceholder) onTeamClick(homeTeam); }} className={`flex flex-col items-center w-[40%] min-w-0 gap-2 ${homeTeam.isPlaceholder ? '' : 'hover:scale-105 transition-transform'}`}>
+                            <TeamFlag flag={homeTeam.flag} sizeClass="w-8 h-8 sm:w-10 sm:h-10 drop-shadow-md" />
+                            <div className={`text-xs sm:text-sm font-bold text-center leading-tight break-words ${homeTeam.placementStatus === 'PROVISIONAL' ? 'text-amber-300' : 'group-hover:text-purple-300'}`}>{homeTeam.isPlaceholder ? homeTeam.placeholderName : homeTeam.name}</div>
+                            {homeTeam.placementStatus && <span className={`rounded border px-1.5 py-0.5 text-[8px] font-black ${homeTeam.placementStatus === 'CONFIRMED' ? 'border-emerald-400/40 bg-emerald-500/10 text-emerald-300' : 'border-amber-400/40 bg-amber-500/10 text-amber-300'}`}>{homeTeam.placementStatus === 'CONFIRMED' ? '已确认' : '临时 ?'}</span>}
+                          </div>
                           <div className={`bg-slate-950 border px-3 py-1.5 rounded-lg font-black min-w-[60px] text-center text-lg ${match.status === 'LIVE' ? 'border-emerald-500 text-emerald-400' : 'border-slate-700 text-slate-300'}`}>{showScore ? `${match.homeScore} - ${match.awayScore}` : 'VS'}</div>
-                          <div onClick={(event) => { event.stopPropagation(); if (!awayTeam.isPlaceholder) onTeamClick(awayTeam); }} className={`flex flex-col items-center w-[40%] gap-2 ${awayTeam.isPlaceholder ? '' : 'hover:scale-105 transition-transform'}`}><TeamFlag flag={awayTeam.flag} sizeClass="w-8 h-8 sm:w-10 sm:h-10 drop-shadow-md" /><div className="text-sm font-bold text-center group-hover:text-purple-300 leading-tight">{awayTeam.isPlaceholder ? awayTeam.placeholderName : awayTeam.name}</div></div>
+                          <div onClick={(event) => { event.stopPropagation(); if (!awayTeam.isPlaceholder) onTeamClick(awayTeam); }} className={`flex flex-col items-center w-[40%] min-w-0 gap-2 ${awayTeam.isPlaceholder ? '' : 'hover:scale-105 transition-transform'}`}>
+                            <TeamFlag flag={awayTeam.flag} sizeClass="w-8 h-8 sm:w-10 sm:h-10 drop-shadow-md" />
+                            <div className={`text-xs sm:text-sm font-bold text-center leading-tight break-words ${awayTeam.placementStatus === 'PROVISIONAL' ? 'text-amber-300' : 'group-hover:text-purple-300'}`}>{awayTeam.isPlaceholder ? awayTeam.placeholderName : awayTeam.name}</div>
+                            {awayTeam.placementStatus && <span className={`rounded border px-1.5 py-0.5 text-[8px] font-black ${awayTeam.placementStatus === 'CONFIRMED' ? 'border-emerald-400/40 bg-emerald-500/10 text-emerald-300' : 'border-amber-400/40 bg-amber-500/10 text-amber-300'}`}>{awayTeam.placementStatus === 'CONFIRMED' ? '已确认' : '临时 ?'}</span>}
+                          </div>
                         </div>
                       </div>
                     );
@@ -2144,6 +2567,7 @@ function KnockoutScheduleView({ knockouts, getTeamFromSlot, onMatchClick, onTeam
               </div>
            </div>
       </div>
+      {showThirdRanking && <ThirdPlaceRankingModal groups={groups} onClose={() => setShowThirdRanking(false)} />}
     </div>
   );
 }
@@ -3152,12 +3576,23 @@ export default function App() {
     if (slotStr.includes('/')) {
       const allowedGroups = slotStr.split('/').map(item => item.charAt(0));
       const groupName = Object.values(projectedThirdAssignments).find(group => allowedGroups.includes(group));
-      return groupName && groups[groupName]?.teams?.[2] ? groups[groupName].teams[2] : getSlotPlaceholder(slotStr);
+      if (areAllGroupsComplete(groups) && groupName && groups[groupName]?.teams?.[2]) {
+        return { ...groups[groupName].teams[2], placementStatus: 'CONFIRMED' };
+      }
+      const candidates = getThirdPlaceRanking(groups)
+        .filter(item => allowedGroups.includes(item.groupName))
+        .map(item => `${item.groupName}3 ${item.team.name}`);
+      return {
+        ...getSlotPlaceholder(slotStr),
+        id: `provisional_${slotStr}`,
+        name: `第三名候选：${candidates.join(' / ') || '?'}`,
+        placeholderName: `第三名候选：${candidates.join(' / ') || '?'}`,
+        candidateNames: candidates,
+        placementStatus: 'PROVISIONAL'
+      };
     }
-    const groupName = slotStr.charAt(0).toUpperCase();
-    const rank = parseInt(slotStr.charAt(1)) - 1;
-    const group = groups[groupName];
-    return group?.teams?.[rank] || getSlotPlaceholder(slotStr);
+    if (/^[A-L][1-4]$/.test(slotStr)) return getProvisionalGroupSlot(slotStr, groups);
+    return getSlotPlaceholder(slotStr);
   }, [groups, projectedKnockoutFlat, projectedThirdAssignments]);
 
   const selectedTeamMatches = useMemo(() => {
@@ -3218,11 +3653,11 @@ export default function App() {
           </SafeSectionBoundary>
         </div>
         <div className={activeTab === 'meeting' ? 'h-full' : 'hidden'}><TeamMeetingPredictor groups={groups} isFullscreen={isFullscreen} setIsFullscreen={setIsFullscreen} /></div>
-        <div className={activeTab === 'live_bracket' ? 'h-full' : 'hidden'}><SafeSectionBoundary><LiveBracketView knockouts={projectedKnockoutFlat} getTeamFromSlot={getTeamFromSlot} onMatchClick={handleOpenMatch} onTeamClick={handleOpenTeam} onExitHome={navigateBack} isFullscreen={isFullscreen} setIsFullscreen={setIsFullscreen} /></SafeSectionBoundary></div>
+        <div className={activeTab === 'live_bracket' ? 'h-full' : 'hidden'}><SafeSectionBoundary><LiveBracketView knockouts={projectedKnockoutFlat} groups={groups} getTeamFromSlot={getTeamFromSlot} onMatchClick={handleOpenMatch} onTeamClick={handleOpenTeam} onExitHome={navigateBack} isFullscreen={isFullscreen} setIsFullscreen={setIsFullscreen} /></SafeSectionBoundary></div>
         <div className={activeTab === 'group_schedule' ? 'h-full' : 'hidden'}><SafeSectionBoundary><GroupScheduleView groups={groups} onMatchClick={handleOpenMatch} onTeamClick={handleOpenTeam} /></SafeSectionBoundary></div>
         <div className={activeTab === 'full_schedule' ? 'h-full' : 'hidden'}><SafeSectionBoundary><RulesView key="full-schedule" groups={groups} knockouts={projectedKnockoutRounds} getTeamFromSlot={getTeamFromSlot} onMatchClick={handleOpenMatch} onTeamClick={handleOpenTeam} defaultTab="schedule" locked /></SafeSectionBoundary></div>
         <div className={activeTab === 'heroes' ? 'h-full' : 'hidden'}><SafeSectionBoundary><RulesView key="heroes" groups={groups} knockouts={projectedKnockoutRounds} getTeamFromSlot={getTeamFromSlot} onMatchClick={handleOpenMatch} onTeamClick={handleOpenTeam} defaultTab="heroes" locked /></SafeSectionBoundary></div>
-        <div className={activeTab === 'knockout_schedule' ? 'h-full' : 'hidden'}><SafeSectionBoundary><KnockoutScheduleView knockouts={projectedKnockoutFlat} getTeamFromSlot={getTeamFromSlot} onMatchClick={handleOpenMatch} onTeamClick={handleOpenTeam} /></SafeSectionBoundary></div>
+        <div className={activeTab === 'knockout_schedule' ? 'h-full' : 'hidden'}><SafeSectionBoundary><KnockoutScheduleView knockouts={projectedKnockoutFlat} groups={groups} getTeamFromSlot={getTeamFromSlot} onMatchClick={handleOpenMatch} onTeamClick={handleOpenTeam} /></SafeSectionBoundary></div>
         <div className={activeTab === 'rules' ? 'h-full' : 'hidden'}><SafeSectionBoundary><RulesView key="rules" groups={groups} knockouts={projectedKnockoutRounds} getTeamFromSlot={getTeamFromSlot} onMatchClick={handleOpenMatch} onTeamClick={handleOpenTeam} defaultTab="rules" locked /></SafeSectionBoundary></div>
       </div>
 
