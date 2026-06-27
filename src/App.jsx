@@ -2142,6 +2142,21 @@ const calculateRoundedTicketBonus = (odds) => {
   return Number(cents) / 100;
 };
 
+const resolveTicketMarket = (odds, ticket) => {
+  const market = odds?.markets?.[ticket?.marketKey];
+  if (!market || ticket?.marketKey !== 'rqspf') return market;
+  const lines = Array.isArray(market.lines) && market.lines.length
+    ? market.lines
+    : (market.options?.length ? [{
+        key: market.line || 'default',
+        line: market.line || '',
+        label: Number(market.line) < 0 ? `主队让${Math.abs(Number(market.line))}球` : `客队让${Math.abs(Number(market.line))}球`,
+        options: market.options
+      }] : []);
+  const selectedLine = lines.find(line => line.key === ticket.lineKey) || lines[0];
+  return selectedLine ? { ...market, ...selectedLine, lines, options: selectedLine.options } : market;
+};
+
 function BetCalculator({ matches }) {
   const [oddsRows, setOddsRows] = useState({});
   const [oddsStatus, setOddsStatus] = useState('LOADING');
@@ -2206,14 +2221,25 @@ function BetCalculator({ matches }) {
         return next;
       }
       const firstMarket = marketOrder.find(key => odds.markets?.[key]?.options?.length);
-      return firstMarket ? { ...current, [match.id]: { marketKey: firstMarket, optionKeys: [] } } : current;
+      if (!firstMarket) return current;
+      const firstLine = firstMarket === 'rqspf' ? odds.markets.rqspf.lines?.[0]?.key : undefined;
+      return { ...current, [match.id]: { marketKey: firstMarket, lineKey: firstLine, optionKeys: [] } };
     });
   };
 
-  const selectMarket = (matchId, marketKey) => {
+  const selectMarket = (match, marketKey) => {
+    const odds = oddsRows[match.fixtureId];
+    const firstLine = marketKey === 'rqspf' ? odds?.markets?.rqspf?.lines?.[0]?.key : undefined;
     setTickets(current => ({
       ...current,
-      [matchId]: { marketKey, optionKeys: [] }
+      [match.id]: { marketKey, lineKey: firstLine, optionKeys: [] }
+    }));
+  };
+
+  const selectHandicapLine = (matchId, lineKey) => {
+    setTickets(current => ({
+      ...current,
+      [matchId]: { ...current[matchId], lineKey, optionKeys: [] }
     }));
   };
 
@@ -2231,7 +2257,7 @@ function BetCalculator({ matches }) {
   const selectedEntries = matches.flatMap(match => {
     const ticket = tickets[match.id];
     const odds = oddsRows[match.fixtureId];
-    const market = odds?.markets?.[ticket?.marketKey];
+    const market = resolveTicketMarket(odds, ticket);
     if (!ticket || !market || ticket.optionKeys.length === 0) return [];
     const options = market.options.filter(option => ticket.optionKeys.includes(option.key));
     return options.length ? [{ match, ticket, market, options }] : [];
@@ -2338,14 +2364,14 @@ function BetCalculator({ matches }) {
           const odds = oddsRows[match.fixtureId];
           const ticket = tickets[match.id];
           const selected = !!ticket;
-          const activeMarket = odds?.markets?.[ticket?.marketKey];
+          const activeMarket = resolveTicketMarket(odds, ticket);
           return (
             <div key={`bet-${match.id}`} className={`rounded-xl border bg-[#111827] transition-all ${selected ? 'border-cyan-400/45 shadow-[0_0_16px_rgba(34,211,238,0.1)]' : 'border-[#1f2a44]'}`}>
               <button type="button" onClick={() => toggleMatch(match)} disabled={!odds} className="flex w-full items-center gap-3 px-3 py-3 text-left disabled:cursor-not-allowed disabled:opacity-60">
                 <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded border text-xs font-black ${selected ? 'border-cyan-300 bg-cyan-400 text-[#050816]' : 'border-[#475569] text-transparent'}`}>✓</span>
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-xs sm:text-sm font-black text-[#e5e7eb]">{match.homeTeam.name} vs {match.awayTeam.name}</span>
-                  <span className="mt-0.5 block text-[9px] text-[#94a3b8]">{match.time}{ticket ? ` · ${odds.markets?.[ticket.marketKey]?.label || ''} · ${ticket.optionKeys.length}项` : ''}</span>
+                  <span className="mt-0.5 block text-[9px] text-[#94a3b8]">{match.time}{ticket ? ` · ${odds.markets?.[ticket.marketKey]?.label || ''}${ticket.marketKey === 'rqspf' && activeMarket?.label ? ` · ${activeMarket.label}` : ''} · ${ticket.optionKeys.length}项` : ''}</span>
                 </span>
                 <span className="shrink-0 text-[9px] text-[#64748b]">{odds ? '选择比赛' : '赔率待发布'}</span>
               </button>
@@ -2358,13 +2384,29 @@ function BetCalculator({ matches }) {
                       const available = !!odds.markets?.[marketKey]?.options?.length;
                       const active = ticket.marketKey === marketKey;
                       return (
-                        <button key={marketKey} type="button" disabled={!available} onClick={() => selectMarket(match.id, marketKey)} className={`shrink-0 rounded-lg border px-2.5 py-1.5 text-[10px] font-black ${active ? 'border-cyan-300 bg-cyan-400/15 text-cyan-200' : available ? 'border-[#1f2a44] bg-[#050816] text-[#94a3b8] hover:border-cyan-400/40' : 'border-[#1f2a44] bg-[#050816] text-[#475569] opacity-55'}`}>
-                          {market.label}{marketKey === 'rqspf' && odds.markets?.rqspf?.line ? ` (${odds.markets.rqspf.line})` : ''}{!available ? ' · 待发布' : ''}
+                        <button key={marketKey} type="button" disabled={!available} onClick={() => selectMarket(match, marketKey)} className={`shrink-0 rounded-lg border px-2.5 py-1.5 text-[10px] font-black ${active ? 'border-cyan-300 bg-cyan-400/15 text-cyan-200' : available ? 'border-[#1f2a44] bg-[#050816] text-[#94a3b8] hover:border-cyan-400/40' : 'border-[#1f2a44] bg-[#050816] text-[#475569] opacity-55'}`}>
+                          {market.label}{!available ? ' · 待发布' : ''}
                         </button>
                       );
                     })}
                   </div>
                   <p className="mb-2 text-[9px] text-amber-300/80">切换本场玩法会清空本场已选结果；同场不同玩法不能混串。</p>
+                  {ticket.marketKey === 'rqspf' && activeMarket?.lines?.length > 0 && (
+                    <div className="mb-2 rounded-xl border border-[#1f2a44] bg-[#050816] p-2">
+                      <div className="mb-1.5 flex items-center justify-between gap-2">
+                        <span className="text-[9px] font-black text-[#e5e7eb]">选择让球方和球数</span>
+                        <span className="text-[8px] text-[#64748b]">按主队视角结算</span>
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {activeMarket.lines.map(line => (
+                          <button key={line.key} type="button" onClick={() => selectHandicapLine(match.id, line.key)} className={`rounded-lg border px-2.5 py-1.5 text-[10px] font-black transition-all ${activeMarket.key === line.key ? 'border-cyan-300 bg-cyan-400/15 text-cyan-200' : 'border-[#1f2a44] bg-[#111827] text-[#94a3b8] hover:border-cyan-400/40'}`}>
+                            {line.label} <span className="font-mono text-[9px] opacity-70">({line.line})</span>
+                          </button>
+                        ))}
+                      </div>
+                      <p className="mt-1.5 text-[8px] leading-relaxed text-[#64748b]">{activeMarket.homeAdjustment < 0 ? `主队赛果按实际进球减 ${activeMarket.goals} 球后判断胜、平、负。` : `主队赛果按实际进球加 ${activeMarket.goals} 球后判断胜、平、负，也就是客队让 ${activeMarket.goals} 球。`}</p>
+                    </div>
+                  )}
                   <div className={`grid gap-1.5 ${activeMarket?.key === 'score' ? 'grid-cols-4 sm:grid-cols-6' : activeMarket?.options?.length > 9 ? 'grid-cols-4 sm:grid-cols-6' : 'grid-cols-3 sm:grid-cols-5'}`}>
                     {(activeMarket?.options || []).map(option => {
                       const optionSelected = ticket.optionKeys.includes(option.key);

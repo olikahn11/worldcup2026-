@@ -27,30 +27,46 @@ const parseThreeWay = (bet) => {
   return options.length === 3 ? options : [];
 };
 
-const parseHandicap = (bookmaker) => {
+export const parseHandicap = (bookmaker) => {
   const bet = findBet(bookmaker, [/^Handicap Result$/i, /3 Way Handicap/i]);
-  if (!bet) return null;
+  if (!bet) return [];
   const grouped = new Map();
   (bet.values || []).forEach(value => {
     const raw = String(value.value || '');
     const side = /home/i.test(raw) ? 'home' : /draw/i.test(raw) ? 'draw' : /away/i.test(raw) ? 'away' : null;
-    const line = raw.match(/[+-]\d+(?:\.\d+)?/)?.[0];
-    if (!side || !line) return;
+    const rawLine = raw.match(/[+-]\d+(?:\.\d+)?/)?.[0];
+    const lineValue = Number(rawLine);
+    if (!side || !Number.isInteger(lineValue) || lineValue === 0) return;
+    const line = lineValue > 0 ? `+${lineValue}` : String(lineValue);
     if (!grouped.has(line)) grouped.set(line, {});
     grouped.get(line)[side] = value;
   });
-  const complete = [...grouped.entries()].find(([, values]) => values.home && values.draw && values.away);
-  if (!complete) return null;
-  const [line, values] = complete;
-  const options = [
-    ['home', '让球主胜', values.home],
-    ['draw', '让球平', values.draw],
-    ['away', '让球客胜', values.away]
-  ].map(([key, label, value]) => {
-    const option = toOption(value, label);
-    return option ? { ...option, key } : null;
-  }).filter(Boolean);
-  return options.length === 3 ? { line, options } : null;
+  return [...grouped.entries()]
+    .map(([line, values]) => {
+      if (!values.home || !values.draw || !values.away) return null;
+      const options = [
+        ['home', '主胜', values.home],
+        ['draw', '平', values.draw],
+        ['away', '客胜', values.away]
+      ].map(([key, label, value]) => {
+        const option = toOption(value, label);
+        return option ? { ...option, key } : null;
+      }).filter(Boolean);
+      if (options.length !== 3) return null;
+      const homeAdjustment = Number(line);
+      const goals = Math.abs(homeAdjustment);
+      return {
+        key: line,
+        line,
+        homeAdjustment,
+        givingSide: homeAdjustment < 0 ? 'home' : 'away',
+        goals,
+        label: homeAdjustment < 0 ? `主队让${goals}球` : `客队让${goals}球`,
+        options
+      };
+    })
+    .filter(Boolean)
+    .sort((a, b) => Math.abs(a.homeAdjustment) - Math.abs(b.homeAdjustment) || a.homeAdjustment - b.homeAdjustment);
 };
 
 const parseCorrectScore = (bookmaker) => {
@@ -115,10 +131,18 @@ const parseFootballOdds = (payload, fixtureId) => {
     || row?.bookmakers?.[0];
   if (!bookmaker) return null;
   const matchWinner = parseThreeWay(findBet(bookmaker, [/^Match Winner$/i, /^1x2$/i]));
-  const handicap = parseHandicap(bookmaker);
+  const handicapLines = parseHandicap(bookmaker);
+  const defaultHandicap = handicapLines[0];
   const markets = {
     spf: { key: 'spf', label: '胜平负', maxPass: 8, options: matchWinner },
-    rqspf: { key: 'rqspf', label: '让球胜平负', maxPass: 8, line: handicap?.line || null, options: handicap?.options || [] },
+    rqspf: {
+      key: 'rqspf',
+      label: '让球胜平负',
+      maxPass: 8,
+      lines: handicapLines,
+      line: defaultHandicap?.line || null,
+      options: defaultHandicap?.options || []
+    },
     score: { key: 'score', label: '比分', maxPass: 4, options: parseCorrectScore(bookmaker) },
     goals: { key: 'goals', label: '总进球', maxPass: 6, options: parseExactGoals(bookmaker) },
     halfFull: { key: 'halfFull', label: '半全场', maxPass: 4, options: parseHalfFull(bookmaker) }
