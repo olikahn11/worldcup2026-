@@ -540,7 +540,104 @@ const manualMatchAnalysis = {
     risk: '中。比利时进攻效率不稳定，新西兰定位球和长传冲吊会制造压力。',
     summary: '比利时这场必须兑现天赋，我看赢球且大球成立。',
     final: { tendency: '比利时胜', score: '1-3', recommendation: '比利时胜 / 大2.5' }
+  },
+  '克罗地亚 vs 加纳': {
+    conclusion: '平局。',
+    essence: '典型的末轮博弈局。加纳4分，平局确保出线；克罗地亚3分，赢球直接晋级，但平局大概率也能以成绩较好的第三名过关。因此双方都怕先失球。加纳前两场防守严密，对英格兰仅让出3次射正；克罗地亚面对低位防守缺乏爆点，布迪米尔虽可能首发，但整体破密集能力仍有限。',
+    sources: [
+      { label: '出线形势', url: 'https://www.foxsports.com/stories/soccer/2026-world-cup-group-l-scenarios-standings-what-england-ghana-croatia-panama-need-advance' },
+      { label: '球队与阵容', url: 'https://www.si.com/soccer/croatia-vs-ghana-world-cup-preview-predictions-lineups-6-27-26' }
+    ],
+    probabilities: { home: 38, draw: 40, away: 22 },
+    scorePrediction: { main: '0-0', backup: '1-1' },
+    totalGoals: '明确小于2.5球，甚至可以大胆防总进球为0；两队都会先保护禁区，末段若同步赛果有利，进攻冒险程度还会下降。',
+    upsetRisk: '中等。克罗地亚若持续压上，加纳的速度反击存在偷走比赛的可能，但加纳主动控球和连续制造机会的能力有限。',
+    risk: '中等。克罗地亚压上会给加纳反击空间，但加纳持续制造机会的能力有限。',
+    summary: '这是今晚最值得大胆猜0-0的一场，首选平局和小球。',
+    final: { tendency: '平局', score: '0-0', recommendation: '平局 / 小2.5' }
+  },
+  '巴拿马 vs 英格兰': {
+    conclusion: '英格兰大胜。',
+    essence: '英格兰争夺小组第一，巴拿马已经出局，比赛结构明显倾向英格兰持续压制。萨卡已经摆脱疼痛并可以首发，凯恩还有金靴动力；巴拿马2026年至今没有完成零封，而且末轮没有继续死守积分的现实价值。',
+    sources: [
+      { label: '英格兰伤情', url: 'https://www.skysports.com/football/news/12016/13558175/england-vs-panama-bukayo-saka-fit-and-ready-to-start-in-three-lions-final-group-game-plus-reece-james-elliot-anderson-declan-rice-injury-news' },
+      { label: '赛前分析', url: 'https://www.si.com/soccer/panama-vs-england-world-cup-preview-predictions-lineups-6-27-26' }
+    ],
+    probabilities: { home: 6, draw: 12, away: 82 },
+    scorePrediction: { main: '0-4', backup: '0-3' },
+    totalGoals: '明确大于2.5球，进取可看大于3.5球。萨卡首发会增加右路单点突破和倒三角，早早进球后巴拿马阵型很可能彻底打开。',
+    upsetRisk: '低。唯一风险是英格兰取得两球优势后主动降速，但这更影响第四球，不影响胜负。',
+    risk: '低。英格兰领先后主动降速可能影响第四球，但不影响胜负方向。',
+    summary: '今晚最强大球方向就是巴拿马零进球、英格兰至少打进三球。',
+    final: { tendency: '英格兰大胜', score: '0-4', recommendation: '英格兰胜 / 大2.5' }
+  },
+  '哥伦比亚 vs 葡萄牙': {
+    conclusion: '哥伦比亚不败，主选平局。',
+    essence: '头名控制战。哥伦比亚6分，平局即锁定第一；葡萄牙4分，只有取胜才能反超。迈阿密预计体感温度超过40℃，高温高湿不利于持续高压，且哥伦比亚更适应类似气候。哥伦比亚中锋路易斯·苏亚雷斯肩部存疑，但预计可以出场；葡萄牙主力框架基本完整。',
+    sources: [
+      { label: '积分形势', url: 'https://www.foxsports.com/stories/soccer/2026-world-cup-group-k-scenarios-standings-what-portugal-dr-congo-uzbekistan-need-advance' },
+      { label: '天气与比赛背景', url: 'https://elpais.com/deportes/mundial-futbol/2026-06-27/portugal-y-colombia-se-juegan-el-primer-puesto-en-el-horno-de-miami.html' },
+      { label: '伤停信息', url: 'https://www.sportsmole.co.uk/football/portugal/world-cup-2026/team-news/colombia-vs-portugal-injury-suspension-list-predicted-xis_600100.html' }
+    ],
+    probabilities: { home: 34, draw: 37, away: 29 },
+    scorePrediction: { main: '1-1', backup: '2-1' },
+    totalGoals: '小于2.5球。葡萄牙需要进攻，但酷热会压低节奏；哥伦比亚领先或处于平局时都会主动收缩，把比赛切割成低连续性的攻防。',
+    upsetRisk: '中等。葡萄牙若先取得进球，哥伦比亚必须放弃控局，比赛就可能转成2-1或2-2。',
+    risk: '中等。葡萄牙如果先取得进球，哥伦比亚被迫放弃控局后比赛会打开。',
+    summary: '哥伦比亚会用节奏和气候消耗葡萄牙，1-1是最合理落点。',
+    final: { tendency: '哥伦比亚不败，主选平局', score: '1-1', recommendation: '哥伦比亚不败 / 小2.5' }
+  },
+  '刚果(金) vs 乌兹别克斯坦': {
+    conclusion: '刚果（金）胜。',
+    essence: '必须分胜负的开放生死战。刚果（金）取胜即可晋级，乌兹别克斯坦不仅要赢，还需要尽量扩大净胜球；后者两场已经丢8球。刚果（金）此前限制葡萄牙和哥伦比亚的效果很好，本场可能由5后卫改为4-3-3，释放维萨、巴坎布和边路冲击。',
+    sources: [
+      { label: '出线形势', url: 'https://www.foxsports.com/stories/soccer/2026-world-cup-group-k-scenarios-standings-what-portugal-dr-congo-uzbekistan-need-advance' },
+      { label: '战术与阵容', url: 'https://www.si.com/soccer/dr-congo-vs-uzbekistan-world-cup-preview-predictions-lineups-6-27-26' },
+      { label: 'Opta模型', url: 'https://theanalyst.com/articles/dr-congo-vs-uzbekistan-prediction-world-cup-2026-match-preview' }
+    ],
+    probabilities: { home: 51, draw: 25, away: 24 },
+    scorePrediction: { main: '3-0', backup: '2-0' },
+    totalGoals: '大胆看大于2.5球。刚果（金）进攻产量原本不高，但乌兹别克斯坦不能长期保持低位，落后后必须压上，正好暴露给维萨的转换冲击。',
+    upsetRisk: '中等。刚果（金）习惯反击而不擅长主动破阵，如果迟迟没有首球，比赛可能降级为1-0。',
+    risk: '中等。刚果（金）不擅长主动破阵，迟迟没有首球会明显压低比分。',
+    summary: '押刚果（金）零封取胜，并大胆防乌兹别克斯坦末段崩盘形成三球。',
+    final: { tendency: '刚果（金）胜', score: '3-0', recommendation: '刚果（金）胜 / 大2.5' }
+  },
+  '阿尔及利亚 vs 奥地利': {
+    conclusion: '平局。',
+    essence: '资格线上的战术克制局。奥地利平局即可确保晋级；阿尔及利亚取胜直接晋级，平局则只能等待第三名比较。奥地利会用压迫限制阿尔及利亚中场转身，但缺少因伤退出世界杯的鲍姆加特纳，前场连续性有所下降；阿尔及利亚也不会从开场就无控制地冒险。',
+    sources: [
+      { label: '出线形势', url: 'https://www.foxsports.com/stories/soccer/2026-world-cup-group-j-scenarios-standings-what-austria-algeria-need-advance' },
+      { label: '比赛背景', url: 'https://www.goal.com/en/news/algeria-austria-world-cup-preview/bltd61a8ee4bb405624' },
+      { label: '奥地利伤情', url: 'https://cadenaser.com/nacional/2026/06/02/austria-pierde-a-una-de-sus-estrellas-para-el-mundial-baumgartner-ko-por-una-lesion-muscular-cadena-ser/' }
+    ],
+    probabilities: { home: 32, draw: 39, away: 29 },
+    scorePrediction: { main: '1-1', backup: '0-0' },
+    totalGoals: '明确小于2.5球。奥地利没有主动扩大比赛空间的必要，阿尔及利亚真正全面压上大概率要等到最后二三十分钟。',
+    upsetRisk: '中等。若其他第三名形势让阿尔及利亚确认平局不足，末段会强行进攻，奥地利反击可能把1-1改写为1-2。',
+    risk: '中等。若平局不足以晋级，阿尔及利亚末段强攻会给奥地利反击空间。',
+    summary: '这场先防1-1，同时必须保留0-0这一条非常现实的末轮路径。',
+    final: { tendency: '平局', score: '1-1', recommendation: '平局 / 小2.5' }
+  },
+  '约旦 vs 阿根廷': {
+    conclusion: '阿根廷胜并零封。',
+    essence: '无积分压力的实力碾压局。阿根廷已经锁定小组第一，预计大幅轮换，梅西可能替补；约旦已经出局，只剩荣誉动力。阿根廷替补球员有争夺淘汰赛出场顺位的动力，但球队没有追净胜球需求，因此领先后大概率控制消耗。',
+    sources: [
+      { label: '小组形势', url: 'https://www.foxsports.com/stories/soccer/2026-world-cup-group-j-scenarios-standings-what-austria-algeria-need-advance' },
+      { label: '轮换预期', url: 'https://www.si.com/soccer/jordan-vs-argentina-world-cup-preview-predictions-lineups-6-27-26' }
+    ],
+    probabilities: { home: 5, draw: 11, away: 84 },
+    scorePrediction: { main: '0-2', backup: '0-3' },
+    totalGoals: '小于3.5球。实力差距足以支持阿根廷赢两到三球，但重轮换、头名已定和淘汰赛临近，不支持盲目追四球以上。',
+    upsetRisk: '低。约旦前两场都能进球，但面对阿根廷更成熟的反抢与禁区保护，很难持续获得转换机会。',
+    risk: '低。约旦很难持续突破阿根廷的反抢和禁区保护。',
+    summary: '阿根廷稳胜但不必屠杀，0-2比1-4更符合末轮真实动力。',
+    final: { tendency: '阿根廷胜并零封', score: '0-2', recommendation: '阿根廷胜 / 小3.5' }
   }
+};
+
+const manualDailyAnalysisNotes = {
+  '6月28日': '以下判断基于赛前积分、伤停及轮换消息；末轮最关键的不是名气，而是“谁必须冒险、谁能接受平局”。'
 };
 
 const getMatchAnalysisKeyFromTeams = (homeName, awayName) => `${normalizeTeamNameForMatch(homeName) || ''} vs ${normalizeTeamNameForMatch(awayName) || ''}`;
@@ -2311,6 +2408,11 @@ function DailyPredictionsView() {
       .filter(Boolean)
   ), [visibleMatches]);
 
+  const dailyAnalysisNote = useMemo(() => {
+    const dateLabel = visibleMatches[0]?.time?.split(' ')[0];
+    return manualDailyAnalysisNotes[dateLabel] || '';
+  }, [visibleMatches]);
+
   useEffect(() => {
     let cancelled = false;
     const loadMatches = async () => {
@@ -2417,6 +2519,11 @@ function DailyPredictionsView() {
             <BetCalculator matches={visibleMatches} />
           ) : (
           <>
+          {dailyAnalysisNote && (
+            <div className="mb-4 rounded-xl border border-amber-400/25 bg-amber-500/5 px-3 py-2.5 text-xs sm:text-sm leading-relaxed text-amber-100/90">
+              <span className="font-black text-amber-300">赛前依据：</span>{dailyAnalysisNote}
+            </div>
+          )}
           <div className="mb-3 flex items-center justify-between">
             <h3 className="text-sm sm:text-base font-black text-slate-100 flex items-center gap-2">
               <CalendarDays className="w-4 h-4 text-cyan-300" />
@@ -2508,6 +2615,22 @@ function DailyPredictionsView() {
                             <p className="text-xs sm:text-sm leading-relaxed text-[#e5e7eb]">
                               {analysis.essence || analysis.conclusion || analysis.logic?.form || '赛前信息待更新。'}
                             </p>
+                            {analysis.sources?.length > 0 && (
+                              <div className="mt-3 flex flex-wrap gap-2 border-t border-[#1f2a44] pt-3">
+                                <span className="text-[10px] font-black text-[#94a3b8]">参考信息</span>
+                                {analysis.sources.map(source => (
+                                  <a
+                                    key={source.url}
+                                    href={source.url}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="text-[10px] font-bold text-cyan-300 underline decoration-cyan-300/40 underline-offset-2 hover:text-cyan-200"
+                                  >
+                                    {source.label}
+                                  </a>
+                                ))}
+                              </div>
+                            )}
                           </div>
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <div className="rounded-xl border border-[#22d3ee]/35 bg-[#22d3ee]/10 p-3">
