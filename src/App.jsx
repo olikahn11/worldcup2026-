@@ -2014,11 +2014,48 @@ function TeamMeetingPredictor({ groups, isFullscreen, setIsFullscreen }) {
     )
 }
 
+const getSubsets = (items, size) => {
+  const output = [];
+  const walk = (start, selected) => {
+    if (selected.length === size) {
+      output.push(selected);
+      return;
+    }
+    for (let index = start; index <= items.length - (size - selected.length); index += 1) {
+      walk(index + 1, [...selected, items[index]]);
+    }
+  };
+  walk(0, []);
+  return output;
+};
+
 function BetCalculator({ matches }) {
   const [oddsRows, setOddsRows] = useState({});
   const [oddsStatus, setOddsStatus] = useState('LOADING');
-  const [selections, setSelections] = useState({});
+  const [tickets, setTickets] = useState({});
+  const [passMode, setPassMode] = useState('standard');
+  const [standardPassKey, setStandardPassKey] = useState('');
+  const [passSizes, setPassSizes] = useState([]);
+  const [purchaseMode, setPurchaseMode] = useState('multiplier');
   const [multiplier, setMultiplier] = useState(1);
+  const [budget, setBudget] = useState(20);
+  const marketOrder = ['spf', 'rqspf', 'score', 'goals', 'halfFull'];
+  const marketFallbacks = {
+    spf: { label: '胜平负', maxPass: 8 },
+    rqspf: { label: '让球胜平负', maxPass: 8 },
+    score: { label: '比分', maxPass: 4 },
+    goals: { label: '总进球', maxPass: 6 },
+    halfFull: { label: '半全场', maxPass: 4 }
+  };
+  const standardPasses = {
+    2: [{ key: '2串1', sizes: [2] }],
+    3: [{ key: '3串1', sizes: [3] }, { key: '3串3', sizes: [2] }, { key: '3串4', sizes: [2, 3] }],
+    4: [{ key: '4串1', sizes: [4] }, { key: '4串4', sizes: [3] }, { key: '4串5', sizes: [3, 4] }, { key: '4串6', sizes: [2] }, { key: '4串10', sizes: [2, 3] }, { key: '4串11', sizes: [2, 3, 4] }],
+    5: [{ key: '5串1', sizes: [5] }, { key: '5串5', sizes: [4] }, { key: '5串6', sizes: [4, 5] }, { key: '5串10', sizes: [2] }, { key: '5串16', sizes: [3, 4, 5] }, { key: '5串20', sizes: [2, 3] }, { key: '5串26', sizes: [2, 3, 4, 5] }],
+    6: [{ key: '6串1', sizes: [6] }, { key: '6串6', sizes: [5] }, { key: '6串7', sizes: [5, 6] }, { key: '6串15', sizes: [2] }, { key: '6串20', sizes: [3] }, { key: '6串22', sizes: [4, 5, 6] }, { key: '6串35', sizes: [2, 3] }, { key: '6串42', sizes: [3, 4, 5, 6] }, { key: '6串50', sizes: [2, 3, 4] }, { key: '6串57', sizes: [2, 3, 4, 5, 6] }],
+    7: [{ key: '7串1', sizes: [7] }, { key: '7串7', sizes: [6] }, { key: '7串8', sizes: [6, 7] }, { key: '7串21', sizes: [5] }, { key: '7串35', sizes: [4] }, { key: '7串120', sizes: [2, 3, 4, 5, 6, 7] }],
+    8: [{ key: '8串1', sizes: [8] }, { key: '8串8', sizes: [7] }, { key: '8串9', sizes: [7, 8] }, { key: '8串28', sizes: [6] }, { key: '8串56', sizes: [5] }, { key: '8串70', sizes: [4] }, { key: '8串247', sizes: [2, 3, 4, 5, 6, 7, 8] }]
+  };
 
   useEffect(() => {
     const fixtureIds = matches.map(match => match.fixtureId).filter(Boolean);
@@ -2046,90 +2083,201 @@ function BetCalculator({ matches }) {
     return () => { cancelled = true; };
   }, [matches]);
 
-  const toggleOption = (matchId, option) => {
-    setSelections(current => {
-      const values = current[matchId] || [];
-      const nextValues = values.includes(option) ? values.filter(value => value !== option) : [...values, option];
-      const next = { ...current };
-      if (nextValues.length) next[matchId] = nextValues;
-      else delete next[matchId];
-      return next;
+  const toggleMatch = (match) => {
+    const odds = oddsRows[match.fixtureId];
+    if (!odds) return;
+    setTickets(current => {
+      if (current[match.id]) {
+        const next = { ...current };
+        delete next[match.id];
+        return next;
+      }
+      const firstMarket = marketOrder.find(key => odds.markets?.[key]?.options?.length);
+      return firstMarket ? { ...current, [match.id]: { marketKey: firstMarket, optionKeys: [] } } : current;
     });
   };
 
-  const selectedMatches = matches.filter(match => (selections[match.id] || []).length > 0 && oddsRows[match.fixtureId]);
-  const combinationCount = selectedMatches.reduce((count, match) => count * selections[match.id].length, selectedMatches.length ? 1 : 0);
-  const stake = combinationCount * 2 * multiplier;
-  const returns = selectedMatches.map(match => {
+  const selectMarket = (matchId, marketKey) => {
+    setTickets(current => ({
+      ...current,
+      [matchId]: { marketKey, optionKeys: [] }
+    }));
+  };
+
+  const toggleOption = (matchId, optionKey) => {
+    setTickets(current => {
+      const ticket = current[matchId];
+      if (!ticket) return current;
+      const optionKeys = ticket.optionKeys.includes(optionKey)
+        ? ticket.optionKeys.filter(key => key !== optionKey)
+        : [...ticket.optionKeys, optionKey];
+      return { ...current, [matchId]: { ...ticket, optionKeys } };
+    });
+  };
+
+  const selectedEntries = matches.flatMap(match => {
+    const ticket = tickets[match.id];
     const odds = oddsRows[match.fixtureId];
-    return selections[match.id].map(option => Number(odds?.[option] || 0)).filter(Boolean);
+    const market = odds?.markets?.[ticket?.marketKey];
+    if (!ticket || !market || ticket.optionKeys.length === 0) return [];
+    const options = market.options.filter(option => ticket.optionKeys.includes(option.key));
+    return options.length ? [{ match, ticket, market, options }] : [];
   });
-  const minReturn = returns.length ? returns.reduce((total, values) => total * Math.min(...values), 2 * multiplier) : 0;
-  const maxReturn = returns.length ? returns.reduce((total, values) => total * Math.max(...values), 2 * multiplier) : 0;
-  const optionRows = [
-    { key: 'home', label: '主胜' },
-    { key: 'draw', label: '平' },
-    { key: 'away', label: '客胜' }
-  ];
+  const selectedMatchCount = Object.keys(tickets).length;
+  const incompleteCount = selectedMatchCount - selectedEntries.length;
+  const maxPass = selectedEntries.length
+    ? Math.min(...selectedEntries.map(entry => Number(entry.market.maxPass || 8)))
+    : 0;
+  const selectionWithinLimit = selectedEntries.length <= maxPass;
+  const availablePassSizes = Array.from({ length: Math.min(selectedEntries.length, maxPass) }, (_, index) => index + 1)
+    .filter(size => size >= (selectedEntries.length === 1 ? 1 : 2));
+  const availableStandardPasses = selectionWithinLimit ? (standardPasses[selectedEntries.length] || []) : [];
+  const selectedStandardPass = availableStandardPasses.find(pass => pass.key === standardPassKey);
+  const validPassSizes = passMode === 'standard'
+    ? (selectedStandardPass?.sizes || [])
+    : passSizes.filter(size => availablePassSizes.includes(size));
+  const subsets = validPassSizes.flatMap(size => getSubsets(selectedEntries, size));
+  const combinationCount = subsets.reduce(
+    (total, subset) => total + subset.reduce((count, entry) => count * entry.options.length, 1),
+    0
+  );
+  const baseCost = combinationCount * 2;
+  const effectiveMultiplier = purchaseMode === 'budget'
+    ? (baseCost > 0 ? Math.min(50, Math.floor(Number(budget || 0) / baseCost)) : 0)
+    : multiplier;
+  const stake = baseCost * effectiveMultiplier;
+  const minReturn = subsets.reduce(
+    (total, subset) => total + subset.reduce((value, entry) => value * Math.min(...entry.options.map(option => option.odd)), 2 * effectiveMultiplier),
+    0
+  );
+  const maxReturn = subsets.reduce(
+    (total, subset) => total + subset.reduce((value, entry) => value * Math.max(...entry.options.map(option => option.odd)), 2 * effectiveMultiplier),
+    0
+  );
+  const validationMessage = incompleteCount > 0
+    ? `还有 ${incompleteCount} 场没有选择具体结果`
+    : !selectionWithinLimit
+      ? `当前混合玩法最多允许 ${maxPass} 关，请减少比赛`
+      : validPassSizes.length === 0 && selectedEntries.length > 0
+        ? `请选择${passMode === 'standard' ? 'M串N' : '自由过关'}方式`
+        : purchaseMode === 'budget' && baseCost > 0 && effectiveMultiplier < 1
+          ? `预算不足，当前组合至少需要 ${baseCost.toFixed(2)} 元`
+          : '';
+
+  const togglePassSize = (size) => {
+    setPassSizes(current => current.includes(size) ? current.filter(value => value !== size) : [...current, size]);
+  };
 
   return (
     <div className="rounded-[18px] border border-[#1f2a44] bg-[#0b1020] p-3 sm:p-4 shadow-[0_0_22px_rgba(34,211,238,0.08)]">
-      <div className="mb-3 flex items-start justify-between gap-3">
+      <div className="mb-4 flex items-start justify-between gap-3">
         <div>
           <h3 className="flex items-center gap-2 text-base font-black text-cyan-300"><Calculator className="h-4 w-4" />竞彩足球计算器</h3>
-          <p className="mt-1 text-[10px] sm:text-xs text-[#94a3b8]">胜平负复式与N串1，单注2元。奖金为所选市场赔率计算的理论值。</p>
+          <p className="mt-1 text-[10px] sm:text-xs text-[#94a3b8]">选比赛 → 选玩法 → 选结果 → 选串关。支持单式、复式、普通串关与自由过关。</p>
         </div>
         <span className={`shrink-0 rounded-lg border px-2 py-1 text-[9px] font-black ${oddsStatus === 'SUCCESS' ? 'border-emerald-400/40 bg-emerald-500/10 text-emerald-300' : 'border-amber-400/40 bg-amber-500/10 text-amber-300'}`}>{oddsStatus === 'LOADING' ? '赔率加载中' : oddsStatus === 'SUCCESS' ? '实时赔率' : '赔率待发布'}</span>
+      </div>
+
+      <div className="mb-3 rounded-xl border border-amber-400/25 bg-amber-500/5 p-3 text-[10px] leading-relaxed text-amber-100/80">
+        <b className="text-amber-300">串关规则：</b>同一场只能选择一种玩法；不同场可以混合玩法。胜平负/让球胜平负最多8关，总进球最多6关，比分/半全场最多4关，混合票按最低上限执行。
       </div>
 
       <div className="space-y-2">
         {matches.map(match => {
           const odds = oddsRows[match.fixtureId];
+          const ticket = tickets[match.id];
+          const selected = !!ticket;
+          const activeMarket = odds?.markets?.[ticket?.marketKey];
           return (
-            <div key={`bet-${match.id}`} className="rounded-xl border border-[#1f2a44] bg-[#111827] p-3">
-              <div className="mb-2 flex items-center justify-between gap-2">
-                <span className="min-w-0 truncate text-xs sm:text-sm font-black text-[#e5e7eb]">{match.homeTeam.name} vs {match.awayTeam.name}</span>
-                <span className="shrink-0 text-[9px] text-[#94a3b8]">{match.time}</span>
-              </div>
-              {odds ? (
-                <>
-                  <div className="grid grid-cols-3 gap-2">
-                    {optionRows.map(option => {
-                      const selected = (selections[match.id] || []).includes(option.key);
+            <div key={`bet-${match.id}`} className={`rounded-xl border bg-[#111827] transition-all ${selected ? 'border-cyan-400/45 shadow-[0_0_16px_rgba(34,211,238,0.1)]' : 'border-[#1f2a44]'}`}>
+              <button type="button" onClick={() => toggleMatch(match)} disabled={!odds} className="flex w-full items-center gap-3 px-3 py-3 text-left disabled:cursor-not-allowed disabled:opacity-60">
+                <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded border text-xs font-black ${selected ? 'border-cyan-300 bg-cyan-400 text-[#050816]' : 'border-[#475569] text-transparent'}`}>✓</span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-xs sm:text-sm font-black text-[#e5e7eb]">{match.homeTeam.name} vs {match.awayTeam.name}</span>
+                  <span className="mt-0.5 block text-[9px] text-[#94a3b8]">{match.time}{ticket ? ` · ${odds.markets?.[ticket.marketKey]?.label || ''} · ${ticket.optionKeys.length}项` : ''}</span>
+                </span>
+                <span className="shrink-0 text-[9px] text-[#64748b]">{odds ? '选择比赛' : '赔率待发布'}</span>
+              </button>
+
+              {selected && odds && (
+                <div className="border-t border-[#1f2a44] p-3">
+                  <div className="mb-2 flex gap-1.5 overflow-x-auto hide-scrollbar">
+                    {marketOrder.map(marketKey => {
+                      const market = odds.markets?.[marketKey] || marketFallbacks[marketKey];
+                      const available = !!odds.markets?.[marketKey]?.options?.length;
+                      const active = ticket.marketKey === marketKey;
                       return (
-                        <button key={option.key} type="button" onClick={() => toggleOption(match.id, option.key)} className={`rounded-xl border px-2 py-2 text-center transition-all duration-200 ${selected ? 'border-cyan-300 bg-cyan-400/15 text-cyan-200 shadow-[0_0_14px_rgba(34,211,238,0.16)]' : 'border-[#1f2a44] bg-[#050816] text-[#94a3b8] hover:border-cyan-400/50'}`}>
-                          <span className="block text-[10px] font-bold">{option.label}</span>
-                          <span className="mt-0.5 block font-mono text-sm font-black">{Number(odds[option.key]).toFixed(2)}</span>
+                        <button key={marketKey} type="button" disabled={!available} onClick={() => selectMarket(match.id, marketKey)} className={`shrink-0 rounded-lg border px-2.5 py-1.5 text-[10px] font-black ${active ? 'border-cyan-300 bg-cyan-400/15 text-cyan-200' : available ? 'border-[#1f2a44] bg-[#050816] text-[#94a3b8] hover:border-cyan-400/40' : 'border-[#1f2a44] bg-[#050816] text-[#475569] opacity-55'}`}>
+                          {market.label}{marketKey === 'rqspf' && odds.markets?.rqspf?.line ? ` (${odds.markets.rqspf.line})` : ''}{!available ? ' · 待发布' : ''}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <p className="mb-2 text-[9px] text-amber-300/80">切换本场玩法会清空本场已选结果；同场不同玩法不能混串。</p>
+                  <div className={`grid gap-1.5 ${activeMarket?.key === 'score' ? 'grid-cols-4 sm:grid-cols-6' : activeMarket?.options?.length > 9 ? 'grid-cols-4 sm:grid-cols-6' : 'grid-cols-3 sm:grid-cols-5'}`}>
+                    {(activeMarket?.options || []).map(option => {
+                      const optionSelected = ticket.optionKeys.includes(option.key);
+                      return (
+                        <button key={option.key} type="button" onClick={() => toggleOption(match.id, option.key)} className={`rounded-lg border px-1.5 py-2 text-center transition-all ${optionSelected ? 'border-cyan-300 bg-cyan-400/15 text-cyan-100 shadow-[0_0_12px_rgba(34,211,238,0.14)]' : 'border-[#1f2a44] bg-[#050816] text-[#94a3b8] hover:border-cyan-400/45'}`}>
+                          <span className="block truncate text-[9px] font-bold">{option.label}</span>
+                          <span className="mt-0.5 block font-mono text-xs font-black">{Number(option.odd).toFixed(2)}</span>
                         </button>
                       );
                     })}
                   </div>
                   <div className="mt-2 text-right text-[9px] text-[#64748b]">来源：{odds.bookmaker} · {odds.updatedAt ? new Date(odds.updatedAt).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' }) : '刚刚更新'}</div>
-                </>
-              ) : (
-                <div className="rounded-lg border border-dashed border-[#1f2a44] bg-[#050816] px-3 py-3 text-center text-xs text-[#94a3b8]">该场真实赔率待接口发布，暂不可选</div>
+                </div>
               )}
             </div>
           );
         })}
       </div>
 
-      <div className="mt-4 rounded-xl border border-cyan-400/25 bg-[#050816] p-3">
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-          <div><span className="block text-[9px] text-[#94a3b8]">过关方式</span><b className="text-sm text-[#e5e7eb]">{selectedMatches.length ? `${selectedMatches.length}串1` : '未选择'}</b></div>
-          <div><span className="block text-[9px] text-[#94a3b8]">注数</span><b className="text-sm text-[#e5e7eb]">{combinationCount} 注</b></div>
-          <label><span className="block text-[9px] text-[#94a3b8]">倍数</span><input type="number" min="1" max="50" value={multiplier} onChange={event => setMultiplier(Math.max(1, Math.min(50, Number(event.target.value) || 1)))} className="mt-0.5 w-full rounded-lg border border-[#1f2a44] bg-[#111827] px-2 py-1 text-sm font-black text-cyan-300 outline-none focus:border-cyan-400" /></label>
-          <div><span className="block text-[9px] text-[#94a3b8]">投注金额</span><b className="text-sm text-cyan-300">{stake.toFixed(2)} 元</b></div>
+      <div className="mt-4 rounded-xl border border-[#1f2a44] bg-[#111827] p-3">
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <h4 className="text-sm font-black text-[#e5e7eb]">过关方式</h4>
+          <span className="text-[9px] text-[#94a3b8]">{selectedEntries.length}场 · 最多{maxPass || '-'}关</span>
         </div>
-        <div className="mt-3 flex items-center justify-between gap-3 border-t border-[#1f2a44] pt-3">
-          <span className="text-xs font-bold text-[#94a3b8]">理论奖金范围</span>
-          <b className="text-base text-emerald-300">{minReturn ? `${minReturn.toFixed(2)} - ${maxReturn.toFixed(2)} 元` : '0.00 元'}</b>
+        <div className="mb-3 grid grid-cols-2 gap-2 rounded-xl border border-[#1f2a44] bg-[#050816] p-1">
+          <button type="button" onClick={() => setPassMode('standard')} className={`rounded-lg px-2 py-2 text-xs font-black ${passMode === 'standard' ? 'bg-cyan-400/15 text-cyan-200' : 'text-[#94a3b8]'}`}>M串N</button>
+          <button type="button" onClick={() => setPassMode('free')} className={`rounded-lg px-2 py-2 text-xs font-black ${passMode === 'free' ? 'bg-cyan-400/15 text-cyan-200' : 'text-[#94a3b8]'}`}>自由过关</button>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {passMode === 'standard' ? availableStandardPasses.map(pass => (
+            <button key={pass.key} type="button" onClick={() => setStandardPassKey(pass.key)} className={`rounded-lg border px-3 py-1.5 text-xs font-black ${selectedStandardPass?.key === pass.key ? 'border-cyan-300 bg-cyan-400/15 text-cyan-200' : 'border-[#1f2a44] bg-[#050816] text-[#94a3b8]'}`}>{pass.key}</button>
+          )) : availablePassSizes.map(size => (
+            <button key={size} type="button" onClick={() => togglePassSize(size)} className={`rounded-lg border px-3 py-1.5 text-xs font-black ${validPassSizes.includes(size) ? 'border-cyan-300 bg-cyan-400/15 text-cyan-200' : 'border-[#1f2a44] bg-[#050816] text-[#94a3b8]'}`}>{size === 1 ? '单关*' : `${size}串1`}</button>
+          ))}
+          {(passMode === 'standard' ? availableStandardPasses.length === 0 : availablePassSizes.length === 0) && <span className="text-xs text-[#64748b]">完成比赛和结果选择后显示可用过关方式</span>}
+        </div>
+        {passMode === 'free' && availablePassSizes.length > 1 && <p className="mt-2 text-[9px] text-[#64748b]">自由过关可以同时勾选多个N串1，系统会把所有对应子组合一起计入。</p>}
+      </div>
+
+      <div className="mt-3 rounded-xl border border-cyan-400/25 bg-[#050816] p-3">
+        <div className="mb-3 grid grid-cols-2 gap-2 rounded-xl border border-[#1f2a44] bg-[#0b1020] p-1">
+          <button type="button" onClick={() => setPurchaseMode('multiplier')} className={`rounded-lg px-2 py-2 text-xs font-black ${purchaseMode === 'multiplier' ? 'bg-cyan-400/15 text-cyan-200' : 'text-[#94a3b8]'}`}>按倍数购买</button>
+          <button type="button" onClick={() => setPurchaseMode('budget')} className={`rounded-lg px-2 py-2 text-xs font-black ${purchaseMode === 'budget' ? 'bg-cyan-400/15 text-cyan-200' : 'text-[#94a3b8]'}`}>按预算购买</button>
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          <div><span className="block text-[9px] text-[#94a3b8]">已选比赛</span><b className="text-sm text-[#e5e7eb]">{selectedEntries.length} 场</b></div>
+          <div><span className="block text-[9px] text-[#94a3b8]">组合注数</span><b className="text-sm text-[#e5e7eb]">{combinationCount} 注</b></div>
+          {purchaseMode === 'multiplier' ? (
+            <label><span className="block text-[9px] text-[#94a3b8]">倍数（1-50）</span><input type="number" min="1" max="50" value={multiplier} onChange={event => setMultiplier(Math.max(1, Math.min(50, Number(event.target.value) || 1)))} className="mt-0.5 w-full rounded-lg border border-[#1f2a44] bg-[#111827] px-2 py-1 text-sm font-black text-cyan-300 outline-none focus:border-cyan-400" /></label>
+          ) : (
+            <label><span className="block text-[9px] text-[#94a3b8]">预算金额</span><input type="number" min="2" value={budget} onChange={event => setBudget(Math.max(0, Number(event.target.value) || 0))} className="mt-0.5 w-full rounded-lg border border-[#1f2a44] bg-[#111827] px-2 py-1 text-sm font-black text-cyan-300 outline-none focus:border-cyan-400" /></label>
+          )}
+          <div><span className="block text-[9px] text-[#94a3b8]">实际倍数 / 金额</span><b className="text-sm text-cyan-300">{effectiveMultiplier} 倍 · {stake.toFixed(2)} 元</b></div>
+        </div>
+        {validationMessage && <div className="mt-3 rounded-lg border border-amber-400/30 bg-amber-500/10 px-3 py-2 text-xs font-bold text-amber-300">{validationMessage}</div>}
+        <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2 border-t border-[#1f2a44] pt-3">
+          <div><span className="text-xs font-bold text-[#94a3b8]">理论奖金范围</span><b className="mt-1 block text-lg text-emerald-300">{minReturn ? `${minReturn.toFixed(2)} - ${maxReturn.toFixed(2)} 元` : '0.00 元'}</b></div>
+          <div><span className="text-xs font-bold text-[#94a3b8]">理论净收益范围</span><b className={`mt-1 block text-lg ${minReturn - stake >= 0 ? 'text-emerald-300' : 'text-rose-300'}`}>{minReturn ? `${(minReturn - stake).toFixed(2)} - ${(maxReturn - stake).toFixed(2)} 元` : '0.00 元'}</b></div>
         </div>
       </div>
 
       <div className="mt-3 flex gap-2 rounded-xl border border-amber-400/25 bg-amber-500/5 p-3 text-[10px] leading-relaxed text-amber-100/80">
         <Info className="h-4 w-4 shrink-0 text-amber-300" />
-        <span>本工具不售彩。结果按90分钟含伤停计算，不含加时和点球；实际可售玩法、单关资格、最终固定奖金及限额以中国体彩网和线下终端为准。未成年人不得购彩，请理性参与。</span>
+        <span>本工具不售彩。结果按90分钟含伤停计算，不含加时和点球；“单关”仅在该场被体彩官方列为单关时可售。市场赔率不等同于体彩最终固定奖金，实际玩法、让球数、奖金与限额以中国体彩网和线下终端为准。未成年人不得购彩。</span>
       </div>
     </div>
   );
