@@ -59,15 +59,30 @@ const parseCorrectScore = (bookmaker) => {
 };
 
 const parseExactGoals = (bookmaker) => {
-  const bet = findBet(bookmaker, [/Exact.*Goals/i, /^Total Goals$/i, /Goals Number/i]);
-  const options = (bet?.values || []).map(value => {
-    const raw = String(value.value || '').trim();
-    if (!/^(?:[0-6]|7\+|7 or more)$/i.test(raw)) return null;
-    const label = /7/i.test(raw) ? '7+' : raw;
-    const option = toOption(value, label);
-    return option ? { ...option, key: label } : null;
-  }).filter(Boolean);
-  return options.length >= 3 ? options : [];
+  const candidateBets = (bookmaker?.bets || []).filter(bet => {
+    const name = String(bet?.name || '');
+    return !/Home|Away|Half/i.test(name) && [
+      /How many goals.*score/i,
+      /Number of Goals in Match/i,
+      /Exact Goals Number/i,
+      /Exact.*Goals/i,
+      /^Total Goals$/i
+    ].some(pattern => pattern.test(name));
+  });
+  for (const bet of candidateBets) {
+    const options = (bet.values || []).map(value => {
+      const raw = String(value.value ?? '').trim();
+      const exact = raw.match(/^(?:exactly\s*)?([0-6])(?:\s*goals?)?$/i)?.[1];
+      const isSevenPlus = /^(?:7\+|7 or more|more 7|7 and over)$/i.test(raw);
+      const label = exact || (isSevenPlus ? '7+' : null);
+      if (!label) return null;
+      const option = toOption(value, label);
+      return option ? { ...option, key: label } : null;
+    }).filter(Boolean);
+    const keys = new Set(options.map(option => option.key));
+    if (['0', '1', '2', '3', '4', '5', '6', '7+'].every(key => keys.has(key))) return options;
+  }
+  return [];
 };
 
 const parseHalfFull = (bookmaker) => {
