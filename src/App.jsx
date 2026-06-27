@@ -2126,6 +2126,22 @@ const getSubsets = (items, size) => {
   return output;
 };
 
+const calculateRoundedTicketBonus = (odds) => {
+  let numerator = 200n;
+  let denominator = 1n;
+  odds.forEach((odd) => {
+    numerator *= BigInt(Math.round(Number(odd) * 100));
+    denominator *= 100n;
+  });
+  let cents = numerator / denominator;
+  const remainder = numerator % denominator;
+  const doubledRemainder = remainder * 2n;
+  if (doubledRemainder > denominator || (doubledRemainder === denominator && cents % 2n === 1n)) {
+    cents += 1n;
+  }
+  return Number(cents) / 100;
+};
+
 function BetCalculator({ matches }) {
   const [oddsRows, setOddsRows] = useState({});
   const [oddsStatus, setOddsStatus] = useState('LOADING');
@@ -2134,8 +2150,8 @@ function BetCalculator({ matches }) {
   const [standardPassKey, setStandardPassKey] = useState('');
   const [passSizes, setPassSizes] = useState([]);
   const [purchaseMode, setPurchaseMode] = useState('multiplier');
-  const [multiplier, setMultiplier] = useState(1);
-  const [budget, setBudget] = useState(20);
+  const [multiplierInput, setMultiplierInput] = useState('1');
+  const [budgetInput, setBudgetInput] = useState('20');
   const marketOrder = ['spf', 'rqspf', 'score', 'goals', 'halfFull'];
   const marketFallbacks = {
     spf: { label: '胜平负', maxPass: 8 },
@@ -2239,18 +2255,46 @@ function BetCalculator({ matches }) {
     0
   );
   const baseCost = combinationCount * 2;
+  const requestedMultiplier = multiplierInput === '' ? 0 : Math.max(1, Math.min(99, Number(multiplierInput) || 1));
+  const budgetAmount = budgetInput === '' ? 0 : Math.max(0, Number(budgetInput) || 0);
+  const maxTicketMultiplier = baseCost > 0 ? Math.max(0, Math.min(99, Math.floor(20000 / baseCost))) : 99;
   const effectiveMultiplier = purchaseMode === 'budget'
-    ? (baseCost > 0 ? Math.min(50, Math.floor(Number(budget || 0) / baseCost)) : 0)
-    : multiplier;
+    ? (baseCost > 0 ? Math.min(maxTicketMultiplier, Math.floor(budgetAmount / baseCost)) : 0)
+    : Math.min(requestedMultiplier, maxTicketMultiplier);
   const stake = baseCost * effectiveMultiplier;
-  const minReturn = subsets.reduce(
-    (total, subset) => total + subset.reduce((value, entry) => value * Math.min(...entry.options.map(option => option.odd)), 2 * effectiveMultiplier),
-    0
+  const calculateSubsetReturn = (subset, pickOdd) => calculateRoundedTicketBonus(
+    subset.map(entry => pickOdd(...entry.options.map(option => Number(option.odd))))
   );
-  const maxReturn = subsets.reduce(
-    (total, subset) => total + subset.reduce((value, entry) => value * Math.max(...entry.options.map(option => option.odd)), 2 * effectiveMultiplier),
-    0
-  );
+  const passBreakdown = validPassSizes.map(size => {
+    const sizeSubsets = getSubsets(selectedEntries, size);
+    const ticketCount = sizeSubsets.reduce(
+      (total, subset) => total + subset.reduce((count, entry) => count * entry.options.length, 1),
+      0
+    );
+    const minBonusAtOneTimes = sizeSubsets.reduce(
+      (total, subset) => total + calculateSubsetReturn(subset, Math.min),
+      0
+    );
+    const maxBonusAtOneTimes = sizeSubsets.reduce(
+      (total, subset) => total + calculateSubsetReturn(subset, Math.max),
+      0
+    );
+    return {
+      size,
+      subsetCount: sizeSubsets.length,
+      ticketCount,
+      cost: ticketCount * 2 * effectiveMultiplier,
+      minReturn: minBonusAtOneTimes * effectiveMultiplier,
+      maxReturn: maxBonusAtOneTimes * effectiveMultiplier
+    };
+  });
+  const minReturn = passBreakdown.reduce((total, row) => total + row.minReturn, 0);
+  const maxReturn = passBreakdown.reduce((total, row) => total + row.maxReturn, 0);
+  const passLabel = passMode === 'standard'
+    ? (selectedStandardPass?.key || '未选择')
+    : (validPassSizes.length ? validPassSizes.map(size => `${size}串1`).join('、') : '未选择');
+  const optionCountFormula = selectedEntries.map(entry => entry.options.length).join(' × ');
+  const budgetRemainder = purchaseMode === 'budget' ? Math.max(0, budgetAmount - stake) : 0;
   const validationMessage = incompleteCount > 0
     ? `还有 ${incompleteCount} 场没有选择具体结果`
     : !selectionWithinLimit
@@ -2259,7 +2303,17 @@ function BetCalculator({ matches }) {
         ? `请选择${passMode === 'standard' ? 'M串N' : '自由过关'}方式`
         : purchaseMode === 'budget' && baseCost > 0 && effectiveMultiplier < 1
           ? `预算不足，当前组合至少需要 ${baseCost.toFixed(2)} 元`
+          : purchaseMode === 'multiplier' && requestedMultiplier > maxTicketMultiplier
+            ? `单张票金额不能超过 20000 元，当前组合最多可投 ${maxTicketMultiplier} 倍`
           : '';
+
+  const normalizeMultiplierInput = () => {
+    setMultiplierInput(value => String(Math.max(1, Math.min(99, Number(value) || 1))));
+  };
+
+  const normalizeBudgetInput = () => {
+    setBudgetInput(value => String(Math.max(0, Math.floor(Number(value) || 0))));
+  };
 
   const togglePassSize = (size) => {
     setPassSizes(current => current.includes(size) ? current.filter(value => value !== size) : [...current, size]);
@@ -2359,22 +2413,48 @@ function BetCalculator({ matches }) {
           <div><span className="block text-[9px] text-[#94a3b8]">已选比赛</span><b className="text-sm text-[#e5e7eb]">{selectedEntries.length} 场</b></div>
           <div><span className="block text-[9px] text-[#94a3b8]">组合注数</span><b className="text-sm text-[#e5e7eb]">{combinationCount} 注</b></div>
           {purchaseMode === 'multiplier' ? (
-            <label><span className="block text-[9px] text-[#94a3b8]">倍数（1-50）</span><input type="number" min="1" max="50" value={multiplier} onChange={event => setMultiplier(Math.max(1, Math.min(50, Number(event.target.value) || 1)))} className="mt-0.5 w-full rounded-lg border border-[#1f2a44] bg-[#111827] px-2 py-1 text-sm font-black text-cyan-300 outline-none focus:border-cyan-400" /></label>
+            <label><span className="block text-[9px] text-[#94a3b8]">倍数（1-99）</span><input type="text" inputMode="numeric" pattern="[0-9]*" value={multiplierInput} onFocus={event => event.currentTarget.select()} onChange={event => setMultiplierInput(event.target.value.replace(/\D/g, '').slice(0, 2))} onBlur={normalizeMultiplierInput} className="mt-0.5 w-full rounded-lg border border-[#1f2a44] bg-[#111827] px-2 py-1 text-sm font-black text-cyan-300 outline-none focus:border-cyan-400" /></label>
           ) : (
-            <label><span className="block text-[9px] text-[#94a3b8]">预算金额</span><input type="number" min="2" value={budget} onChange={event => setBudget(Math.max(0, Number(event.target.value) || 0))} className="mt-0.5 w-full rounded-lg border border-[#1f2a44] bg-[#111827] px-2 py-1 text-sm font-black text-cyan-300 outline-none focus:border-cyan-400" /></label>
+            <label><span className="block text-[9px] text-[#94a3b8]">预算金额</span><input type="text" inputMode="numeric" pattern="[0-9]*" value={budgetInput} onFocus={event => event.currentTarget.select()} onChange={event => setBudgetInput(event.target.value.replace(/\D/g, '').slice(0, 6))} onBlur={normalizeBudgetInput} className="mt-0.5 w-full rounded-lg border border-[#1f2a44] bg-[#111827] px-2 py-1 text-sm font-black text-cyan-300 outline-none focus:border-cyan-400" /></label>
           )}
           <div><span className="block text-[9px] text-[#94a3b8]">实际倍数 / 金额</span><b className="text-sm text-cyan-300">{effectiveMultiplier} 倍 · {stake.toFixed(2)} 元</b></div>
         </div>
         {validationMessage && <div className="mt-3 rounded-lg border border-amber-400/30 bg-amber-500/10 px-3 py-2 text-xs font-bold text-amber-300">{validationMessage}</div>}
         <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2 border-t border-[#1f2a44] pt-3">
-          <div><span className="text-xs font-bold text-[#94a3b8]">理论奖金范围</span><b className="mt-1 block text-lg text-emerald-300">{minReturn ? `${minReturn.toFixed(2)} - ${maxReturn.toFixed(2)} 元` : '0.00 元'}</b></div>
-          <div><span className="text-xs font-bold text-[#94a3b8]">理论净收益范围</span><b className={`mt-1 block text-lg ${minReturn - stake >= 0 ? 'text-emerald-300' : 'text-rose-300'}`}>{minReturn ? `${(minReturn - stake).toFixed(2)} - ${(maxReturn - stake).toFixed(2)} 元` : '0.00 元'}</b></div>
+          <div><span className="text-xs font-bold text-[#94a3b8]">全部命中时理论返还</span><b className="mt-1 block text-lg text-emerald-300">{minReturn ? `${minReturn.toFixed(2)} - ${maxReturn.toFixed(2)} 元` : '0.00 元'}</b><span className="mt-1 block text-[9px] text-[#64748b]">返还金额包含原投注本金</span></div>
+          <div><span className="text-xs font-bold text-[#94a3b8]">全部命中时理论净收益</span><b className={`mt-1 block text-lg ${minReturn - stake >= 0 ? 'text-emerald-300' : 'text-rose-300'}`}>{minReturn ? `${(minReturn - stake).toFixed(2)} - ${(maxReturn - stake).toFixed(2)} 元` : '0.00 元'}</b><span className="mt-1 block text-[9px] text-[#64748b]">净收益 = 返还金额 - 本次投入</span></div>
         </div>
+        {combinationCount > 0 && (
+          <div className="mt-3 rounded-xl border border-[#1f2a44] bg-[#0b1020] p-3">
+            <h5 className="text-xs font-black text-cyan-300">这张票怎么算</h5>
+            <div className="mt-2 space-y-1.5 text-[10px] leading-relaxed text-[#94a3b8]">
+              <p><b className="text-[#e5e7eb]">1. 注数：</b>每场所选结果数相乘，再按过关方式拆分。当前选项数为 {optionCountFormula || '-'}，最终共 {combinationCount} 注。</p>
+              <p><b className="text-[#e5e7eb]">2. 投入：</b>{combinationCount} 注 × 2元 × {effectiveMultiplier} 倍 = <b className="text-cyan-300">{stake.toFixed(2)} 元</b>。</p>
+              <p><b className="text-[#e5e7eb]">3. 返还：</b>每个猜中的单注按“2元 × 各场赔率连乘”计算，先保留两位小数，再把中奖单注相加并乘 {effectiveMultiplier} 倍。</p>
+              <p><b className="text-[#e5e7eb]">4. 范围：</b>复式中同一场选了多个结果，但最终只会命中其中一个，所以用最低与最高已选赔率分别估算返还范围。</p>
+              {purchaseMode === 'budget' && <p><b className="text-[#e5e7eb]">5. 预算：</b>{budgetAmount.toFixed(2)} 元最多可买 {effectiveMultiplier} 倍，实际投入 {stake.toFixed(2)} 元，剩余 {budgetRemainder.toFixed(2)} 元不参与投注。</p>}
+            </div>
+            <div className="mt-3 space-y-1.5 border-t border-[#1f2a44] pt-2">
+              <div className="flex items-center justify-between gap-2 text-[10px] font-bold text-[#e5e7eb]"><span>{passLabel} 拆分</span><span>{combinationCount}注 · {stake.toFixed(2)}元</span></div>
+              {passBreakdown.map(row => (
+                <div key={row.size} className="grid grid-cols-[1fr_auto] gap-2 rounded-lg bg-[#050816] px-2.5 py-2 text-[9px] text-[#94a3b8]">
+                  <span>{row.subsetCount} 个 {row.size}串1 · {row.ticketCount} 注 · 投入 {row.cost.toFixed(2)} 元</span>
+                  <span className="text-right text-emerald-300">全中返还 {row.minReturn.toFixed(2)}-{row.maxReturn.toFixed(2)} 元</span>
+                </div>
+              ))}
+            </div>
+            <div className="mt-3 rounded-lg border border-rose-400/25 bg-rose-500/5 px-3 py-2 text-[10px] leading-relaxed text-rose-100/80">
+              <b className="text-rose-300">输一场会怎样：</b>{validPassSizes.length === 1 && validPassSizes[0] === selectedEntries.length
+                ? `当前是 ${selectedEntries.length}串1，任何一场没有命中，这一串就没有返还。`
+                : '含较小关数组合时，输掉一场只会让包含该场的组合失效；没有包含该场且其余全中的组合仍可能返还。'}
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="mt-3 flex gap-2 rounded-xl border border-amber-400/25 bg-amber-500/5 p-3 text-[10px] leading-relaxed text-amber-100/80">
         <Info className="h-4 w-4 shrink-0 text-amber-300" />
-        <span>本工具不售彩。结果按90分钟含伤停计算，不含加时和点球；“单关”仅在该场被体彩官方列为单关时可售。市场赔率不等同于体彩最终固定奖金，实际玩法、让球数、奖金与限额以中国体彩网和线下终端为准。未成年人不得购彩。</span>
+        <span>本工具不售彩。结果按90分钟含伤停计算，不含加时和点球；“单关”仅在该场被体彩官方列为单关时可售。页面使用的市场赔率不等同于出票时的体彩固定奖金，因此返还仅为税前理论估算；实际赔率、舍入、限额、票面拆分及兑奖金额以中国体彩网和线下终端出票结果为准。未成年人不得购彩。</span>
       </div>
     </div>
   );
