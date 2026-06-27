@@ -55,7 +55,15 @@ const parseHandicap = (bookmaker) => {
 
 const parseCorrectScore = (bookmaker) => {
   const bet = findBet(bookmaker, [/Correct Score/i, /Exact Score/i]);
-  return (bet?.values || []).map(value => toOption(value)).filter(Boolean).slice(0, 40);
+  const sportteryScores = new Set([
+    '1:0', '2:0', '2:1', '3:0', '3:1', '3:2', '4:0', '4:1', '4:2', '5:0', '5:1', '5:2',
+    '0:0', '1:1', '2:2', '3:3',
+    '0:1', '0:2', '1:2', '0:3', '1:3', '2:3', '0:4', '1:4', '2:4', '0:5', '1:5', '2:5'
+  ]);
+  return (bet?.values || [])
+    .filter(value => sportteryScores.has(String(value.value || '').trim()))
+    .map(value => toOption(value))
+    .filter(Boolean);
 };
 
 const parseExactGoals = (bookmaker) => {
