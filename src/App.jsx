@@ -1365,7 +1365,7 @@ const buildTeamKnockoutPath = (team, groups) => {
 // 3. 全景大树引擎 (深度自适应全屏压缩版)
 // ==========================================
 
-const FullScreenBracket = ({ mode, knockouts = officialKnockoutRoundsFlat, r32Selections = {}, thirdPlaceAssignments = {}, predictions = {}, setPrediction, getTeamFromSlot, onMatchClick, onTeamClick }) => {
+const FullScreenBracket = ({ mode, knockouts = officialKnockoutRoundsFlat, useActualRoundOf32 = false, r32Selections = {}, thirdPlaceAssignments = {}, predictions = {}, setPrediction, getTeamFromSlot, onMatchClick, onTeamClick }) => {
     const [isPortrait, setIsPortrait] = useState(true);
 
     useEffect(() => {
@@ -1376,7 +1376,8 @@ const FullScreenBracket = ({ mode, knockouts = officialKnockoutRoundsFlat, r32Se
     }, []);
 
     const resolveMatch = useCallback((matchId) => {
-        const baseMatch = (mode === 'live' ? knockouts : officialKnockoutRoundsFlat).find(m => m.id === matchId);
+        const sourceMatches = mode === 'live' || useActualRoundOf32 ? knockouts : officialKnockoutRoundsFlat;
+        const baseMatch = sourceMatches.find(m => m.id === matchId);
         if (!baseMatch) return null;
         if (mode === 'live') return {
           ...baseMatch,
@@ -1394,11 +1395,15 @@ const FullScreenBracket = ({ mode, knockouts = officialKnockoutRoundsFlat, r32Se
             }
             return getTeamFromSlot(slotStr);
         };
-        const homeTeam = resolveSlot(baseMatch.homeStr); const awayTeam = resolveSlot(baseMatch.awayStr);
+        const isRoundOf32 = baseMatch.round === '1/16决赛';
+        const actualHome = useActualRoundOf32 && isRoundOf32 && baseMatch.home && !baseMatch.home.isPlaceholder ? baseMatch.home : null;
+        const actualAway = useActualRoundOf32 && isRoundOf32 && baseMatch.away && !baseMatch.away.isPlaceholder ? baseMatch.away : null;
+        const homeTeam = actualHome || resolveSlot(baseMatch.homeStr);
+        const awayTeam = actualAway || resolveSlot(baseMatch.awayStr);
         let winner = predictions[matchId];
         if (winner && homeTeam && awayTeam && winner.id !== homeTeam.id && winner.id !== awayTeam.id) winner = null; 
         return { ...baseMatch, home: homeTeam, away: awayTeam, predictedWinner: winner };
-    }, [mode, knockouts, r32Selections, thirdPlaceAssignments, predictions, getTeamFromSlot]);
+    }, [mode, knockouts, useActualRoundOf32, r32Selections, thirdPlaceAssignments, predictions, getTeamFromSlot]);
 
     const bracketMatrix = { top: [ ['ko_73', 'ko_75', 'ko_74', 'ko_77', 'ko_83', 'ko_84', 'ko_81', 'ko_82'], ['ko_89', 'ko_90', 'ko_93', 'ko_94'], ['ko_97', 'ko_98'], ['ko_101'] ], bottom: [ ['ko_76', 'ko_78', 'ko_79', 'ko_80', 'ko_86', 'ko_88', 'ko_85', 'ko_87'], ['ko_91', 'ko_92', 'ko_95', 'ko_96'], ['ko_99', 'ko_100'], ['ko_102'] ] };
     
@@ -1776,14 +1781,14 @@ const buildProjectedKnockouts = (groups, knockoutFlat) => {
     };
   };
   return knockoutFlat.map(match => {
-    const matchStarted = match.status === 'LIVE' || match.status === 'FINISHED';
+    const hasPublishedFixture = !!match.apiFixtureId;
     const isRoundOf32 = match.round === '1/16决赛';
-    const resolvedHome = matchStarted && match.home && !match.home.isPlaceholder
+    const resolvedHome = hasPublishedFixture && match.home && !match.home.isPlaceholder
       ? match.home
       : (isRoundOf32 || !match.home || match.home.isPlaceholder
         ? resolveProjectedSlot(match.homeStr, groups, knockoutFlat, thirdAssignments, match.id)
         : match.home);
-    const resolvedAway = matchStarted && match.away && !match.away.isPlaceholder
+    const resolvedAway = hasPublishedFixture && match.away && !match.away.isPlaceholder
       ? match.away
       : (isRoundOf32 || !match.away || match.away.isPlaceholder
         ? resolveProjectedSlot(match.awayStr, groups, knockoutFlat, thirdAssignments, match.id)
@@ -1834,13 +1839,19 @@ class SafeSectionBoundary extends Component {
   }
 }
 
-function PredictionSandbox({ getTeamFromSlot, groups, onExitHome, isFullscreen, setIsFullscreen }) {
-  const [phase, setPhase] = useState('intro'); 
+const USE_LEGACY_GROUP_PREDICTION_FLOW = false;
+
+function PredictionSandbox({ getTeamFromSlot, groups, knockouts, onExitHome, isFullscreen, setIsFullscreen }) {
+  const [phase, setPhase] = useState(USE_LEGACY_GROUP_PREDICTION_FLOW ? 'intro' : 'bracket');
   const [sandboxRankings, setSandboxRankings] = useState({});
   const [selectedThirds, setSelectedThirds] = useState([]);
   const [thirdPlaceAssignments, setThirdPlaceAssignments] = useState({});
   const [predictions, setPredictions] = useState({});
   const [showCompletionModal, setShowCompletionModal] = useState(false);
+  const roundOf32Matches = (knockouts || []).filter(match => match.round === '1/16决赛');
+  const roundOf32Ready = roundOf32Matches.length === 16 && roundOf32Matches.every(match =>
+    match.home && !match.home.isPlaceholder && match.away && !match.away.isPlaceholder
+  );
 
   const handleRankingComplete = (groupRankings) => {
       const absoluteRankings = {};
@@ -1856,9 +1867,32 @@ function PredictionSandbox({ getTeamFromSlot, groups, onExitHome, isFullscreen, 
   
   const handleReset = (e) => { 
       e.stopPropagation();
-      if (window.confirm("确定要清空推演记录，重新排兵布阵吗？")) { 
-          setPredictions({}); setSandboxRankings({}); setSelectedThirds([]); setThirdPlaceAssignments({}); setPhase('intro'); setShowCompletionModal(false); 
+      if (window.confirm("确定要清空当前晋级选择，重新推演冠军路线吗？")) {
+          setPredictions({});
+          setShowCompletionModal(false);
+          if (USE_LEGACY_GROUP_PREDICTION_FLOW) {
+              setSandboxRankings({});
+              setSelectedThirds([]);
+              setThirdPlaceAssignments({});
+              setPhase('intro');
+          } else {
+              setPhase('bracket');
+          }
       } 
+  };
+
+  const setBracketPrediction = (matchId, team) => {
+      setPredictions(current => {
+          const next = { ...current, [matchId]: team };
+          let matchNumber = Number(String(matchId).replace('ko_', ''));
+          if (matchNumber === 101 || matchNumber === 102) delete next.ko_103;
+          while (REAL_BRACKET_PARENT_MAP[matchNumber]) {
+              matchNumber = REAL_BRACKET_PARENT_MAP[matchNumber];
+              delete next[`ko_${matchNumber}`];
+          }
+          return next;
+      });
+      setShowCompletionModal(false);
   };
   
   const handleExit = (e) => { 
@@ -1937,12 +1971,23 @@ function PredictionSandbox({ getTeamFromSlot, groups, onExitHome, isFullscreen, 
             
             {phase === 'bracket' && (
                 <div id="capture-prediction" className="w-full h-full flex flex-col relative bg-slate-950 overflow-hidden">
-                    <div className="absolute top-2 sm:top-4 left-0 right-0 text-center z-20 pointer-events-none">
-                        <h2 className="text-base sm:text-xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-orange-500 tracking-wider inline-block bg-slate-950/80 backdrop-blur-md px-5 py-1.5 rounded-full border border-slate-800 shadow-xl">2026我的夺冠预测卷</h2>
+                    <div className="absolute top-2 sm:top-4 left-0 right-0 z-20 flex flex-col items-center pointer-events-none">
+                        <h2 className="text-base sm:text-xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-orange-500 tracking-wider inline-block bg-slate-950/80 backdrop-blur-md px-5 py-1.5 rounded-full border border-slate-800 shadow-xl">2026冠军之路推演</h2>
+                        <p className="mt-1 rounded-full bg-slate-950/75 px-3 py-1 text-[8px] sm:text-[10px] font-bold text-slate-400">点击每场球队，逐轮选择晋级者</p>
                     </div>
                     
                     <div className="absolute top-12 left-0 right-0 bottom-24">
-                        <FullScreenBracket mode="sandbox" r32Selections={sandboxRankings} thirdPlaceAssignments={thirdPlaceAssignments} predictions={predictions} setPrediction={(mId, team) => setPredictions(p => ({...p, [mId]: team}))} getTeamFromSlot={getTeamFromSlot} />
+                        {USE_LEGACY_GROUP_PREDICTION_FLOW ? (
+                            <FullScreenBracket mode="sandbox" r32Selections={sandboxRankings} thirdPlaceAssignments={thirdPlaceAssignments} predictions={predictions} setPrediction={setBracketPrediction} getTeamFromSlot={getTeamFromSlot} />
+                        ) : roundOf32Ready ? (
+                            <FullScreenBracket mode="sandbox" knockouts={knockouts} useActualRoundOf32 predictions={predictions} setPrediction={setBracketPrediction} getTeamFromSlot={getTeamFromSlot} />
+                        ) : (
+                            <div className="flex h-full flex-col items-center justify-center px-6 text-center">
+                                <RefreshCw className="mb-4 h-10 w-10 animate-spin text-yellow-400" />
+                                <h3 className="text-base font-black text-white">正在同步32强实际对阵</h3>
+                                <p className="mt-2 text-xs text-slate-500">落位数据完整后即可逐轮选择晋级球队</p>
+                            </div>
+                        )}
                     </div>
                     
                     <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-50 pointer-events-none opacity-100 flex justify-center w-full">
@@ -4069,19 +4114,19 @@ export default function App() {
          </div>
          <nav className="flex space-x-1.5 overflow-x-auto hide-scrollbar pb-1 pt-1">
             <button onClick={() => navigateToTab('daily_predictions')} className={`whitespace-nowrap px-4 sm:px-5 py-1.5 rounded-full text-[10px] sm:text-xs font-black transition-all flex items-center border ${activeTab === 'daily_predictions' ? 'bg-cyan-500 text-slate-950 border-cyan-300 shadow-[0_0_18px_rgba(34,211,238,0.45)]' : 'bg-cyan-500/10 border-cyan-500/40 text-cyan-300 hover:bg-cyan-500/20 hover:shadow-[0_0_14px_rgba(34,211,238,0.25)]'}`}><Sparkles className="w-3 h-3 mr-1" />今日预测</button>
-            <button onClick={() => navigateToTab('meeting')} className={`whitespace-nowrap px-3 sm:px-4 py-1.5 rounded-full text-[10px] sm:text-xs font-bold transition-all flex items-center ${activeTab === 'meeting' ? 'bg-red-600 text-white shadow-lg' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}><Swords className="w-3 h-3 mr-1" />宿命对决</button>
             <button onClick={() => navigateToTab('prediction')} className={`whitespace-nowrap px-3 sm:px-4 py-1.5 rounded-full text-[10px] sm:text-xs font-bold transition-all flex items-center ${activeTab === 'prediction' ? 'bg-yellow-600 text-white shadow-lg' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}><Wand2 className="w-3 h-3 mr-1" />夺冠推演</button>
             <button onClick={() => navigateToTab('live_bracket')} className={`whitespace-nowrap px-3 sm:px-4 py-1.5 rounded-full text-[10px] sm:text-xs font-bold transition-all flex items-center ${activeTab === 'live_bracket' ? 'bg-purple-600 text-white shadow-lg' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}><GitBranch className="w-3 h-3 mr-1" />实况大树</button>
-            <button onClick={() => navigateToTab('group_schedule')} className={`whitespace-nowrap px-3 sm:px-4 py-1.5 rounded-full text-[10px] sm:text-xs font-bold transition-all flex items-center ${activeTab === 'group_schedule' ? 'bg-emerald-600 text-white shadow-lg' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}><Activity className="w-3 h-3 mr-1" />小组全景</button>
+            <button onClick={() => navigateToTab('knockout_schedule')} className={`whitespace-nowrap px-3 sm:px-4 py-1.5 rounded-full text-[10px] sm:text-xs font-bold transition-all flex items-center ${activeTab === 'knockout_schedule' ? 'bg-blue-600 text-white shadow-lg' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}><LayoutList className="w-3 h-3 mr-1" />淘汰列表</button>
             <button onClick={() => navigateToTab('full_schedule')} className={`whitespace-nowrap px-3 sm:px-4 py-1.5 rounded-full text-[10px] sm:text-xs font-bold transition-all flex items-center ${activeTab === 'full_schedule' ? 'bg-blue-600 text-white shadow-lg' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}><CalendarDays className="w-3 h-3 mr-1" />全部赛程</button>
             <button onClick={() => navigateToTab('heroes')} className={`whitespace-nowrap px-3 sm:px-4 py-1.5 rounded-full text-[10px] sm:text-xs font-bold transition-all flex items-center ${activeTab === 'heroes' ? 'bg-cyan-600 text-white shadow-lg' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}><Crown className="w-3 h-3 mr-1" />球星榜</button>
-            <button onClick={() => navigateToTab('knockout_schedule')} className={`whitespace-nowrap px-3 sm:px-4 py-1.5 rounded-full text-[10px] sm:text-xs font-bold transition-all flex items-center ${activeTab === 'knockout_schedule' ? 'bg-blue-600 text-white shadow-lg' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}><LayoutList className="w-3 h-3 mr-1" />淘汰列表</button>
+            <button onClick={() => navigateToTab('meeting')} className={`whitespace-nowrap px-3 sm:px-4 py-1.5 rounded-full text-[10px] sm:text-xs font-bold transition-all flex items-center ${activeTab === 'meeting' ? 'bg-red-600 text-white shadow-lg' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}><Swords className="w-3 h-3 mr-1" />宿命对决</button>
+            <button onClick={() => navigateToTab('group_schedule')} className={`whitespace-nowrap px-3 sm:px-4 py-1.5 rounded-full text-[10px] sm:text-xs font-bold transition-all flex items-center ${activeTab === 'group_schedule' ? 'bg-emerald-600 text-white shadow-lg' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}><Activity className="w-3 h-3 mr-1" />小组全景</button>
             <button onClick={() => navigateToTab('rules')} className={`whitespace-nowrap px-3 sm:px-4 py-1.5 rounded-full text-[10px] sm:text-xs font-bold transition-all flex items-center ${activeTab === 'rules' ? 'bg-slate-600 text-white shadow-lg' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}><Shield className="w-3 h-3 mr-1" />赛制规则</button>
          </nav>
       </header>
 
       <div className="flex-1 overflow-hidden relative w-full h-full bg-slate-950">
-        <div className={activeTab === 'prediction' ? 'h-full' : 'hidden'}><PredictionSandbox getTeamFromSlot={getTeamFromSlot} groups={groups} onExitHome={navigateBack} isFullscreen={isFullscreen} setIsFullscreen={setIsFullscreen} /></div>
+        <div className={activeTab === 'prediction' ? 'h-full' : 'hidden'}><PredictionSandbox getTeamFromSlot={getTeamFromSlot} groups={groups} knockouts={projectedKnockoutFlat} onExitHome={navigateBack} isFullscreen={isFullscreen} setIsFullscreen={setIsFullscreen} /></div>
         <div className={activeTab === 'daily_predictions' ? 'h-full' : 'hidden'}>
           <SafeSectionBoundary>
             <DailyPredictionsView />
