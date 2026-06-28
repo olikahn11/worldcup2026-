@@ -73,7 +73,8 @@ const groupStageSchedule = {
   "瑞士 vs 加拿大": "6月25日 03:00", "波黑 vs 卡塔尔": "6月25日 03:00", "苏格兰 vs 巴西": "6月25日 06:00", "摩洛哥 vs 海地": "6月25日 06:00", "捷克 vs 墨西哥": "6月25日 09:00", "南非 vs 韩国": "6月25日 09:00",
   "厄瓜多尔 vs 德国": "6月26日 04:00", "库拉索 vs 科特迪瓦": "6月26日 04:00", "突尼斯 vs 荷兰": "6月26日 07:00", "日本 vs 瑞典": "6月26日 07:00", "土耳其 vs 美国": "6月26日 10:00", "巴拉圭 vs 澳大利亚": "6月26日 10:00",
   "挪威 vs 法国": "6月27日 03:00", "塞内加尔 vs 伊拉克": "6月27日 03:00", "乌拉圭 vs 西班牙": "6月27日 08:00", "佛得角 vs 沙特阿拉伯": "6月27日 08:00", "新西兰 vs 比利时": "6月27日 11:00", "埃及 vs 伊朗": "6月27日 11:00",
-  "巴拿马 vs 英格兰": "6月28日 05:00", "克罗地亚 vs 加纳": "6月28日 05:00", "哥伦比亚 vs 葡萄牙": "6月28日 07:30", "刚果(金) vs 乌兹别克斯坦": "6月28日 07:30", "约旦 vs 阿根廷": "6月28日 10:00", "阿尔及利亚 vs 奥地利": "6月28日 10:00"
+  "巴拿马 vs 英格兰": "6月28日 05:00", "克罗地亚 vs 加纳": "6月28日 05:00", "哥伦比亚 vs 葡萄牙": "6月28日 07:30", "刚果(金) vs 乌兹别克斯坦": "6月28日 07:30", "约旦 vs 阿根廷": "6月28日 10:00", "阿尔及利亚 vs 奥地利": "6月28日 10:00",
+  "南非 vs 加拿大": "6月29日 03:00"
 };
 
 // 每日预测维护边界：
@@ -633,11 +634,37 @@ const manualMatchAnalysis = {
     risk: '低。约旦很难持续突破阿根廷的反抢和禁区保护。',
     summary: '阿根廷稳胜但不必屠杀，0-2比1-4更符合末轮真实动力。',
     final: { tendency: '阿根廷胜并零封', score: '0-2', recommendation: '阿根廷胜 / 小3.5' }
+  },
+  '南非 vs 加拿大': {
+    conclusion: '90分钟倾向加拿大胜，最终倾向加拿大晋级。',
+    essence: '这是世界杯32强单场淘汰赛，北京时间6月29日03:00在洛杉矶体育场进行；90分钟战平将进入加时及点球，两队都是首次参加世界杯淘汰赛。加拿大整体实力、速度和终结能力占优，但本届60%的进球来自对九人卡塔尔的6-0，进攻表现存在放大。南非小组赛禁区触球和绝佳机会均偏少，却凭低位防守、身体对抗和反击连续拿分。决定性对位是加拿大高位压迫及David—Larin双前锋能否击穿Broos组织的紧凑防线；反面则是Maseko、Appollis冲击加拿大边后卫身后。加拿大若久攻不下，Marsch体系容易出现中路拥挤和转换失位。Koné确定缺席，Eustáquio存在健康疑问；Davies已恢复参赛资格，但三场小组赛均未出场，更可能成为下半场提速武器。南非迎回Mokoena，但Zwane停赛。预计约23°C、无雨、风力较弱，固定顶棚削弱天气影响；加拿大球迷数量可能占优，但并非真正主场。',
+    sources: [
+      { label: 'FIFA官方赛前信息', url: 'https://www.fifa.com/en/tournaments/mens/worldcup/canadamexicousa2026/articles/south-africa-canada-live-stream-team-news-tickets' },
+      { label: 'Opta赛前数据', url: 'https://theanalyst.com/articles/south-africa-vs-canada-prediction-world-cup-2026-match-preview' },
+      { label: '加拿大最新队况', url: 'https://www.sportsnet.ca/fifa-world-cup/article/canada-says-star-alphonso-davies-is-ready-to-play-as-knockout-rounds-begin/' },
+      { label: '伤停名单', url: 'https://www.sportsmole.co.uk/football/south-africa/world-cup-2026/team-news/south-africa-vs-canada-injury-suspension-list-predicted-xis_600165.html' }
+    ],
+    probabilities: { home: 20, draw: 27, away: 53 },
+    qualificationProbabilities: { home: 36, away: 64 },
+    scorePrediction: {
+      main: '南非 0-1 加拿大',
+      backup: '南非 1-1 加拿大，加拿大加时晋级'
+    },
+    totalGoals: '明确倾向90分钟小于2.5球。南非会主动压低比赛节奏，加拿大面对完整低位防线的持续创造力仍需验证；加时进球不计入常规90分钟大小球结算。',
+    upsetRisk: '中等。南非的低位防守、Mokoena定位球和快速反击能够压制加拿大最舒服的开放式进攻，Broos也更擅长把淘汰赛拖入一球决胜。最大冷门路径是0-0或1-1进入点球，Ronwen Williams的扑点能力会显著抬高南非晋级概率；加拿大的优势在于David、Larin、Buchanan以及可能替补登场的Davies能够连续制造不同类型的冲击。若真正进入点球大战，南非略占优势。',
+    risk: '中等。南非若守过前60分钟，比赛会迅速向加时倾斜。',
+    summary: '90分钟看加拿大1-0小胜，并由加拿大晋级16强。',
+    final: {
+      tendency: '90分钟加拿大胜；最终加拿大晋级',
+      score: '0-1',
+      recommendation: '加拿大胜 / 小2.5'
+    }
   }
 };
 
 const manualDailyAnalysisNotes = {
-  '6月28日': '以下判断基于赛前积分、伤停及轮换消息；末轮最关键的不是名气，而是“谁必须冒险、谁能接受平局”。'
+  '6月28日': '以下判断基于赛前积分、伤停及轮换消息；末轮最关键的不是名气，而是“谁必须冒险、谁能接受平局”。',
+  '6月29日': '世界杯32强淘汰赛开启：胜平负与大小球均按90分钟计算，晋级判断另含加时及点球。'
 };
 
 const getMatchAnalysisKeyFromTeams = (homeName, awayName) => `${normalizeTeamNameForMatch(homeName) || ''} vs ${normalizeTeamNameForMatch(awayName) || ''}`;
@@ -2733,7 +2760,7 @@ function DailyPredictionsView() {
 	                        <>
                         <div className="space-y-3">
                           <div className="rounded-xl border border-[#1f2a44] bg-[#050816] p-3">
-                            <div className="text-xs font-black text-[#22d3ee] mb-2">比赛底色</div>
+                            <div className="text-xs font-black text-[#22d3ee] mb-2">比赛本质判断</div>
                             <p className="text-xs sm:text-sm leading-relaxed text-[#e5e7eb]">
                               {analysis.essence || analysis.conclusion || analysis.logic?.form || '赛前信息待更新。'}
                             </p>
@@ -2756,11 +2783,11 @@ function DailyPredictionsView() {
                           </div>
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <div className="rounded-xl border border-[#22d3ee]/35 bg-[#22d3ee]/10 p-3">
-                              <div className="text-xs font-black text-[#22d3ee] mb-1">方向</div>
+                              <div className="text-xs font-black text-[#22d3ee] mb-1">明确倾向</div>
                               <div className="text-lg font-black text-[#e5e7eb]">{analysis.final.tendency}</div>
                             </div>
                             <div className="rounded-xl border border-[#1f2a44] bg-[#050816] p-3">
-                              <div className="text-xs font-black text-[#22d3ee] mb-2">比分</div>
+                              <div className="text-xs font-black text-[#22d3ee] mb-2">比分预测</div>
                               <div className="space-y-1 text-xs sm:text-sm text-[#e5e7eb]">
                                 <div>主推：<b>{analysis.scorePrediction?.main || analysis.final.score}</b></div>
                                 {analysis.scorePrediction?.backup && <div>备用：<b>{analysis.scorePrediction.backup}</b></div>}
@@ -2771,19 +2798,34 @@ function DailyPredictionsView() {
                             <div className="rounded-xl border border-[#1f2a44] bg-[#050816] p-3">
                               <div className="text-xs font-black text-[#22d3ee] mb-2">胜平负概率</div>
                               {analysis.probabilities ? renderProbabilityBars(analysis.probabilities) : <div className="text-xs text-[#94a3b8]">概率待更新</div>}
+                              {analysis.qualificationProbabilities && (
+                                <div className="mt-3 border-t border-[#1f2a44] pt-3">
+                                  <div className="text-[10px] font-black text-emerald-300 mb-2">晋级概率（含加时及点球）</div>
+                                  <div className="grid grid-cols-2 gap-2 text-xs">
+                                    <div className="rounded-lg bg-emerald-400/10 px-2.5 py-2 text-[#e5e7eb]">
+                                      <span className="block text-[10px] text-[#94a3b8]">{match.homeTeam.name}</span>
+                                      <b className="text-base text-emerald-200">{analysis.qualificationProbabilities.home}%</b>
+                                    </div>
+                                    <div className="rounded-lg bg-emerald-400/10 px-2.5 py-2 text-right text-[#e5e7eb]">
+                                      <span className="block text-[10px] text-[#94a3b8]">{match.awayTeam.name}</span>
+                                      <b className="text-base text-emerald-200">{analysis.qualificationProbabilities.away}%</b>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
                             </div>
                             <div className="rounded-xl border border-[#1f2a44] bg-[#050816] p-3">
-                              <div className="text-xs font-black text-[#22d3ee] mb-2">大小球</div>
+                              <div className="text-xs font-black text-[#22d3ee] mb-2">大小球判断</div>
                               <p className="text-xs sm:text-sm leading-relaxed text-[#e5e7eb]">
                                 {analysis.totalGoals || analysis.final.recommendation || '大小球观点待更新。'}
                               </p>
                             </div>
                           </div>
                           <div className="rounded-xl border border-[#ef4444]/40 bg-[#ef4444]/10 p-3 text-xs sm:text-sm leading-relaxed text-[#fecaca]">
-                            <span className="font-black text-[#ef4444]">风险点：</span>{analysis.upsetRisk || analysis.risk}
+                            <span className="font-black text-[#ef4444]">冷门风险：</span>{analysis.upsetRisk || analysis.risk}
                           </div>
                           <div className="rounded-xl border border-[#22d3ee]/40 bg-[#22d3ee]/10 p-3 text-xs sm:text-sm leading-relaxed text-[#e5e7eb]">
-                            <div className="font-black text-[#22d3ee] mb-1">收口判断</div>
+                            <div className="font-black text-[#22d3ee] mb-1">最终一句话总结</div>
                             {analysis.summary || analysis.conclusion}
                           </div>
                         </div>
