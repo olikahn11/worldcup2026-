@@ -636,7 +636,7 @@ const manualMatchAnalysis = {
     final: { tendency: '阿根廷胜并零封', score: '0-2', recommendation: '阿根廷胜 / 小3.5' }
   },
   '南非 vs 加拿大': {
-    conclusion: '90分钟倾向加拿大胜，最终倾向加拿大晋级。',
+    conclusion: '90分钟倾向南非负，最终倾向加拿大晋级。',
     essence: '这是世界杯32强单场淘汰赛，北京时间6月29日03:00在洛杉矶体育场进行；90分钟战平将进入加时及点球，两队都是首次参加世界杯淘汰赛。加拿大整体实力、速度和终结能力占优，但本届60%的进球来自对九人卡塔尔的6-0，进攻表现存在放大。南非小组赛禁区触球和绝佳机会均偏少，却凭低位防守、身体对抗和反击连续拿分。决定性对位是加拿大高位压迫及David—Larin双前锋能否击穿Broos组织的紧凑防线；反面则是Maseko、Appollis冲击加拿大边后卫身后。加拿大若久攻不下，Marsch体系容易出现中路拥挤和转换失位。Koné确定缺席，Eustáquio存在健康疑问；Davies已恢复参赛资格，但三场小组赛均未出场，更可能成为下半场提速武器。南非迎回Mokoena，但Zwane停赛。预计约23°C、无雨、风力较弱，固定顶棚削弱天气影响；加拿大球迷数量可能占优，但并非真正主场。',
     sources: [
       { label: 'FIFA官方赛前信息', url: 'https://www.fifa.com/en/tournaments/mens/worldcup/canadamexicousa2026/articles/south-africa-canada-live-stream-team-news-tickets' },
@@ -653,9 +653,9 @@ const manualMatchAnalysis = {
     totalGoals: '明确倾向90分钟小于2.5球。南非会主动压低比赛节奏，加拿大面对完整低位防线的持续创造力仍需验证；加时进球不计入常规90分钟大小球结算。',
     upsetRisk: '中等。南非的低位防守、Mokoena定位球和快速反击能够压制加拿大最舒服的开放式进攻，Broos也更擅长把淘汰赛拖入一球决胜。最大冷门路径是0-0或1-1进入点球，Ronwen Williams的扑点能力会显著抬高南非晋级概率；加拿大的优势在于David、Larin、Buchanan以及可能替补登场的Davies能够连续制造不同类型的冲击。若真正进入点球大战，南非略占优势。',
     risk: '中等。南非若守过前60分钟，比赛会迅速向加时倾斜。',
-    summary: '90分钟看加拿大1-0小胜，并由加拿大晋级16强。',
+    summary: '90分钟预计南非0-1加拿大，并由加拿大晋级16强。',
     final: {
-      tendency: '90分钟加拿大胜；最终加拿大晋级',
+      tendency: '90分钟南非负；最终加拿大晋级',
       score: '0-1',
       recommendation: '加拿大胜 / 小2.5'
     }
