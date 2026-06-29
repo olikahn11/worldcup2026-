@@ -74,7 +74,8 @@ const groupStageSchedule = {
   "厄瓜多尔 vs 德国": "6月26日 04:00", "库拉索 vs 科特迪瓦": "6月26日 04:00", "突尼斯 vs 荷兰": "6月26日 07:00", "日本 vs 瑞典": "6月26日 07:00", "土耳其 vs 美国": "6月26日 10:00", "巴拉圭 vs 澳大利亚": "6月26日 10:00",
   "挪威 vs 法国": "6月27日 03:00", "塞内加尔 vs 伊拉克": "6月27日 03:00", "乌拉圭 vs 西班牙": "6月27日 08:00", "佛得角 vs 沙特阿拉伯": "6月27日 08:00", "新西兰 vs 比利时": "6月27日 11:00", "埃及 vs 伊朗": "6月27日 11:00",
   "巴拿马 vs 英格兰": "6月28日 05:00", "克罗地亚 vs 加纳": "6月28日 05:00", "哥伦比亚 vs 葡萄牙": "6月28日 07:30", "刚果(金) vs 乌兹别克斯坦": "6月28日 07:30", "约旦 vs 阿根廷": "6月28日 10:00", "阿尔及利亚 vs 奥地利": "6月28日 10:00",
-  "南非 vs 加拿大": "6月29日 03:00"
+  "南非 vs 加拿大": "6月29日 03:00",
+  "巴西 vs 日本": "6月30日 01:00", "德国 vs 巴拉圭": "6月30日 04:30", "荷兰 vs 摩洛哥": "6月30日 09:00"
 };
 
 // 每日预测维护边界：
@@ -659,12 +660,87 @@ const manualMatchAnalysis = {
       score: '0-1',
       recommendation: '加拿大胜 / 小2.5'
     }
+  },
+  '巴西 vs 日本': {
+    conclusion: '90分钟倾向巴西胜日本，最终倾向巴西晋级。',
+    essence: '这是世界杯32强单场淘汰赛，北京时间6月30日01:00进行；90分钟战平将进入加时及点球。巴西会控制球权，但日本的高位逼抢、快速转移和多点跑动仍能攻击巴西边后卫身后。巴西小组赛打进7球仅丢1球，维尼修斯和库尼亚状态出色；不过拉菲尼亚确定缺席。日本方面久保建英因膝伤缺阵，板仓滉存疑，连续施压和防线完整性都受到影响。休斯敦球场预计闭顶并使用空调，室外高温影响有限；安切洛蒂的淘汰赛管理和巴西替补深度是决定性优势。',
+    sources: [
+      { label: 'FIFA淘汰赛赛程', url: 'https://www.fifa.com/en/tournaments/mens/worldcup/canadamexicousa2026/articles/knockout-stage-match-schedule-bracket' },
+      { label: '赛事规则', url: 'https://img.fifa.com/image/upload/q28gdktklmbx20lrsgyl.pdf' },
+      { label: '最新阵容信息', url: 'https://www.si.com/soccer/brazil-vs-japan-world-cup-preview-predictions-lineups-6-29-26' },
+      { label: '拉菲尼亚缺席', url: 'https://www.lance.com.br/selecao-brasileira/raphinha-nao-viaja-com-o-brasil-para-partida-contra-o-japao.html' }
+    ],
+    probabilities: { home: 58, draw: 24, away: 18 },
+    qualificationProbabilities: { home: 70, away: 30 },
+    scorePrediction: {
+      main: '巴西 2-1 日本',
+      backup: '巴西 1-1 日本；若进入加时，倾向巴西晋级'
+    },
+    totalGoals: '轻倾90分钟大于2.5球，但优势不大。日本的逼抢能够制造转换，巴西也具备持续提速和替补破局能力；加时进球不计入常规90分钟大小球结算。',
+    upsetRisk: '中等。日本能够通过逼抢制造巴西后场失误，但中卫与核心攻击手伤情降低了连续抵抗能力；巴西若迟迟无法拉开日本阵型，比赛仍可能进入加时。',
+    risk: '中等。日本的逼抢和快速转移具备制造冷门的能力。',
+    summary: '90分钟预计巴西2-1日本，并由巴西晋级16强。',
+    final: {
+      tendency: '90分钟巴西胜日本；最终巴西晋级',
+      score: '2-1',
+      recommendation: '巴西胜 / 轻倾大2.5'
+    }
+  },
+  '德国 vs 巴拉圭': {
+    conclusion: '90分钟明确倾向德国胜巴拉圭，最终倾向德国晋级。',
+    essence: '这是世界杯32强单场淘汰赛，北京时间6月30日04:30进行；90分钟战平将进入加时及点球。比赛是典型的控球强队破解4-4-2低位防守：德国依靠穆西亚拉、维尔茨在肋部穿插，巴拉圭则通过恩西索、阿尔米隆冲击德国压上后的空间。德国施洛特贝克缺席、布朗存疑；巴拉圭关键定位球手迭戈·戈麦斯停赛，阿尔德雷特存疑，反击和定位球威胁均被削弱。阿尔法罗能把比赛拖慢，但巴拉圭小组赛仅进2球，缺少把防守转化为淘汰赛胜利的火力。',
+    sources: [
+      { label: 'FIFA淘汰赛赛程', url: 'https://www.fifa.com/en/tournaments/mens/worldcup/canadamexicousa2026/articles/knockout-stage-match-schedule-bracket' },
+      { label: '赛事规则', url: 'https://img.fifa.com/image/upload/q28gdktklmbx20lrsgyl.pdf' },
+      { label: '伤停及战术预览', url: 'https://www.rotowire.com/soccer/article/germany-vs-paraguay-preview-predicted-lineups-team-news-tactical-analysis-2026-world-cup-round-of-32-120070' }
+    ],
+    probabilities: { home: 69, draw: 20, away: 11 },
+    qualificationProbabilities: { home: 82, away: 18 },
+    scorePrediction: {
+      main: '德国 2-0 巴拉圭',
+      backup: '德国 1-0 巴拉圭'
+    },
+    totalGoals: '倾向90分钟小于3.0球。巴拉圭会主动压低节奏，比赛更像德国耐心磨出1至2球；加时进球不计入常规90分钟大小球结算。',
+    upsetRisk: '低。最大风险是德国久攻不下后遭遇恩西索反击；但巴拉圭进攻薄弱且关键定位球手停赛，持续制造威胁的能力不足。',
+    risk: '低。德国久攻不下后的转换防守是主要风险。',
+    summary: '90分钟预计德国2-0巴拉圭，并由德国晋级16强。',
+    final: {
+      tendency: '90分钟德国胜巴拉圭；最终德国晋级',
+      score: '2-0',
+      recommendation: '德国胜 / 小3.0'
+    }
+  },
+  '荷兰 vs 摩洛哥': {
+    conclusion: '90分钟倾向荷兰与摩洛哥战平，最终选择摩洛哥晋级。',
+    essence: '这是世界杯32强单场淘汰赛，北京时间6月30日09:00进行；90分钟战平将进入加时及点球，也是三场中最接近的一场。荷兰中场德容—赫拉芬贝赫—赖因德斯控制力更强，布罗贝伊提供支点后，进攻比首轮明显直接；摩洛哥则有哈基米、卜拉欣·迪亚斯和塞巴里形成高质量反击。塞巴里小组赛三场均进球，摩洛哥还曾1-1逼平巴西。蒙特雷晚间仍接近29℃，比赛后段节奏可能下降；如果进入点球，布努给摩洛哥带来真实优势，主帅瓦赫比也明确把限制荷兰进入禁区作为核心策略。',
+    sources: [
+      { label: 'FIFA淘汰赛赛程', url: 'https://www.fifa.com/en/tournaments/mens/worldcup/canadamexicousa2026/articles/knockout-stage-match-schedule-bracket' },
+      { label: '赛事规则', url: 'https://img.fifa.com/image/upload/q28gdktklmbx20lrsgyl.pdf' },
+      { label: '双方近况与预计阵容', url: 'https://www.si.com/soccer/netherlands-vs-morocco-world-cup-preview-predictions-lineups-6-29-26' },
+      { label: '摩洛哥赛前发布会', url: 'https://en.hespress.com/140871-morocco-ready-for-new-challenge-against-netherlands-says-ouahbi.html' }
+    ],
+    probabilities: { home: 39, draw: 32, away: 29 },
+    qualificationProbabilities: { home: 48, away: 52 },
+    scorePrediction: {
+      main: '荷兰 1-1 摩洛哥；主路线为摩洛哥点球晋级',
+      backup: '荷兰 1-0 摩洛哥'
+    },
+    totalGoals: '明确倾向90分钟小于2.5球。双方都会优先保护中路和禁区，炎热天气也可能压低比赛后段节奏；加时进球不计入常规90分钟大小球结算。',
+    upsetRisk: '高。双方实力接近，摩洛哥能限制荷兰中路，布努又显著提高点球大战胜率；科曼如果换人保守，比赛会进入摩洛哥喜欢的轨道。',
+    risk: '高。荷兰的控球优势不等于稳定破防，点球大战更利于摩洛哥。',
+    summary: '90分钟预计荷兰1-1摩洛哥，随后由摩洛哥点球晋级16强。',
+    final: {
+      tendency: '90分钟荷兰与摩洛哥战平；最终摩洛哥晋级',
+      score: '1-1',
+      recommendation: '平局 / 小2.5'
+    }
   }
 };
 
 const manualDailyAnalysisNotes = {
   '6月28日': '以下判断基于赛前积分、伤停及轮换消息；末轮最关键的不是名气，而是“谁必须冒险、谁能接受平局”。',
-  '6月29日': '世界杯32强淘汰赛开启：胜平负与大小球均按90分钟计算，晋级判断另含加时及点球。'
+  '6月29日': '世界杯32强淘汰赛开启：胜平负与大小球均按90分钟计算，晋级判断另含加时及点球。',
+  '6月30日': '三场均为世界杯32强单场淘汰赛：90分钟战平后进行加时及点球，大小球按常规90分钟结算。'
 };
 
 const getMatchAnalysisKeyFromTeams = (homeName, awayName) => `${normalizeTeamNameForMatch(homeName) || ''} vs ${normalizeTeamNameForMatch(awayName) || ''}`;
