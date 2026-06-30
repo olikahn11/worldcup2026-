@@ -75,7 +75,8 @@ const groupStageSchedule = {
   "挪威 vs 法国": "6月27日 03:00", "塞内加尔 vs 伊拉克": "6月27日 03:00", "乌拉圭 vs 西班牙": "6月27日 08:00", "佛得角 vs 沙特阿拉伯": "6月27日 08:00", "新西兰 vs 比利时": "6月27日 11:00", "埃及 vs 伊朗": "6月27日 11:00",
   "巴拿马 vs 英格兰": "6月28日 05:00", "克罗地亚 vs 加纳": "6月28日 05:00", "哥伦比亚 vs 葡萄牙": "6月28日 07:30", "刚果(金) vs 乌兹别克斯坦": "6月28日 07:30", "约旦 vs 阿根廷": "6月28日 10:00", "阿尔及利亚 vs 奥地利": "6月28日 10:00",
   "南非 vs 加拿大": "6月29日 03:00",
-  "巴西 vs 日本": "6月30日 01:00", "德国 vs 巴拉圭": "6月30日 04:30", "荷兰 vs 摩洛哥": "6月30日 09:00"
+  "巴西 vs 日本": "6月30日 01:00", "德国 vs 巴拉圭": "6月30日 04:30", "荷兰 vs 摩洛哥": "6月30日 09:00",
+  "科特迪瓦 vs 挪威": "7月1日 01:00", "法国 vs 瑞典": "7月1日 05:00", "墨西哥 vs 厄瓜多尔": "7月1日 09:00"
 };
 
 // 每日预测维护边界：
@@ -734,13 +735,82 @@ const manualMatchAnalysis = {
       score: '1-1',
       recommendation: '平局 / 小2.5'
     }
+  },
+  '科特迪瓦 vs 挪威': {
+    conclusion: '90分钟倾向科特迪瓦负挪威，最终倾向挪威晋级。',
+    essence: '这是世界杯32强单场淘汰赛，北京时间7月1日01:00进行；90分钟战平将进入加时及点球。科特迪瓦依靠凯西、桑加雷的中场硬度以及迪亚洛、迪奥曼德的边路冲击；挪威则拥有更直接的厄德高—哈兰德—索尔洛特进攻链。挪威末轮大轮换，核心体能充足，哈兰德此前两场已进4球。关键是科特迪瓦中卫能否限制哈兰德的禁区抢点，同时避免厄德高持续获得二点球。Singo与Ryerson均有伤疑；若进入点球，挪威凭哈兰德、厄德高和索尔洛特的主罚能力略占优势。',
+    sources: [
+      { label: 'Opta赛前分析', url: 'https://theanalyst.com/articles/ivory-coast-vs-norway-prediction-world-cup-2026-match-preview' },
+      { label: '伤停信息', url: 'https://www.sportsmole.co.uk/football/ivory-coast/world-cup-2026/team-news/ivory-coast-vs-norway-injury-suspension-list-predicted-xis_600307.html' }
+    ],
+    probabilities: { home: 22, draw: 23, away: 55 },
+    qualificationProbabilities: { home: 32, away: 68 },
+    scorePrediction: {
+      main: '科特迪瓦 1-2 挪威',
+      backup: '科特迪瓦 1-1 挪威；倾向挪威加时晋级'
+    },
+    totalGoals: '倾向90分钟大于2.5球，力度中等。双方边路转换快，挪威防线并不稳定；加时进球不计入常规90分钟大小球结算。',
+    upsetRisk: '中等。科特迪瓦的身体对抗、边路单挑和定位球能力足以惩罚挪威防线，Faé的临场换人也不弱；但挪威的中前场终结点更多。',
+    risk: '中等。科特迪瓦的身体与边路冲击具备制造冷门的能力。',
+    summary: '90分钟预计科特迪瓦1-2挪威，并由挪威晋级16强。',
+    final: {
+      tendency: '90分钟科特迪瓦负挪威；最终挪威晋级',
+      score: '1-2',
+      recommendation: '挪威胜 / 大2.5'
+    }
+  },
+  '法国 vs 瑞典': {
+    conclusion: '90分钟明确倾向法国胜瑞典，最终倾向法国晋级。',
+    essence: '这是世界杯32强单场淘汰赛，北京时间7月1日05:00进行；90分钟战平将进入加时及点球。法国小组赛三战全胜、攻入10球，姆巴佩与登贝莱各进4球；瑞典的Isak、Gyökeres和Elanga具备反击威胁，但三中卫需要同时应付法国两翼速度、肋部换位和替补冲击。Hien的腿筋伤势进一步削弱瑞典防线，法国仅Marcus Thuram出战存疑。若进入点球，法国在主罚深度和大赛经验上仍有明显优势。',
+    sources: [
+      { label: 'Opta赛前分析', url: 'https://theanalyst.com/articles/france-vs-sweden-prediction-world-cup-2026-match-preview' },
+      { label: '伤停信息', url: 'https://www.sportsmole.co.uk/football/france/world-cup-2026/team-news/france-vs-sweden-injury-suspension-list-predicted-xis_600359.html' }
+    ],
+    probabilities: { home: 75, draw: 16, away: 9 },
+    qualificationProbabilities: { home: 83, away: 17 },
+    scorePrediction: {
+      main: '法国 3-1 瑞典',
+      backup: '法国 2-0 瑞典'
+    },
+    totalGoals: '倾向90分钟大于2.5球。法国攻击端状态强势，瑞典也有反击得分能力；加时进球不计入常规90分钟大小球结算。',
+    upsetRisk: '低。瑞典爆冷路径主要依靠Isak或Gyökeres率先反击得分，但残缺的三中卫很难承受法国持续冲击。',
+    risk: '低。瑞典必须依靠高效率反击才能把比赛拖入均势。',
+    summary: '90分钟预计法国3-1瑞典，并由法国晋级16强。',
+    final: {
+      tendency: '90分钟法国胜瑞典；最终法国晋级',
+      score: '3-1',
+      recommendation: '法国胜 / 大2.5'
+    }
+  },
+  '墨西哥 vs 厄瓜多尔': {
+    conclusion: '90分钟倾向墨西哥小胜厄瓜多尔，最终倾向墨西哥晋级。',
+    essence: '这是世界杯32强单场淘汰赛，北京时间7月1日09:00在阿兹特克球场进行；90分钟战平将进入加时及点球，也是三场中最胶着的一场。墨西哥小组赛三战全胜且零失球，拥有约2240米海拔、主场声浪与场地适应优势；厄瓜多尔则具备Pacho、Hincapié、Caicedo组成的高强度防守骨架，并刚刚逆转德国。决定性对位是墨西哥能否穿过Caicedo主导的逼抢，以及厄瓜多尔能否把机会转化为进球——其小组赛创造不少机会，却只打进2球。两队目前没有关键伤停；若进入点球，双方接近，墨西哥的主场压力既是助力也是风险。',
+    sources: [
+      { label: 'Opta赛前分析', url: 'https://theanalyst.com/articles/mexico-vs-ecuador-prediction-world-cup-2026-match-preview' }
+    ],
+    probabilities: { home: 47, draw: 29, away: 24 },
+    qualificationProbabilities: { home: 60, away: 40 },
+    scorePrediction: {
+      main: '墨西哥 1-0 厄瓜多尔',
+      backup: '墨西哥 1-1 厄瓜多尔；倾向墨西哥加时晋级'
+    },
+    totalGoals: '明确倾向90分钟小于2.5球。双方防守骨架完整，淘汰赛前段会以控制失误为主；加时进球不计入常规90分钟大小球结算。',
+    upsetRisk: '高。厄瓜多尔的中场强度、反抢和中卫质量可以压缩墨西哥进攻空间；若比赛拖到60分钟仍是0-0，双方晋级概率会迅速接近。',
+    risk: '高。厄瓜多尔具备把比赛拖入加时甚至点球的防守质量。',
+    summary: '90分钟预计墨西哥1-0厄瓜多尔，并由墨西哥晋级16强。',
+    final: {
+      tendency: '90分钟墨西哥胜厄瓜多尔；最终墨西哥晋级',
+      score: '1-0',
+      recommendation: '墨西哥胜 / 小2.5'
+    }
   }
 };
 
 const manualDailyAnalysisNotes = {
   '6月28日': '以下判断基于赛前积分、伤停及轮换消息；末轮最关键的不是名气，而是“谁必须冒险、谁能接受平局”。',
   '6月29日': '世界杯32强淘汰赛开启：胜平负与大小球均按90分钟计算，晋级判断另含加时及点球。',
-  '6月30日': '三场均为世界杯32强单场淘汰赛：90分钟战平后进行加时及点球，大小球按常规90分钟结算。'
+  '6月30日': '三场均为世界杯32强单场淘汰赛：90分钟战平后进行加时及点球，大小球按常规90分钟结算。',
+  '7月1日': '三场均为世界杯32强单场淘汰赛：胜平负与大小球按90分钟结算，最终晋级判断另含加时及点球。'
 };
 
 const getMatchAnalysisKeyFromTeams = (homeName, awayName) => `${normalizeTeamNameForMatch(homeName) || ''} vs ${normalizeTeamNameForMatch(awayName) || ''}`;
