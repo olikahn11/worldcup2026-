@@ -76,7 +76,8 @@ const groupStageSchedule = {
   "巴拿马 vs 英格兰": "6月28日 05:00", "克罗地亚 vs 加纳": "6月28日 05:00", "哥伦比亚 vs 葡萄牙": "6月28日 07:30", "刚果(金) vs 乌兹别克斯坦": "6月28日 07:30", "约旦 vs 阿根廷": "6月28日 10:00", "阿尔及利亚 vs 奥地利": "6月28日 10:00",
   "南非 vs 加拿大": "6月29日 03:00",
   "巴西 vs 日本": "6月30日 01:00", "德国 vs 巴拉圭": "6月30日 04:30", "荷兰 vs 摩洛哥": "6月30日 09:00",
-  "科特迪瓦 vs 挪威": "7月1日 01:00", "法国 vs 瑞典": "7月1日 05:00", "墨西哥 vs 厄瓜多尔": "7月1日 09:00"
+  "科特迪瓦 vs 挪威": "7月1日 01:00", "法国 vs 瑞典": "7月1日 05:00", "墨西哥 vs 厄瓜多尔": "7月1日 09:00",
+  "英格兰 vs 刚果(金)": "7月2日 00:00", "比利时 vs 塞内加尔": "7月2日 04:00", "美国 vs 波黑": "7月2日 08:00"
 };
 
 // 每日预测维护边界：
@@ -803,6 +804,74 @@ const manualMatchAnalysis = {
       score: '1-0',
       recommendation: '墨西哥胜 / 小2.5'
     }
+  },
+  '英格兰 vs 刚果(金)': {
+    conclusion: '90分钟明确倾向英格兰胜刚果（金），最终倾向英格兰晋级。',
+    essence: '这是世界杯32强单场淘汰赛，北京时间7月2日00:00在亚特兰大进行；90分钟战平将进入加时及点球。英格兰将长期控球，刚果（金）大概率采用5-3-2低位防守，依靠Wissa、Bakambu反击。真正考验不是英格兰能否控制，而是能否破解密集防守；Kane回撤、Bellingham后插上和Saka一对一是主要破局点。James与Quansah缺席削弱右路，但Rice预计复出。亚特兰大球场有空调，外界高温影响有限；若进入点球，Pickford和英格兰的主罚阵容占优。',
+    sources: [
+      { label: 'Opta赛前分析', url: 'https://theanalyst.com/articles/england-vs-dr-congo-prediction-world-cup-2026-match-preview' },
+      { label: '伤停信息', url: 'https://www.sportsmole.co.uk/football/england/world-cup-2026/team-news/england-vs-dr-congo-injury-suspension-list-predicted-xis_600341.html' }
+    ],
+    probabilities: { home: 72, draw: 18, away: 10 },
+    qualificationProbabilities: { home: 82, away: 18 },
+    scorePrediction: {
+      main: '英格兰 2-0 刚果（金）',
+      backup: '英格兰 1-0 刚果（金）'
+    },
+    totalGoals: '倾向90分钟小于3球。刚果（金）不会主动拉开比赛，英格兰领先后也更可能控制消耗；加时进球不计入常规90分钟大小球结算。',
+    upsetRisk: '中等。刚果（金）的低位密度和Wan-Bissaka单防能力可以压缩英格兰边路；若半场仍是0-0，英格兰会承受明显心理压力。',
+    risk: '中等。英格兰破解密集防守的效率决定比赛是否进入加时。',
+    summary: '90分钟预计英格兰2-0刚果（金），并由英格兰晋级16强。',
+    final: {
+      tendency: '90分钟英格兰胜刚果（金）；最终英格兰晋级',
+      score: '2-0',
+      recommendation: '英格兰胜 / 小3'
+    }
+  },
+  '比利时 vs 塞内加尔': {
+    conclusion: '90分钟倾向比利时小胜塞内加尔，最终倾向比利时晋级。',
+    essence: '这是世界杯32强单场淘汰赛，北京时间7月2日04:00进行；90分钟战平将进入加时及点球，也是三场中最危险的一场。比利时前两轮进攻迟缓，末轮才5-1击败新西兰；塞内加尔则在两连败后5-0大胜伊拉克。Doku、Trossard和De Bruyne能够攻击塞内加尔防线空当，但Sarr的速度也会直接考验比利时回防。塞内加尔主力门将Édouard Mendy膝伤严重存疑，是重要减分项；Courtois构成比利时的门将优势。若进入点球，比利时在门将和主罚阵容上均占优势。',
+    sources: [
+      { label: 'Opta赛前分析', url: 'https://theanalyst.com/articles/belgium-vs-senegal-prediction-world-cup-2026-match-preview' },
+      { label: '最新队况', url: 'https://www.sportsmole.co.uk/football/belgium/world-cup-2026/preview/belgium-vs-senegal-prediction-team-news-lineups_600358.html' }
+    ],
+    probabilities: { home: 46, draw: 28, away: 26 },
+    qualificationProbabilities: { home: 59, away: 41 },
+    scorePrediction: {
+      main: '比利时 2-1 塞内加尔',
+      backup: '比利时 1-1 塞内加尔；倾向比利时加时晋级'
+    },
+    totalGoals: '倾向90分钟大于2.5球。双方转换速度快，防线均存在被冲散的风险；加时进球不计入常规90分钟大小球结算。',
+    upsetRisk: '高。塞内加尔的速度、身体对抗和前场逼抢正好针对比利时防线，但Mendy伤势与防守纪律降低了爆冷成功率。',
+    risk: '高。塞内加尔的转换冲击使这场成为三场中最危险的一场。',
+    summary: '90分钟预计比利时2-1塞内加尔，并由比利时晋级16强。',
+    final: {
+      tendency: '90分钟比利时胜塞内加尔；最终比利时晋级',
+      score: '2-1',
+      recommendation: '比利时胜 / 大2.5'
+    }
+  },
+  '美国 vs 波黑': {
+    conclusion: '90分钟明确倾向美国胜波黑，最终倾向美国晋级。',
+    essence: '这是世界杯32强单场淘汰赛，北京时间7月2日08:00在圣克拉拉进行；90分钟战平将进入加时及点球。美国核心阵容末轮得到轮休，Pulisic已经伤愈回归，Balogun状态良好；波黑整体速度不足，但拥有本届平均身高最高的阵容，并已通过角球攻入3球。决定性对位是美国的快速地面推进能否绕开波黑中卫，以及美国能否保护定位球第二落点。圣克拉拉预计气温舒适，天气不会明显改变节奏；若进入点球，美国与波黑的差距明显小于运动战。',
+    sources: [
+      { label: 'Opta赛前分析', url: 'https://theanalyst.com/articles/usa-vs-bosnia-herzegovina-prediction-world-cup-2026-match-preview' }
+    ],
+    probabilities: { home: 67, draw: 19, away: 14 },
+    qualificationProbabilities: { home: 77, away: 23 },
+    scorePrediction: {
+      main: '美国 2-0 波黑',
+      backup: '美国 2-1 波黑'
+    },
+    totalGoals: '倾向90分钟小于3球。美国领先后更可能控制节奏，而非持续对攻；加时进球不计入常规90分钟大小球结算。',
+    upsetRisk: '中等。波黑主要冷门路径是定位球率先进球，然后依靠身高和禁区人数守住领先；开放比赛中美国优势明显。',
+    risk: '中等。美国必须控制波黑定位球的第一点和第二落点。',
+    summary: '90分钟预计美国2-0波黑，并由美国晋级16强。',
+    final: {
+      tendency: '90分钟美国胜波黑；最终美国晋级',
+      score: '2-0',
+      recommendation: '美国胜 / 小3'
+    }
   }
 };
 
@@ -810,7 +879,8 @@ const manualDailyAnalysisNotes = {
   '6月28日': '以下判断基于赛前积分、伤停及轮换消息；末轮最关键的不是名气，而是“谁必须冒险、谁能接受平局”。',
   '6月29日': '世界杯32强淘汰赛开启：胜平负与大小球均按90分钟计算，晋级判断另含加时及点球。',
   '6月30日': '三场均为世界杯32强单场淘汰赛：90分钟战平后进行加时及点球，大小球按常规90分钟结算。',
-  '7月1日': '三场均为世界杯32强单场淘汰赛：胜平负与大小球按90分钟结算，最终晋级判断另含加时及点球。'
+  '7月1日': '三场均为世界杯32强单场淘汰赛：胜平负与大小球按90分钟结算，最终晋级判断另含加时及点球。',
+  '7月2日': '三场均为世界杯32强单场淘汰赛：90分钟战平后进行加时和点球，大小球仍按常规90分钟结算。'
 };
 
 const getMatchAnalysisKeyFromTeams = (homeName, awayName) => `${normalizeTeamNameForMatch(homeName) || ''} vs ${normalizeTeamNameForMatch(awayName) || ''}`;
