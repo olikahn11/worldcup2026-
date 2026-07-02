@@ -77,7 +77,8 @@ const groupStageSchedule = {
   "南非 vs 加拿大": "6月29日 03:00",
   "巴西 vs 日本": "6月30日 01:00", "德国 vs 巴拉圭": "6月30日 04:30", "荷兰 vs 摩洛哥": "6月30日 09:00",
   "科特迪瓦 vs 挪威": "7月1日 01:00", "法国 vs 瑞典": "7月1日 05:00", "墨西哥 vs 厄瓜多尔": "7月1日 09:00",
-  "英格兰 vs 刚果(金)": "7月2日 00:00", "比利时 vs 塞内加尔": "7月2日 04:00", "美国 vs 波黑": "7月2日 08:00"
+  "英格兰 vs 刚果(金)": "7月2日 00:00", "比利时 vs 塞内加尔": "7月2日 04:00", "美国 vs 波黑": "7月2日 08:00",
+  "西班牙 vs 奥地利": "7月3日 03:00", "葡萄牙 vs 克罗地亚": "7月3日 07:00", "瑞士 vs 阿尔及利亚": "7月3日 11:00"
 };
 
 // 每日预测维护边界：
@@ -872,6 +873,73 @@ const manualMatchAnalysis = {
       score: '2-0',
       recommendation: '美国胜 / 小3'
     }
+  },
+  '西班牙 vs 奥地利': {
+    conclusion: '90分钟明确倾向西班牙胜奥地利，最终倾向西班牙晋级。',
+    essence: '这是世界杯32强单场淘汰赛，北京时间7月3日03:00在洛杉矶进行；90分钟战平将进入加时及点球。西班牙将控制球权，奥地利通过Rangnick式高压逼抢破坏Rodri、Pedri的出球。关键对位是Yamal能否击穿奥地利左侧，以及奥地利前压后留下的身后空间。西班牙锋线本届并不流畅，Nico Williams等边锋存在身体问题；奥地利的Alaba、Arnautović也有伤疑。洛杉矶顶棚会缓和天气，但午后条件仍可能削弱奥地利持续压迫能力。',
+    sources: [
+      { label: 'Opta赛前分析', url: 'https://theanalyst.com/articles/spain-vs-austria-prediction-world-cup-2026-match-preview' },
+      { label: '伤停信息', url: 'https://www.sportsmole.co.uk/football/spain/world-cup-2026/team-news/spain-vs-austria-injury-suspension-lists-predicted-xis_600400.html' }
+    ],
+    probabilities: { home: 69, draw: 19, away: 12 },
+    qualificationProbabilities: { home: 79, away: 21 },
+    scorePrediction: {
+      main: '西班牙 2-0 奥地利',
+      backup: '西班牙 1-0 奥地利'
+    },
+    totalGoals: '倾向90分钟小于3球。西班牙会控制风险，奥地利很难持续制造高质量机会；加时进球不计入常规90分钟大小球结算。',
+    upsetRisk: '中等。奥地利高压能够干扰西班牙偏慢的组织，而西班牙已连续两届世界杯在点球大战被淘汰；但奥地利防线连续12场世界杯未能零封，守满120分钟难度很高。',
+    risk: '中等。西班牙若迟迟无法打穿高压，比赛可能滑向加时。',
+    summary: '90分钟预计西班牙2-0奥地利，并由西班牙晋级16强。',
+    final: {
+      tendency: '90分钟西班牙胜奥地利；最终西班牙晋级',
+      score: '2-0',
+      recommendation: '西班牙胜 / 小3'
+    }
+  },
+  '葡萄牙 vs 克罗地亚': {
+    conclusion: '90分钟倾向葡萄牙小胜克罗地亚，最终倾向葡萄牙晋级。',
+    essence: '这是世界杯32强单场淘汰赛，北京时间7月3日07:00进行；90分钟战平将进入加时及点球。葡萄牙控球率高，但小组赛真正有威胁的射门并不多；克罗地亚的Modrić、Kovačić和Sučić能够把比赛拖入低节奏中场消耗。决定性对位是Vitinha、Bruno能否在克罗地亚中场身后找到空间，以及Ronaldo面对低位中卫时能否提高禁区效率。克罗地亚历次世界杯进入淘汰赛后均至少通过第一轮，Dalić的淘汰赛管理明显强于纸面实力。若进入点球，Diogo Costa与Livaković都是强势扑点门将。',
+    sources: [
+      { label: 'Opta赛前分析', url: 'https://theanalyst.com/articles/portugal-vs-croatia-prediction-world-cup-2026-match-preview' }
+    ],
+    probabilities: { home: 53, draw: 27, away: 20 },
+    qualificationProbabilities: { home: 66, away: 34 },
+    scorePrediction: {
+      main: '葡萄牙 1-0 克罗地亚',
+      backup: '葡萄牙 1-1 克罗地亚；倾向葡萄牙加时晋级'
+    },
+    totalGoals: '明确倾向90分钟小于2.5球。双方都具备主动降速和保护中路的能力；加时进球不计入常规90分钟大小球结算。',
+    upsetRisk: '高。克罗地亚拥有最成熟的加时与点球管理经验，葡萄牙如果继续形成大量无效控球，比赛会滑向克罗地亚最喜欢的节奏。',
+    risk: '高。葡萄牙的控球优势未必能转化成高质量机会。',
+    summary: '90分钟预计葡萄牙1-0克罗地亚，并由葡萄牙晋级16强。',
+    final: {
+      tendency: '90分钟葡萄牙胜克罗地亚；最终葡萄牙晋级',
+      score: '1-0',
+      recommendation: '葡萄牙胜 / 小2.5'
+    }
+  },
+  '瑞士 vs 阿尔及利亚': {
+    conclusion: '90分钟倾向瑞士与阿尔及利亚战平，最终倾向瑞士晋级。',
+    essence: '这是世界杯32强单场淘汰赛，北京时间7月3日11:00在BC Place进行；90分钟战平将进入加时及点球。瑞士依靠Xhaka—Freuler控制节奏，阵型完整且替补效果好；阿尔及利亚防守更松，但Mahrez、Maza和Aouar具备突然加速能力。最大变量是前瑞士主帅Petković执教阿尔及利亚，对瑞士核心球员和体系非常熟悉。BC Place预计闭顶，天气影响很小。瑞士近年来大赛点球表现不佳，若拖入点球，阿尔及利亚反而略占心理优势，因此主路线选择瑞士在加时解决比赛。',
+    sources: [
+      { label: 'Opta赛前分析', url: 'https://theanalyst.com/articles/switzerland-vs-algeria-prediction-world-cup-2026-match-preview' }
+    ],
+    probabilities: { home: 49, draw: 27, away: 24 },
+    qualificationProbabilities: { home: 63, away: 37 },
+    scorePrediction: {
+      main: '瑞士 1-1 阿尔及利亚；倾向瑞士加时晋级',
+      backup: '瑞士 1-0 阿尔及利亚'
+    },
+    totalGoals: '倾向90分钟小于2.5球，但需防阿尔及利亚反击制造双方进球；加时进球不计入常规90分钟大小球结算。',
+    upsetRisk: '高。Petković熟悉瑞士体系，Mahrez具备决定一回合的能力；瑞士过去五次进入大赛点球大战有四次出局。',
+    risk: '高。瑞士若无法在加时解决比赛，点球阶段的心理风险明显上升。',
+    summary: '90分钟预计瑞士1-1阿尔及利亚，随后由瑞士加时晋级16强。',
+    final: {
+      tendency: '90分钟瑞士与阿尔及利亚战平；最终瑞士晋级',
+      score: '1-1',
+      recommendation: '平局 / 小2.5'
+    }
   }
 };
 
@@ -880,7 +948,8 @@ const manualDailyAnalysisNotes = {
   '6月29日': '世界杯32强淘汰赛开启：胜平负与大小球均按90分钟计算，晋级判断另含加时及点球。',
   '6月30日': '三场均为世界杯32强单场淘汰赛：90分钟战平后进行加时及点球，大小球按常规90分钟结算。',
   '7月1日': '三场均为世界杯32强单场淘汰赛：胜平负与大小球按90分钟结算，最终晋级判断另含加时及点球。',
-  '7月2日': '三场均为世界杯32强单场淘汰赛：90分钟战平后进行加时和点球，大小球仍按常规90分钟结算。'
+  '7月2日': '三场均为世界杯32强单场淘汰赛：90分钟战平后进行加时和点球，大小球仍按常规90分钟结算。',
+  '7月3日': '最终选择西班牙2-0晋级、葡萄牙1-0晋级、瑞士90分钟战平后加时晋级，其中葡萄牙与瑞士两场都必须重点防冷。'
 };
 
 const getMatchAnalysisKeyFromTeams = (homeName, awayName) => `${normalizeTeamNameForMatch(homeName) || ''} vs ${normalizeTeamNameForMatch(awayName) || ''}`;
@@ -2931,7 +3000,7 @@ function DailyPredictionsView() {
           <>
           {dailyAnalysisNote && (
             <div className="mb-4 rounded-xl border border-amber-400/25 bg-amber-500/5 px-3 py-2.5 text-xs sm:text-sm leading-relaxed text-amber-100/90">
-              <span className="font-black text-amber-300">赛前依据：</span>{dailyAnalysisNote}
+              <span className="font-black text-amber-300">总结：</span>{dailyAnalysisNote}
             </div>
           )}
           <div className="mb-3 flex items-center justify-between">
